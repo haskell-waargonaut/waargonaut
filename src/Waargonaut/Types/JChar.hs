@@ -1,51 +1,52 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE TemplateHaskell        #-}
 module Waargonaut.Types.JChar where
 
-import           Papa                    (Bool (..), Char, Eq, Int, Ord, Show,
-                                          fromIntegral, isJust, negate,
-                                          replicate, show, some1, (&&), (*),
-                                          (+), (-), (<), (<=), (==), (>), (>=),
-                                          (^), (||))
+import           Prelude                 (Char, Eq, Ord, Show, show, (&&), (*),
+                                          (+), (<=), (==), (>=))
 
-import           Prelude                 (error, maxBound, minBound)
+import           Control.Category        (id)
+import           Control.Lens            (Lens', Prism', has, makeClassy,
+                                          makeClassyPrisms, prism', ( # ))
 
-import           Data.Scientific         (Scientific)
-import qualified Data.Scientific         as Sci
-import           Numeric.Natural         (Natural)
-
-import           Control.Category        (id, (.))
-import           Control.Lens            (Lens', Prism', has, ifoldrM,
-                                          makeClassy, makeClassyPrisms,
-                                          makeWrapped, prism', to, ( # ), (^.),
-                                          (^?), _Just, _Wrapped)
-
-import           Control.Applicative     (pure, (*>), (<$), (<$>), (<*>), (<|>))
-import           Control.Monad           (Monad, (>>=))
+import           Control.Applicative     (pure, (*>), (<$>), (<*>), (<|>))
+import           Control.Monad           ((>>=))
 
 import           Data.Char               (chr)
-import           Data.Function           (($))
-import           Data.Functor            (fmap)
-import           Data.Maybe              (Maybe (..), fromMaybe, maybe)
-import           Data.Monoid             (mempty)
-import           Data.Semigroup          ((<>))
+import           Data.Maybe              (Maybe (..))
 
-import           Data.List.NonEmpty      (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty      as NE
+import Data.Functor (($>))
+import           Data.Foldable           (any, asum, foldl)
 
-import           Data.Foldable           (any, asum, foldMap, foldl, length)
-
-import           Data.Digit              (Digit, HeXaDeCiMaL)
+import           Data.Digit              (HeXaDeCiMaL)
 import qualified Data.Digit              as D
 
 import           Text.Parser.Char        (CharParsing, char, satisfy)
-import           Text.Parser.Combinators (many, optional, try)
+import           Text.Parser.Combinators (try)
 
-import           Data.ByteString.Builder (Builder)
-import qualified Data.ByteString.Builder as BB
+-- $setup
+-- >>> :set -XNoImplicitPrelude
+-- >>> :set -XFlexibleContexts
+-- >>> :set -XOverloadedStrings
+-- >>> import Control.Applicative as Applicative((<*))
+-- >>> import Data.Either(Either (..), isLeft)
+-- >>> import Data.List.NonEmpty (NonEmpty ((:|)))
+-- >>> import Data.Text(pack)
+-- >>> import Data.Text.Arbitrary
+-- >>> import Data.Digit (Digit(..))
+-- >>> import Data.Char (Char)
+-- >>> import Text.Parsec(Parsec, ParseError, parse, eof, anyChar)
+-- >>> import Test.QuickCheck (Arbitrary (..))
+-- >>> instance Arbitrary Digit where arbitrary = Test.QuickCheck.elements [Digit1,Digit2,Digit3,Digit4,Digit5,Digit6,Digit7,Digit8,Digit9,Digit0]
+-- >>> let testparse :: Parsec Text () a -> Text -> Either ParseError a; testparse p = parse p "test"
+-- >>> let testparsetheneof :: Parsec Text () a -> Text -> Either ParseError a; testparsetheneof p = testparse (p <* eof)
+-- >>> let testparsethennoteof :: Parsec Text () a -> Text -> Either ParseError a; testparsethennoteof p = testparse (p <* anyChar)
+-- >>> let testparsethen :: Parsec Text () a -> Text -> Either ParseError (a, Char); testparsethen p = parse ((,) <$> p <*> Text.Parser.Char.anyChar) "test"
 
+----
 data HexDigit4 d =
   HexDigit4 d d d d
   deriving (Eq, Ord)

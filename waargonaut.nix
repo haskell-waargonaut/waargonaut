@@ -2,7 +2,7 @@
 , filepath, hedgehog, lens, mtl, papa, parsec, parsers, QuickCheck
 , quickcheck-text, scientific, separated, stdenv, tasty, nats
 , tasty-expected-failure, tasty-hedgehog, template-haskell, text
-, trifecta
+, trifecta, tasty-hunit
 }:
 mkDerivation {
   pname = "waargonaut";
@@ -15,7 +15,7 @@ mkDerivation {
   testHaskellDepends = [
     base directory doctest filepath hedgehog parsec QuickCheck
     quickcheck-text tasty tasty-expected-failure tasty-hedgehog
-    template-haskell
+    template-haskell tasty-hunit
   ];
   description = "JSON Mangling";
   license = stdenv.lib.licenses.bsd3;

@@ -1,4 +1,8 @@
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 module Waargonaut.Types.JString
   ( JString (..)
   , parseJString
@@ -6,13 +10,36 @@ module Waargonaut.Types.JString
   , jStringBuilder
   ) where
 
-import Papa (Eq,Ord,Show)
+import           Prelude                 (Eq, Ord, Show)
 
-import Data.Functor ((<$>))
-import Control.Applicative ((<*), (*>))
+import           Control.Applicative     ((*>), (<*))
+import           Control.Category        ((.))
+import           Control.Lens            (makeWrapped)
 
-import Waargonaut.Types.JChar (JChar)
+import           Data.Digit              (HeXaDeCiMaL)
+import           Data.Foldable           (foldMap)
+import           Data.Functor            ((<$>))
 
+import           Data.Text               (Text)
+import qualified Data.Text               as Text
+
+import           Text.Parser.Char        (CharParsing, char)
+import           Text.Parser.Combinators (many)
+
+import qualified Data.ByteString.Builder as BB
+
+import           Waargonaut.Types.JChar  (JChar, jCharToChar, parseJChar)
+
+-- $setup
+-- >>> :set -XOverloadedStrings
+-- >>> import Control.Monad (return)
+-- >>> import Data.Either(Either (..), isLeft)
+-- >>> import Data.Digit (Digit(..))
+-- >>> import Text.Parsec(ParseError)
+-- >>> import Utils
+-- >>> import Waargonaut.Types.JChar
+
+----
 newtype JString digit =
   JString [JChar digit]
   deriving (Eq, Ord, Show)

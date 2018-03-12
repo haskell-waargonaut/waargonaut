@@ -6,12 +6,10 @@
 {-# LANGUAGE TypeFamilies          #-}
 module Waargonaut.Types.JNumber where
 
-import           Papa                    (Bool (..), Eq, Int, Ord, Show,
-                                          fromIntegral, isJust, negate,
-                                          replicate, some1, (*), (+), (-), (<),
+import           Prelude                 (Bool (..), Eq, Int, Ord, Show, error,
+                                          fromIntegral, maxBound, minBound,
+                                          negate, replicate, (*), (+), (-), (<),
                                           (>), (^), (||))
-
-import           Prelude                 (error, maxBound, minBound)
 
 import           Data.Scientific         (Scientific)
 import qualified Data.Scientific         as Sci
@@ -28,11 +26,11 @@ import           Control.Monad           (Monad, (=<<))
 
 import           Data.Function           (($))
 import           Data.Functor            (fmap)
-import           Data.Maybe              (Maybe (..), fromMaybe, maybe)
+import           Data.Maybe              (Maybe (..), fromMaybe, isJust, maybe)
 import           Data.Monoid             (mempty)
 import           Data.Semigroup          ((<>))
 
-import           Data.List.NonEmpty      (NonEmpty ((:|)))
+import           Data.List.NonEmpty      (NonEmpty ((:|)), some1)
 import qualified Data.List.NonEmpty      as NE
 
 import           Data.Foldable           (asum, foldMap, length)
@@ -45,6 +43,15 @@ import           Text.Parser.Combinators (many, optional, try)
 
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as BB
+
+-- $setup
+-- >>> :set -XOverloadedStrings
+-- >>> import Control.Monad (return)
+-- >>> import Data.Either(Either (..), isLeft)
+-- >>> import Data.Digit (Digit(..))
+-- >>> import qualified Data.Digit as D
+-- >>> import Text.Parsec(ParseError)
+-- >>> import Utils
 
 data JInt
   = JZero
@@ -376,8 +383,11 @@ _NaturalDigits = prism' naturalDigits naturalFromDigits
 naturalDigits :: Natural -> NonEmpty Digit
 naturalDigits n =
   case Sci.toDecimalDigits $ fromIntegral n of
+    -- Sci.toDecimalDigits :: n -> ([n],n)
+    -- Sci.toDecimalDigits 0    = ([0],0)
+    -- Sci.toDecimalDigits (-0) = ([0],0)
+    -- Sci.toDecimalDigits (-1) = ([-1],1)
     ([],   _  ) -> error "INCONCEIVABLE!"
-    ([x],  _  ) -> g x :| []
     (x:xs, eXP) -> g x :| (g <$> xs) <> t (x:xs) eXP
 
   where
@@ -396,6 +406,7 @@ naturalDigits n =
     g 7 = D.x7
     g 8 = D.x8
     g 9 = D.x9
+    g _ = error "ALSO INCONCEIVABLE!"
 
 -- | Create a number from a list of digits
 --
@@ -408,14 +419,16 @@ naturalDigits n =
 -- >>> naturalFromDigits (D.x0 :| [])
 -- Just 0
 --
+-- Int maxBound for Int64
 -- >>> naturalFromDigits (D.x9 :| [D.x2,D.x2,D.x3,D.x3,D.x7,D.x2,D.x0,D.x3,D.x6,D.x8,D.x5,D.x4,D.x7,D.x7,D.x5,D.x8,D.x0,D.x7])
 -- Just 9223372036854775807
 --
+-- Int maxBound + 1 for Int64
 -- >>> naturalFromDigits (D.x9 :| [D.x2,D.x2,D.x3,D.x3,D.x7,D.x2,D.x0,D.x3,D.x6,D.x8,D.x5,D.x4,D.x7,D.x7,D.x5,D.x8,D.x0,D.x8])
 -- Nothing
 --
 naturalFromDigits :: NonEmpty Digit -> Maybe Natural
-naturalFromDigits = fmap fromIntegral . ifoldrM f 0
+naturalFromDigits = fmap fromIntegral . ifoldrM f 0 . NE.reverse
   where
     f :: Int -> Digit -> Int -> Maybe Int
     f i d curr =

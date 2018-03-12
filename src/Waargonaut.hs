@@ -1,81 +1,149 @@
-{-# LANGUAGE DeriveFunctor          #-}
-{-# LANGUAGE DeriveTraversable      #-}
-{-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE NoImplicitPrelude      #-}
-{-# LANGUAGE OverloadedStrings      #-}
-{-# LANGUAGE TemplateHaskell        #-}
-{-# LANGUAGE TypeFamilies           #-}
-
-{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE DeriveTraversable     #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TypeFamilies          #-}
 --
-{-# LANGUAGE GADTs                  #-}
---
-
 module Waargonaut where
 
-import           Numeric.Natural                  (Natural)
-
-import           Data.ByteString                  (ByteString)
+import           Data.ByteString.Builder          (Builder)
 import qualified Data.ByteString.Builder          as BB
-import qualified Data.ByteString.Char8            as B8
 
-import           Papa                             hiding (exp)
-import           Prelude                          (error, maxBound, minBound)
+import           Prelude                          (Eq, Ord, Show)
 
-import           Control.Applicative              as Applicative ((*>), (<*))
-import           Control.Applicative              (Alternative (many, (<|>)))
-import           Control.Monad                    ((=<<))
-import           Data.Foldable                    (asum, length)
+import           Control.Applicative              (Alternative ((<|>)), (*>),
+                                                   (<$>), (<*), (<*>))
+import           Control.Category                 ((.))
+import           Control.Monad                    (Monad)
 
-import           Data.Scientific                  (Scientific, scientific,
-                                                   toDecimalDigits)
-import           Data.Text                        as Text (Text, pack)
+import           Data.Bool                        (Bool (..))
+import           Data.Foldable                    (Foldable (..), asum)
+import           Data.Function                    (($))
+import           Data.Functor                     (Functor (..))
+import           Data.Semigroup                   (mconcat, (<>))
 
-import           Text.Parser.Char
-import           Text.Parser.Combinators
+import           Data.Traversable                 (Traversable (..))
 
-import           Data.Char                        (chr)
-
-import           Data.Digit                       (Digit)
-import qualified Data.Digit                       as Dig
-
-import qualified Data.List.NonEmpty               as NE
+import           Text.Parser.Char                 (CharParsing, char, text)
+import           Text.Parser.Combinators          (sepBy)
 
 import           Data.Digit.Decimal               (Decimal)
 import           Data.Digit.HeXaDeCiMaL           (HeXaDeCiMaL)
 
-import           Waargonaut.Types.JNumber         (JNumber)
-import           Waargonaut.Types.JObject         (JObject)
-import           Waargonaut.Types.JString         (JString)
-import           Waargonaut.Types.LeadingTrailing (LeadingTrailing (..))
+import           Waargonaut.Types.JNumber         (JNumber, jNumberBuilder,
+                                                   parseJNumber)
+import           Waargonaut.Types.JString         (JString, jStringBuilder,
+                                                   parseJString)
+import           Waargonaut.Types.LeadingTrailing (LeadingTrailing (..),
+                                                   leadingTrailingBuilder,
+                                                   parseLeadingTrailing)
 
 -- $setup
--- >>> :set -XNoImplicitPrelude
--- >>> :set -XFlexibleContexts
 -- >>> :set -XOverloadedStrings
--- >>> import Control.Applicative as Applicative((<*))
--- >>> import Data.Either(isLeft)
--- >>> import Data.List.NonEmpty (NonEmpty ((:|)))
--- >>> import Data.Text(pack)
--- >>> import Data.Text.Arbitrary
--- >>> import Data.Digit (Digit(..))
--- >>> import Text.Parsec(Parsec, ParseError, parse)
--- >>> import Test.QuickCheck (Arbitrary (..))
--- >>> instance Arbitrary Digit where arbitrary = Test.QuickCheck.elements [Digit1,Digit2,Digit3,Digit4,Digit5,Digit6,Digit7,Digit8,Digit9,Digit0]
--- >>> let testparse :: Parsec Text () a -> Text -> Either ParseError a; testparse p = parse p "test"
--- >>> let testparsetheneof :: Parsec Text () a -> Text -> Either ParseError a; testparsetheneof p = testparse (p <* eof)
--- >>> let testparsethennoteof :: Parsec Text () a -> Text -> Either ParseError a; testparsethennoteof p = testparse (p <* anyChar)
--- >>> let testparsethen :: Parsec Text () a -> Text -> Either ParseError (a, Char); testparsethen p = parse ((,) <$> p <*> Text.Parser.Char.anyChar) "test"
-
+-- >>> import Utils
+-- >>> import Control.Monad (return)
+-- >>> import Data.Either (Either (..), isLeft)
+-- >>> import Text.Parsec (ParseError)
+-- >>> import Data.Digit (Digit)
 ----
+
+data JAssoc digit s = JAssoc
+  { _key   :: LeadingTrailing (JString digit) s
+  , _value :: LeadingTrailing (Json digit s) s
+  }
+  deriving (Eq, Ord, Show)
+
+instance Functor (JAssoc digit) where
+    fmap f (JAssoc k v) = JAssoc (fmap f k) ((\x -> x{_a = fmap f (_a x)}) . fmap f $ v)
+
+instance Foldable (JAssoc digit) where
+    foldMap f (JAssoc k v) = mconcat [foldMap f k, foldMap' v] where
+        foldMap' (LeadingTrailing l x r) = mconcat [f l, foldMap f x, f r]
+
+instance Traversable (JAssoc digit) where
+    traverse f (JAssoc k v) = JAssoc <$> traverse f k <*> traverse' v where
+        traverse' (LeadingTrailing l x r) =
+            LeadingTrailing
+                <$> f l
+                <*> traverse f x
+                <*> f r
+
+parseJAssoc ::
+  (Monad f, CharParsing f, HeXaDeCiMaL digit) =>
+  f s
+  -> f (JAssoc digit s)
+parseJAssoc s = JAssoc
+  <$> parseLeadingTrailing s parseJString
+  <* char ':'
+  <*> parseLeadingTrailing s (parseJson s)
+
+jAssocBuilder
+  :: HeXaDeCiMaL digit
+  => (s -> Builder)
+  -> JAssoc digit s
+  -> Builder
+jAssocBuilder sBuilder (JAssoc k v) =
+  leadingTrailingBuilder jStringBuilder sBuilder k <>
+  BB.char8 ':' <>
+  leadingTrailingBuilder (jsonBuilder sBuilder) sBuilder v
 
 newtype Jsons digit s = Jsons
   { _jsonsL :: [LeadingTrailing (Json digit s) s]
   } deriving (Eq, Ord, Show)
-makeClassy       ''Jsons
-makeWrapped      ''Jsons
+
+jsonsBuilder
+  ::HeXaDeCiMaL digit
+  => (s -> Builder)
+  -> Jsons digit s
+  -> Builder
+jsonsBuilder sBuilder (Jsons jl) =
+  foldMap (leadingTrailingBuilder (jsonBuilder sBuilder) sBuilder) jl
+
+newtype JObject digit s = JObject
+  { _jobjectL :: [LeadingTrailing (JAssoc digit s) s]
+  } deriving (Eq, Ord, Show)
+
+
+instance Functor (JObject digit) where
+    fmap f (JObject ls) = JObject (fmap fmap' ls) where
+        fmap' (LeadingTrailing l x r) =
+            LeadingTrailing (f l) (fmap f x) (f r)
+
+instance Foldable (JObject digit) where
+    foldMap f (JObject ls) = mconcat (fmap (foldMap f) ls)
+
+instance Traversable (JObject digit) where
+    traverse f (JObject ls) = JObject <$> traverse traverse' ls where
+        traverse' (LeadingTrailing l x r) =
+            LeadingTrailing
+                <$> f l
+                <*> traverse f x
+                <*> f r
+
+parseJObject ::
+  (Monad f, CharParsing f, HeXaDeCiMaL digit) =>
+  f s
+  -> f (JObject digit s)
+parseJObject s =
+  JObject <$>
+    (
+      char '{' *>
+      sepBy (parseLeadingTrailing s (parseJAssoc s)) (char ',') <*
+      char '}'
+    )
+
+jObjectBuilder
+  :: HeXaDeCiMaL digit
+  => (s -> Builder)
+  -> JObject digit s
+  -> Builder
+jObjectBuilder sBuilder (JObject jL) =
+  BB.char8 '{' <>
+  foldMap (leadingTrailingBuilder (jAssocBuilder sBuilder) sBuilder) jL <>
+  BB.char8 '}'
 
 instance Functor (Jsons digit) where
     fmap f (Jsons ls) = Jsons (fmap ((\x -> x{_a = fmap f (_a x)}) . fmap f) ls)
@@ -100,16 +168,26 @@ data Json digit s
   | JsonArray (Jsons digit s) s
   | JsonObject (JObject digit s) s
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
-makeClassy       ''Json
-makeClassyPrisms ''Json
 
-jsonBuilder :: HeXaDeCiMaL digit => Json digit s -> BB.Builder
-jsonBuilder (JsonNull _) = BB.byteString "null"
-jsonBuilder (JsonBool b _) = BB.byteString $ if b then "true" else "false"
-jsonBuilder (JsonNumber jn _) = jNumberBuilder jn
-jsonBuilder (JsonString js _) = jStringBuilder js
-jsonBuilder (JsonArray jsons _) = jsonsBuilder jsons
-jsonBuilder (JsonObject jobj _) = jObjectBuilder jobj
+jsonBuilder :: HeXaDeCiMaL digit => (s -> Builder) -> Json digit s -> BB.Builder
+jsonBuilder _ (JsonNull _) = BB.byteString "null"
+jsonBuilder _ (JsonBool b _) = BB.byteString $ if b then "true" else "false"
+jsonBuilder _ (JsonNumber jn _) = jNumberBuilder jn
+jsonBuilder _ (JsonString js _) = jStringBuilder js
+jsonBuilder s (JsonArray jsons _) = jsonsBuilder s jsons
+jsonBuilder s (JsonObject jobj _) = jObjectBuilder s jobj
+
+
+-- makeClassy       ''JObject
+-- makeWrapped      ''JObject
+
+-- -- makeClassy       ''Json
+-- makeClassyPrisms ''Json
+
+-- makeClassy       ''JAssoc
+
+-- makeClassy       ''Jsons
+-- makeWrapped      ''Jsons
 
 -- |
 --
@@ -122,7 +200,6 @@ jsonBuilder (JsonObject jobj _) = jObjectBuilder jobj
 -- >>> testparsethennoteof (parseJsonNull (return ())) "nullx"
 -- Right (JsonNull ())
 --
--- prop> x /= "null" ==> isLeft (testparse (parseJsonNull (return ())) x)
 parseJsonNull ::
   CharParsing f =>
   f s
@@ -150,7 +227,6 @@ parseJsonNull p =
 -- >>> testparsethennoteof (parseJsonBool (return ())) "falsex"
 -- Right (JsonBool False ())
 --
--- prop> (x `notElem` ["true", "false"]) ==> isLeft (testparse (parseJsonBool (return ())) x)
 parseJsonBool ::
   CharParsing f =>
   f s
@@ -205,8 +281,8 @@ parseJsons ::
 parseJsons s =
   Jsons <$>
     (
-      char '[' Applicative.*>
-      sepBy (parseLeadingTrailing s (parseJson s)) (char ',') Applicative.<*
+      char '[' *>
+      sepBy (parseLeadingTrailing s (parseJson s)) (char ',') <*
       char ']'
     )
 
