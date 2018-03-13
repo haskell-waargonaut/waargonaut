@@ -23,6 +23,7 @@ import           Data.Bool                        (Bool (..))
 import           Data.Foldable                    (Foldable (..), asum)
 import           Data.Function                    (($))
 import           Data.Functor                     (Functor (..))
+import           Data.List                        (intersperse)
 import           Data.Semigroup                   (mconcat, (<>))
 
 import           Data.Traversable                 (Traversable (..))
@@ -100,12 +101,15 @@ jsonsBuilder
   -> Jsons digit s
   -> Builder
 jsonsBuilder sBuilder (Jsons jl) =
-  foldMap (leadingTrailingBuilder (jsonBuilder sBuilder) sBuilder) jl
+  let
+    commas = intersperse (BB.charUtf8 ',')
+    innerBuild = leadingTrailingBuilder (jsonBuilder sBuilder) sBuilder
+  in
+    BB.charUtf8 '[' <> mconcat (commas $ innerBuild <$> jl) <> BB.charUtf8 ']'
 
 newtype JObject digit s = JObject
   { _jobjectL :: [LeadingTrailing (JAssoc digit s) s]
   } deriving (Eq, Ord, Show)
-
 
 instance Functor (JObject digit) where
     fmap f (JObject ls) = JObject (fmap fmap' ls) where
