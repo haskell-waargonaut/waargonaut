@@ -72,9 +72,12 @@ instance Traversable (JAssoc digit) where
                 <*> traverse f x
                 <*> f r
 
-parseJAssoc ::
-  (Monad f, CharParsing f, HeXaDeCiMaL digit) =>
-  f s
+parseJAssoc
+  :: ( Monad f
+     , CharParsing f
+     , HeXaDeCiMaL digit
+     )
+  => f s
   -> f (JAssoc digit s)
 parseJAssoc s = JAssoc
   <$> parseLeadingTrailing s parseJString
@@ -96,7 +99,7 @@ newtype Jsons digit s = Jsons
   } deriving (Eq, Ord, Show)
 
 jsonsBuilder
-  ::HeXaDeCiMaL digit
+  :: HeXaDeCiMaL digit
   => (s -> Builder)
   -> Jsons digit s
   -> Builder
@@ -127,9 +130,12 @@ instance Traversable (JObject digit) where
                 <*> traverse f x
                 <*> f r
 
-parseJObject ::
-  (Monad f, CharParsing f, HeXaDeCiMaL digit) =>
-  f s
+parseJObject
+  :: ( Monad f
+     , CharParsing f
+     , HeXaDeCiMaL digit
+     )
+  => f s
   -> f (JObject digit s)
 parseJObject s =
   JObject <$>
@@ -145,9 +151,13 @@ jObjectBuilder
   -> JObject digit s
   -> Builder
 jObjectBuilder sBuilder (JObject jL) =
-  BB.charUtf8 '{' <>
-  foldMap (leadingTrailingBuilder (jAssocBuilder sBuilder) sBuilder) jL <>
-  BB.charUtf8 '}'
+  let
+    commas = intersperse (BB.charUtf8 ',')
+    innerBuild = leadingTrailingBuilder (jAssocBuilder sBuilder) sBuilder
+  in
+    BB.charUtf8 '{' <>
+    mconcat (commas $ innerBuild <$> jL) <>
+    BB.charUtf8 '}'
 
 instance Functor (Jsons digit) where
     fmap f (Jsons ls) = Jsons (fmap ((\x -> x{_a = fmap f (_a x)}) . fmap f) ls)
@@ -173,7 +183,11 @@ data Json digit s
   | JsonObject (JObject digit s) s
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-jsonBuilder :: HeXaDeCiMaL digit => (s -> Builder) -> Json digit s -> BB.Builder
+jsonBuilder
+  :: HeXaDeCiMaL digit
+  => (s -> Builder)
+  -> Json digit s
+  -> BB.Builder
 jsonBuilder s (JsonNull tws)        = BB.stringUtf8 "null"                          <> s tws
 jsonBuilder s (JsonBool b tws)      = BB.stringUtf8 (if b then "true" else "false") <> s tws
 jsonBuilder s (JsonNumber jn tws)   = jNumberBuilder jn                             <> s tws
@@ -192,9 +206,9 @@ jsonBuilder s (JsonObject jobj tws) = jObjectBuilder s jobj                     
 -- >>> testparsethennoteof (parseJsonNull (return ())) "nullx"
 -- Right (JsonNull ())
 --
-parseJsonNull ::
-  CharParsing f =>
-  f s
+parseJsonNull
+  :: CharParsing f
+  => f s
   -> f (Json digit s)
 parseJsonNull p =
   JsonNull <$ text "null" <*> p
@@ -219,17 +233,20 @@ parseJsonNull p =
 -- >>> testparsethennoteof (parseJsonBool (return ())) "falsex"
 -- Right (JsonBool False ())
 --
-parseJsonBool ::
-  CharParsing f =>
-  f s
+parseJsonBool
+  :: CharParsing f
+  => f s
   -> f (Json digit s)
 parseJsonBool p =
   let b q t = JsonBool q <$ text t <*> p
   in  b False "false" <|> b True "true"
 
-parseJsonNumber ::
-  (Monad f, CharParsing f, Decimal digit) =>
-  f s
+parseJsonNumber
+  :: ( Monad f
+     , CharParsing f
+     , Decimal digit
+     )
+  => f s
   -> f (Json digit s)
 parseJsonNumber p =
   JsonNumber <$> parseJNumber <*> p
@@ -259,16 +276,21 @@ parseJsonNumber p =
 --
 -- >>> testparsethennoteof (parseJsonString (return ())) "\"a\"\t"
 -- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a')]) ())
-parseJsonString ::
-  (CharParsing f, HeXaDeCiMaL digit) =>
-  f s
+parseJsonString
+  :: ( CharParsing f
+     , HeXaDeCiMaL digit
+     )
+  => f s
   -> f (Json digit s)
 parseJsonString p =
   JsonString <$> parseJString <*> p
 
-parseJsons ::
-  (Monad f, CharParsing f, HeXaDeCiMaL digit) =>
-  f s
+parseJsons
+  :: ( Monad f
+     , CharParsing f
+     , HeXaDeCiMaL digit
+     )
+  => f s
   -> f (Jsons digit s)
 parseJsons s =
   Jsons <$>
@@ -278,23 +300,32 @@ parseJsons s =
       char ']'
     )
 
-parseJsonArray ::
-  (Monad f, CharParsing f, HeXaDeCiMaL digit) =>
-  f s
+parseJsonArray
+  :: ( Monad f
+     , CharParsing f
+     , HeXaDeCiMaL digit
+     )
+  => f s
   -> f (Json digit s)
 parseJsonArray p =
   JsonArray <$> parseJsons p <*> p
 
-parseJsonObject ::
-  (Monad f, CharParsing f, HeXaDeCiMaL digit) =>
-  f s
+parseJsonObject
+  :: ( Monad f
+     , CharParsing f
+     , HeXaDeCiMaL digit
+     )
+  => f s
   -> f (Json digit s)
 parseJsonObject p =
   JsonObject <$> parseJObject p <*> p
 
-parseJson ::
-  (Monad f, CharParsing f, HeXaDeCiMaL digit) =>
-  f s
+parseJson
+  :: ( Monad f
+     , CharParsing f
+     , HeXaDeCiMaL digit
+     )
+  => f s
   -> f (Json digit s)
 parseJson =
   asum . sequence
@@ -308,9 +339,9 @@ parseJson =
     ]
 
 simpleParseJson
-  ::( Monad f
-    , CharParsing f
-    )
+  :: ( Monad f
+     , CharParsing f
+     )
   => f (Json Digit WS)
 simpleParseJson =
   parseJson parseWhitespace

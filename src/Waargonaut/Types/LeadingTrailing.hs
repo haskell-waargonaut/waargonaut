@@ -32,9 +32,9 @@ data LeadingTrailing a s = LeadingTrailing
   }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-parseLeadingTrailing ::
-  Applicative f =>
-  f s
+parseLeadingTrailing
+  :: Applicative f
+  => f s
   -> f a
   -> f (LeadingTrailing a s)
 parseLeadingTrailing s a =
@@ -47,7 +47,6 @@ leadingTrailingBuilder
   -> Builder
 leadingTrailingBuilder innerBuilder sBuilder lt =
   sBuilder (_leading lt) <> innerBuilder (_a lt) <> sBuilder (_trailing lt)
-
 
 -- ws =
   -- %x20 /              ; Space
@@ -97,10 +96,10 @@ parseWhitespace =
     , NewLine        <$ newline
     ]
 
-wsBuilder
+whitespaceBuilder
   :: WS
   -> Builder
-wsBuilder (WS ws) =
+whitespaceBuilder (WS ws) =
   foldMap wsB ws
   where
     wsB Space          = BB.charUtf8 ' '
@@ -108,7 +107,3 @@ wsBuilder (WS ws) =
     wsB LineFeed       = BB.charUtf8 '\f'
     wsB CarriageReturn = BB.charUtf8 '\r'
     wsB NewLine        = BB.charUtf8 '\n'
-
-
-
-
