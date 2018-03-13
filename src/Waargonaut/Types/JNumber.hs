@@ -18,8 +18,7 @@ import           Numeric.Natural         (Natural)
 import           Control.Category        (id, (.))
 import           Control.Lens            (Prism', ifoldrM, makeClassy,
                                           makeClassyPrisms, makeWrapped, prism',
-                                          to, ( # ), (^.), (^?), _Just,
-                                          _Wrapped)
+                                          ( # ), (^?), _Just, _Wrapped)
 
 import           Control.Applicative     (pure, (*>), (<$), (<$>), (<*>))
 import           Control.Monad           (Monad, (=<<))
@@ -28,7 +27,7 @@ import           Data.Function           (($))
 import           Data.Functor            (fmap)
 import           Data.Maybe              (Maybe (..), fromMaybe, isJust, maybe)
 import           Data.Monoid             (mempty)
-import           Data.Semigroup          ((<>))
+import           Data.Semigroup          (mappend, (<>))
 
 import           Data.List.NonEmpty      (NonEmpty ((:|)), some1)
 import qualified Data.List.NonEmpty      as NE
@@ -51,6 +50,8 @@ import qualified Data.ByteString.Builder as BB
 -- >>> import Data.Digit (Digit(..))
 -- >>> import qualified Data.Digit as D
 -- >>> import Text.Parsec(ParseError)
+-- >>> import Data.ByteString.Lazy (toStrict)
+-- >>> import Data.ByteString.Builder (toLazyByteString)
 -- >>> import Utils
 
 data JInt
@@ -147,7 +148,7 @@ parseJInt =
 jIntBuilder
   :: JInt
   -> Builder
-jIntBuilder JZero          = BB.int8 0
+jIntBuilder JZero          = BB.int8Dec 0
 jIntBuilder (JIntInt digs) = digitsBuilder digs
 
 -- |
@@ -184,8 +185,8 @@ parseE =
 eBuilder
   :: E
   -> Builder
-eBuilder Ee = BB.char8 'e'
-eBuilder EE = BB.char8 'E'
+eBuilder Ee = BB.charUtf8 'e'
+eBuilder EE = BB.charUtf8 'E'
 
 -- |
 --
@@ -251,15 +252,15 @@ parseExp = Exp
 getExpSymbol
   :: Maybe Bool
   -> Builder
-getExpSymbol (Just True)  = BB.char8 '-'
-getExpSymbol (Just False) = BB.char8 '+'
+getExpSymbol (Just True)  = BB.charUtf8 '-'
+getExpSymbol (Just False) = BB.charUtf8 '+'
 getExpSymbol _            = mempty
 
 digitsBuilder
   :: NonEmpty Digit
   -> Builder
 digitsBuilder =
-  foldMap (BB.int8 . (D.integralDecimal #))
+  foldMap (BB.int8Dec . (D.integralDecimal #))
 
 expBuilder
   :: Exp
@@ -313,16 +314,24 @@ parseJNumber = JNumber
   <*> optional (char '.' *> parseFrac)
   <*> optional parseExp
 
+-- | Printing of JNumbers
+--
+-- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt (D.Digit3 :| []), _frac = Just (Frac (D.Digit4 :| [D.Digit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = D.Digit1 :| [D.Digit0]})})
+-- "3.45e+10"
+--
+-- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = True, _numberint = JIntInt (D.Digit3 :| []), _frac = Just (Frac (D.Digit4 :| [D.Digit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.Digit0 :| [D.x2]})})
+-- "-3.45e-02"
+--
 jNumberBuilder
   :: JNumber
   -> Builder
 jNumberBuilder (JNumber sign digs mfrac mexp) =
   s <> digits <> frac' <> expo
   where
-    s      = BB.byteString ( if sign then "-" else "" )
+    s      = if sign then BB.charUtf8 '-' else mempty
     digits = digitsBuilder . jIntToDigits $ digs
-    frac'  = mfrac ^. _Just . _Wrapped . to digitsBuilder
-    expo   = maybe mempty expBuilder mexp
+    frac'  = foldMap (mappend (BB.charUtf8 '.') . fracBuilder) mfrac
+    expo   = foldMap expBuilder mexp
 
 -- | Returns a normalised 'Scientific' value or Nothing if the exponent
 --   is out of the range @[minBound,maxBound::Int]@

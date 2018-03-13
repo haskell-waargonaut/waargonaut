@@ -8,7 +8,7 @@ module Waargonaut.Types.JChar where
 import           Prelude                 (Char, Eq, Ord, Show, show, (&&), (*),
                                           (+), (<=), (==), (>=))
 
-import           Control.Category        (id)
+import           Control.Category        (id, (.))
 import           Control.Lens            (Lens', Prism', has, makeClassy,
                                           makeClassyPrisms, prism', ( # ))
 
@@ -18,39 +18,32 @@ import           Control.Monad           ((>>=))
 import           Data.Char               (chr)
 import           Data.Maybe              (Maybe (..))
 
-import Data.Functor (($>))
-import           Data.Foldable           (any, asum, foldl)
+import           Data.Foldable           (any, asum, foldMap, foldl)
+import           Data.Semigroup          ((<>))
 
 import           Data.Digit              (HeXaDeCiMaL)
 import qualified Data.Digit              as D
+
+import           Data.ByteString.Builder (Builder)
+import qualified Data.ByteString.Builder as BB
 
 import           Text.Parser.Char        (CharParsing, char, satisfy)
 import           Text.Parser.Combinators (try)
 
 -- $setup
--- >>> :set -XNoImplicitPrelude
--- >>> :set -XFlexibleContexts
 -- >>> :set -XOverloadedStrings
--- >>> import Control.Applicative as Applicative((<*))
+-- >>> import Control.Monad (return)
 -- >>> import Data.Either(Either (..), isLeft)
--- >>> import Data.List.NonEmpty (NonEmpty ((:|)))
--- >>> import Data.Text(pack)
--- >>> import Data.Text.Arbitrary
 -- >>> import Data.Digit (Digit(..))
--- >>> import Data.Char (Char)
--- >>> import Text.Parsec(Parsec, ParseError, parse, eof, anyChar)
--- >>> import Test.QuickCheck (Arbitrary (..))
--- >>> instance Arbitrary Digit where arbitrary = Test.QuickCheck.elements [Digit1,Digit2,Digit3,Digit4,Digit5,Digit6,Digit7,Digit8,Digit9,Digit0]
--- >>> let testparse :: Parsec Text () a -> Text -> Either ParseError a; testparse p = parse p "test"
--- >>> let testparsetheneof :: Parsec Text () a -> Text -> Either ParseError a; testparsetheneof p = testparse (p <* eof)
--- >>> let testparsethennoteof :: Parsec Text () a -> Text -> Either ParseError a; testparsethennoteof p = testparse (p <* anyChar)
--- >>> let testparsethen :: Parsec Text () a -> Text -> Either ParseError (a, Char); testparsethen p = parse ((,) <$> p <*> Text.Parser.Char.anyChar) "test"
-
+-- >>> import qualified Data.Digit as D
+-- >>> import Text.Parsec(ParseError)
+-- >>> import Utils
 ----
+
 data HexDigit4 d =
   HexDigit4 d d d d
   deriving (Eq, Ord)
-makeClassy       ''HexDigit4
+makeClassy ''HexDigit4
 
 instance Show d => Show ( HexDigit4 d ) where
   show (HexDigit4 q1 q2 q3 q4) =
@@ -105,20 +98,6 @@ data JChar digit
   deriving (Eq, Ord, Show)
 makeClassy       ''JChar
 makeClassyPrisms ''JChar
-
-jCharToChar :: HeXaDeCiMaL digit => JChar digit -> Char
-jCharToChar (UnescapedJChar (JCharUnescaped c)) = c
-jCharToChar (EscapedJChar jca) = case jca of
-    QuotationMark  -> '"'
-    ReverseSolidus -> '\\'
-    Solidus        -> '/'
-    Backspace      -> '\b'
-    FormFeed       -> '\f'
-    LineFeed       -> '\n'
-    CarriageReturn -> '\r'
-    Tab            -> '\t'
-    Hex (HexDigit4 a b c d) ->
-      chr (foldl (\acc x -> 16*acc + (D.integralHexadecimal # x)) 0 [a,b,c,d])
 
 -- |
 --
@@ -227,6 +206,9 @@ parseJCharEscaped =
 -- >>> testparse parseJChar "\\u1234" :: Either ParseError (JChar Digit)
 -- Right (EscapedJChar (Hex 1234))
 --
+-- >>> testparse parseJChar "\\\\" :: Either ParseError (JChar Digit)
+-- Right (EscapedJChar ReverseSolidus)
+--
 -- >>> testparse parseJChar "\\r"
 -- Right (EscapedJChar CarriageReturn)
 --
@@ -244,3 +226,36 @@ parseJChar =
       EscapedJChar <$> try parseJCharEscaped
     , UnescapedJChar <$> parseJCharUnescaped
     ]
+
+jCharToChar :: HeXaDeCiMaL digit => JChar digit -> Char
+jCharToChar (UnescapedJChar (JCharUnescaped c)) = c
+jCharToChar (EscapedJChar jca) = case jca of
+    QuotationMark  -> '"'
+    ReverseSolidus -> '\\'
+    Solidus        -> '/'
+    Backspace      -> '\b'
+    FormFeed       -> '\f'
+    LineFeed       -> '\n'
+    CarriageReturn -> '\r'
+    Tab            -> '\t'
+    Hex (HexDigit4 a b c d) ->
+      chr (foldl (\acc x -> 16*acc + (D.integralDecimal # x)) 0 [a,b,c,d])
+
+jCharBuilder
+  :: HeXaDeCiMaL digit
+  => JChar digit
+  -> Builder
+jCharBuilder (UnescapedJChar (JCharUnescaped c)) = BB.charUtf8 c
+jCharBuilder (EscapedJChar jca) = BB.charUtf8 '\\' <> case jca of
+    QuotationMark  -> BB.charUtf8 '"'
+    ReverseSolidus -> BB.charUtf8 '\\'
+    Solidus        -> BB.charUtf8 '/'
+    Backspace      -> BB.charUtf8 'b'
+    FormFeed       -> BB.charUtf8 'f'
+    LineFeed       -> BB.charUtf8 'n'
+    CarriageReturn -> BB.charUtf8 'r'
+    Tab            -> BB.charUtf8 't'
+    Hex (HexDigit4 a b c d) -> BB.charUtf8 'u' <> foldMap hexChar [a,b,c,d]
+  where
+    hexChar =
+      BB.charUtf8 . (D.charHeXaDeCiMaL #)

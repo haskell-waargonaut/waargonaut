@@ -30,16 +30,16 @@ import           Data.Traversable                 (Traversable (..))
 import           Text.Parser.Char                 (CharParsing, char, text)
 import           Text.Parser.Combinators          (sepBy)
 
-import           Data.Digit.Decimal               (Decimal)
-import           Data.Digit.HeXaDeCiMaL           (HeXaDeCiMaL)
+import           Data.Digit                       (Decimal, Digit, HeXaDeCiMaL)
 
 import           Waargonaut.Types.JNumber         (JNumber, jNumberBuilder,
                                                    parseJNumber)
 import           Waargonaut.Types.JString         (JString, jStringBuilder,
                                                    parseJString)
-import           Waargonaut.Types.LeadingTrailing (LeadingTrailing (..),
+import           Waargonaut.Types.LeadingTrailing (LeadingTrailing (..), WS,
                                                    leadingTrailingBuilder,
-                                                   parseLeadingTrailing)
+                                                   parseLeadingTrailing,
+                                                   parseWhitespace)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -87,7 +87,7 @@ jAssocBuilder
   -> Builder
 jAssocBuilder sBuilder (JAssoc k v) =
   leadingTrailingBuilder jStringBuilder sBuilder k <>
-  BB.char8 ':' <>
+  BB.charUtf8 ':' <>
   leadingTrailingBuilder (jsonBuilder sBuilder) sBuilder v
 
 newtype Jsons digit s = Jsons
@@ -141,9 +141,9 @@ jObjectBuilder
   -> JObject digit s
   -> Builder
 jObjectBuilder sBuilder (JObject jL) =
-  BB.char8 '{' <>
+  BB.charUtf8 '{' <>
   foldMap (leadingTrailingBuilder (jAssocBuilder sBuilder) sBuilder) jL <>
-  BB.char8 '}'
+  BB.charUtf8 '}'
 
 instance Functor (Jsons digit) where
     fmap f (Jsons ls) = Jsons (fmap ((\x -> x{_a = fmap f (_a x)}) . fmap f) ls)
@@ -159,7 +159,7 @@ instance Traversable (Jsons digit) where
                 <*> traverse f x
                 <*> f r
 
---  http://rfc7159.net/rfc7159
+--  https://tools.ietf.org/html/rfc7159
 data Json digit s
   = JsonNull s
   | JsonBool Bool s
@@ -170,24 +170,12 @@ data Json digit s
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 jsonBuilder :: HeXaDeCiMaL digit => (s -> Builder) -> Json digit s -> BB.Builder
-jsonBuilder _ (JsonNull _) = BB.byteString "null"
-jsonBuilder _ (JsonBool b _) = BB.byteString $ if b then "true" else "false"
-jsonBuilder _ (JsonNumber jn _) = jNumberBuilder jn
-jsonBuilder _ (JsonString js _) = jStringBuilder js
-jsonBuilder s (JsonArray jsons _) = jsonsBuilder s jsons
-jsonBuilder s (JsonObject jobj _) = jObjectBuilder s jobj
-
-
--- makeClassy       ''JObject
--- makeWrapped      ''JObject
-
--- -- makeClassy       ''Json
--- makeClassyPrisms ''Json
-
--- makeClassy       ''JAssoc
-
--- makeClassy       ''Jsons
--- makeWrapped      ''Jsons
+jsonBuilder s (JsonNull tws)        = BB.stringUtf8 "null"                          <> s tws
+jsonBuilder s (JsonBool b tws)      = BB.stringUtf8 (if b then "true" else "false") <> s tws
+jsonBuilder s (JsonNumber jn tws)   = jNumberBuilder jn                             <> s tws
+jsonBuilder s (JsonString js tws)   = jStringBuilder js                             <> s tws
+jsonBuilder s (JsonArray jsons tws) = jsonsBuilder s jsons                          <> s tws
+jsonBuilder s (JsonObject jobj tws) = jObjectBuilder s jobj                         <> s tws
 
 -- |
 --
@@ -314,3 +302,11 @@ parseJson =
     , parseJsonArray
     , parseJsonObject
     ]
+
+simpleParseJson
+  ::( Monad f
+    , CharParsing f
+    )
+  => f (Json Digit WS)
+simpleParseJson =
+  parseJson parseWhitespace

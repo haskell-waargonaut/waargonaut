@@ -106,6 +106,8 @@ test-suite waarg-tests
                      , tasty-expected-failure >= 0.11 && < 0.12
                      , hedgehog               >= 0.5  && < 0.6
                      , tasty-hedgehog         >= 0.1  && < 0.2
+                     , lens
+                     , bytestring
                      , waargonaut
                      , digit  >= 0.5 && < 0.6
                      , text >= 1.2 && < 1.3

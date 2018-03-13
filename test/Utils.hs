@@ -1,8 +1,6 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
-
--- {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Utils where
 
 import           Control.Applicative ((<$>), (<*), (<*>))
