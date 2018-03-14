@@ -2,23 +2,23 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
-{-# LANGUAGE TemplateHaskell        #-}
 module Waargonaut.Types.JChar where
 
 import           Prelude                     (Char, Eq, Ord, Show, show, (&&),
                                               (*), (+), (<=), (==), (>=))
 
 import           Control.Category            (id, (.))
-import           Control.Lens                (Lens', Prism', has, makeClassy,
-                                              makeClassyPrisms, prism', ( # ))
+import           Control.Lens                (Lens', Prism', has, prism, prism', ( # ))
 
 import           Control.Applicative         (pure, (*>), (<$>), (<*>), (<|>))
 import           Control.Monad               ((>>=))
 
 import           Data.Char                   (chr)
+import           Data.Either                 (Either (..))
 import           Data.Maybe                  (Maybe (..))
 
 import           Data.Foldable               (any, asum, foldMap, foldl)
+import           Data.Function               (const)
 import           Data.Semigroup              ((<>))
 
 import           Data.Digit                  (HeXaDeCiMaL)
@@ -48,7 +48,12 @@ import           Text.Parser.Combinators     (try)
 data HexDigit4 d =
   HexDigit4 d d d d
   deriving (Eq, Ord)
-makeClassy ''HexDigit4
+
+class HasHexDigit4 c d | c -> d where
+  hexDigit4 :: Lens' c (HexDigit4 d)
+
+instance HasHexDigit4 (HexDigit4 d) d where
+  hexDigit4 = id
 
 instance Show d => Show ( HexDigit4 d ) where
   show (HexDigit4 q1 q2 q3 q4) =
@@ -91,15 +96,96 @@ data JCharEscaped digit
   | WhiteSpace Whitespace
   | Hex ( HexDigit4 digit )
   deriving (Eq, Ord, Show)
-makeClassy       ''JCharEscaped
-makeClassyPrisms ''JCharEscaped
+
+class HasJCharEscaped c digit | c -> digit where
+  jCharEscaped :: Lens' c (JCharEscaped digit)
+
+instance HasJCharEscaped (JCharEscaped digit) digit where
+  jCharEscaped = id
+
+class AsJCharEscaped r digit | r -> digit where
+  _JCharEscaped   :: Prism' r (JCharEscaped digit)
+  _QuotationMark  :: Prism' r ()
+  _ReverseSolidus :: Prism' r ()
+  _Solidus        :: Prism' r ()
+  _Backspace      :: Prism' r ()
+  _WhiteSpace     :: Prism' r Whitespace
+  _Hex            :: Prism' r (HexDigit4 digit)
+
+  _QuotationMark  = _JCharEscaped . _QuotationMark
+  _ReverseSolidus = _JCharEscaped . _ReverseSolidus
+  _Solidus        = _JCharEscaped . _Solidus
+  _Backspace      = _JCharEscaped . _Backspace
+  _WhiteSpace     = _JCharEscaped . _WhiteSpace
+  _Hex            = _JCharEscaped . _Hex
+
+instance AsJCharEscaped (JCharEscaped digit) digit where
+  _JCharEscaped = id
+  _QuotationMark = prism (const QuotationMark)
+    (\ x -> case x of
+        QuotationMark -> Right ()
+        _             -> Left x
+    )
+  _ReverseSolidus = prism (const ReverseSolidus)
+    (\ x -> case x of
+        ReverseSolidus -> Right ()
+        _              -> Left x
+    )
+  _Solidus = prism (const Solidus)
+    (\ x -> case x of
+        Solidus -> Right ()
+        _       -> Left x
+    )
+  _Backspace = prism (const Backspace)
+    (\ x -> case x of
+        Backspace -> Right ()
+        _         -> Left x
+    )
+  _WhiteSpace = prism WhiteSpace
+    (\ x -> case x of
+        WhiteSpace y1 -> Right y1
+        _             -> Left x
+    )
+  _Hex = prism Hex
+    (\ x -> case x of
+        Hex y1 -> Right y1
+        _      -> Left x
+    )
 
 data JChar digit
   = EscapedJChar ( JCharEscaped digit )
   | UnescapedJChar JCharUnescaped
   deriving (Eq, Ord, Show)
-makeClassy       ''JChar
-makeClassyPrisms ''JChar
+
+class HasJChar c digit | c -> digit where
+  jChar :: Lens' c (JChar digit)
+
+instance HasJChar (JChar digit) digit where
+  jChar = id
+
+class AsJChar r digit | r -> digit where
+  _JChar          :: Prism' r (JChar digit)
+  _EscapedJChar   :: Prism' r (JCharEscaped digit)
+  _UnescapedJChar :: Prism' r JCharUnescaped
+
+  _EscapedJChar   = _JChar . _EscapedJChar
+  _UnescapedJChar = _JChar . _UnescapedJChar
+
+instance AsJChar (JChar digit) digit where
+  _JChar = id
+  _EscapedJChar = prism EscapedJChar
+    (\ x -> case x of
+        EscapedJChar y1 -> Right y1
+        _ -> Left x
+    )
+  _UnescapedJChar = prism UnescapedJChar
+    (\ x -> case x of
+        UnescapedJChar y1 -> Right y1
+        _ -> Left x
+    )
+
+
+
 
 -- |
 --

@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
-{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 module Waargonaut.Types.JString
   ( JString (..)
@@ -13,12 +12,12 @@ module Waargonaut.Types.JString
 import           Prelude                 (Eq, Ord, Show)
 
 import           Control.Applicative     ((*>), (<*))
-import           Control.Lens            (makeWrapped)
+import           Control.Lens            (Rewrapped, Wrapped (..), iso)
 
 import           Data.Digit              (HeXaDeCiMaL)
 import           Data.Foldable           (foldMap)
 import           Data.Functor            ((<$>))
-import Data.Semigroup ((<>))
+import           Data.Semigroup          ((<>))
 import           Data.Text               (Text)
 import qualified Data.Text               as Text
 
@@ -27,7 +26,8 @@ import           Text.Parser.Combinators (many)
 
 import qualified Data.ByteString.Builder as BB
 
-import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar, parseJChar)
+import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar,
+                                          parseJChar)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -44,7 +44,12 @@ import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar, pars
 newtype JString digit =
   JString [JChar digit]
   deriving (Eq, Ord, Show)
-makeWrapped      ''JString
+
+instance JString digit ~ t => Rewrapped (JString digit) t
+
+instance Wrapped (JString digit) where
+  type Unwrapped (JString digit) = [JChar digit]
+  _Wrapped' = iso (\ (JString x) -> x) JString
 
 -- |
 --

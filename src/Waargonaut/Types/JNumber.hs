@@ -2,7 +2,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 module Waargonaut.Types.JNumber where
 
@@ -16,14 +15,15 @@ import qualified Data.Scientific         as Sci
 import           Numeric.Natural         (Natural)
 
 import           Control.Category        (id, (.))
-import           Control.Lens            (Prism', ifoldrM, makeClassy,
-                                          makeClassyPrisms, makeWrapped, prism',
-                                          ( # ), (^?), _Just, _Wrapped)
+import           Control.Lens            (Lens', Prism', Rewrapped,
+                                          Wrapped (..), ifoldrM, iso, prism,
+                                          prism', ( # ), (^?), _Just, _Wrapped)
 
 import           Control.Applicative     (pure, (*>), (<$), (<$>), (<*>))
 import           Control.Monad           (Monad, (=<<))
 
-import           Data.Function           (($))
+import           Data.Either             (Either (..))
+import           Data.Function           (const, ($))
 import           Data.Functor            (fmap)
 import           Data.Maybe              (Maybe (..), fromMaybe, isJust, maybe)
 import           Data.Monoid             (mempty)
@@ -58,17 +58,59 @@ data JInt
   = JZero
   | JIntInt (NonEmpty Digit)
   deriving (Eq, Ord, Show)
-makeClassyPrisms ''JInt
+
+class AsJInt r where
+  _JInt :: Prism' r JInt
+  _JZero :: Prism' r ()
+  _JIntInt :: Prism' r (NonEmpty Digit)
+  _JZero = _JInt . _JZero
+  _JIntInt = _JInt . _JIntInt
+
+instance AsJInt JInt where
+  _JInt = id
+  _JZero = prism (const JZero)
+      (\x -> case x of
+          JZero -> Right ()
+          _     -> Left x
+      )
+  _JIntInt = prism JIntInt
+      (\ x -> case x of
+                JIntInt y -> Right y
+                _         -> Left x
+      )
 
 data E
   = EE
   | Ee
   deriving (Eq, Ord, Show)
-makeClassyPrisms ''E
+
+class AsE r where
+  _E :: Prism' r E
+  _EE :: Prism' r ()
+  _Ee :: Prism' r ()
+  _EE = _E . _EE
+  _Ee = _E . _Ee
+
+instance AsE E where
+  _E = id
+  _EE = prism (const EE)
+    (\x -> case x of
+        EE -> Right ()
+        _  -> Left x
+    )
+  _Ee = prism (const Ee)
+    (\x -> case x of
+        Ee -> Right ()
+        _  -> Left x
+    )
 
 newtype Frac = Frac (NonEmpty Digit)
   deriving (Eq, Ord, Show)
-makeWrapped      ''Frac
+
+instance Frac ~ t_aK37 => Rewrapped Frac t_aK37
+instance Wrapped Frac where
+  type Unwrapped Frac = NonEmpty Digit
+  _Wrapped' = iso (\ (Frac x_aK36) -> x_aK36) Frac
 
 data Exp = Exp
   { _ex        :: E
@@ -76,7 +118,27 @@ data Exp = Exp
   , _expdigits :: NonEmpty Digit
   }
   deriving (Eq, Ord, Show)
-makeClassy       ''Exp
+
+class HasExp c_aUke where
+  exp :: Lens' c_aUke Exp
+  ex :: Lens' c_aUke E
+  {-# INLINE ex #-}
+  expdigits :: Lens' c_aUke (NonEmpty Digit)
+  {-# INLINE expdigits #-}
+  minusplus :: Lens' c_aUke (Maybe Bool)
+  {-# INLINE minusplus #-}
+  ex = exp . ex
+  expdigits = exp . expdigits
+  minusplus = exp . minusplus
+
+instance HasExp Exp where
+  {-# INLINE ex #-}
+  {-# INLINE expdigits #-}
+  {-# INLINE minusplus #-}
+  exp = id
+  ex f (Exp x1 x2 x3) = fmap (\ y1 -> Exp y1 x2 x3) (f x1)
+  expdigits f (Exp x1 x2 x3) = fmap (Exp x1 x2) (f x3)
+  minusplus f (Exp x1 x2 x3) = fmap (\ y1 -> Exp x1 y1 x3) (f x2)
 
 data JNumber = JNumber
   { _minus     :: Bool
@@ -85,7 +147,31 @@ data JNumber = JNumber
   , _expn      :: Maybe Exp
   }
   deriving (Eq, Ord, Show)
-makeClassy       ''JNumber
+
+class HasJNumber c_a14Si where
+  jNumber :: Lens' c_a14Si JNumber
+  expn :: Lens' c_a14Si (Maybe Exp)
+  {-# INLINE expn #-}
+  frac :: Lens' c_a14Si (Maybe Frac)
+  {-# INLINE frac #-}
+  minus :: Lens' c_a14Si Bool
+  {-# INLINE minus #-}
+  numberint :: Lens' c_a14Si JInt
+  {-# INLINE numberint #-}
+  expn = jNumber . expn
+  frac = jNumber . frac
+  minus = jNumber . minus
+  numberint = jNumber . numberint
+instance HasJNumber JNumber where
+  {-# INLINE expn #-}
+  {-# INLINE frac #-}
+  {-# INLINE minus #-}
+  {-# INLINE numberint #-}
+  jNumber = id
+  expn f (JNumber x1 x2 x3 x4) = fmap (JNumber x1 x2 x3) (f x4)
+  frac f (JNumber x1 x2 x3 x4) = fmap (\ y1 -> JNumber x1 x2 y1 x4) (f x3)
+  minus f (JNumber x1 x2 x3 x4) = fmap (\ y1 -> JNumber y1 x2 x3 x4) (f x1)
+  numberint f (JNumber x1 x2 x3 x4) = fmap (\ y1 -> JNumber x1 y1 x3 x4) (f x2)
 
 -- |
 --

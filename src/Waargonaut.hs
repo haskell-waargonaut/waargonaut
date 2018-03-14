@@ -1,11 +1,13 @@
-{-# LANGUAGE DeriveFunctor         #-}
-{-# LANGUAGE DeriveTraversable     #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoImplicitPrelude     #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE NoImplicitPrelude      #-}
+{-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE TypeFamilies           #-}
+--
+{-# LANGUAGE FunctionalDependencies #-}
 --
 module Waargonaut where
 
@@ -16,14 +18,18 @@ import           Prelude                          (Eq, Ord, Show)
 
 import           Control.Applicative              (Alternative ((<|>)), (*>),
                                                    (<$>), (<*), (<*>))
-import           Control.Category                 ((.))
+import           Control.Category                 (id, (.))
+import           Control.Lens                     (Lens', Prism', Rewrapped,
+                                                   Wrapped (..), iso, prism)
 import           Control.Monad                    (Monad)
 
 import           Data.Bool                        (Bool (..))
+import           Data.Either                      (Either (..))
 import           Data.Foldable                    (Foldable (..), asum)
 import           Data.Function                    (($))
 import           Data.Functor                     (Functor (..))
 import           Data.Semigroup                   (mconcat, (<>))
+import           Data.Tuple                       (uncurry)
 
 import           Data.Traversable                 (Traversable (..))
 
@@ -60,6 +66,25 @@ data JAssoc digit s = JAssoc
   }
   deriving (Eq, Ord, Show)
 
+class HasJAssoc c digit s | c -> digit s where
+  jAssoc :: Lens' c (JAssoc digit s)
+  key :: Lens' c (LeadingTrailing (JString digit) s)
+  {-# INLINE key #-}
+  value :: Lens' c (LeadingTrailing (Json digit s) s)
+  {-# INLINE value #-}
+
+  key = jAssoc . key
+  value = jAssoc . value
+
+instance HasJAssoc (JAssoc digit s) digit s where
+  jAssoc                 = id
+
+  key f (JAssoc x1 x2)   = fmap (`JAssoc` x2) (f x1)
+  {-# INLINE key #-}
+
+  value f (JAssoc x1 x2) = fmap (JAssoc x1) (f x2)
+  {-# INLINE value #-}
+
 instance Functor (JAssoc digit) where
     fmap f (JAssoc k v) = JAssoc (fmap f k) ((\x -> x{_a = fmap f (_a x)}) . fmap f $ v)
 
@@ -79,6 +104,22 @@ instance Traversable (JAssoc digit) where
 newtype Jsons digit s = Jsons
   { _jsonsL :: [LeadingTrailing (Json digit s) s]
   } deriving (Eq, Ord, Show)
+
+class HasJsons c digit s | c -> digit s where
+  jsons :: Lens' c (Jsons digit s)
+  jsonsL :: Lens' c [Waargonaut.Types.LeadingTrailing.LeadingTrailing (Json digit s) s]
+  {-# INLINE jsonsL #-}
+  jsonsL = (.) jsons jsonsL
+instance HasJsons (Jsons digit s) digit s where
+  {-# INLINE jsonsL #-}
+  jsons = id
+  jsonsL = iso (\ (Jsons x) -> x) Jsons
+
+instance Jsons digit s ~ t => Rewrapped (Jsons digit s) t
+
+instance Wrapped (Jsons digit s) where
+  type Unwrapped (Jsons digit s) = [LeadingTrailing (Json digit s) s]
+  _Wrapped' = iso (\ (Jsons x) -> x) Jsons
 
 instance Functor (Jsons digit) where
     fmap f (Jsons ls) = Jsons (fmap ((\x -> x{_a = fmap f (_a x)}) . fmap f) ls)
@@ -115,6 +156,23 @@ instance Traversable (JObject digit) where
                 <*> traverse f x
                 <*> f r
 
+class HasJObject c digit s | c -> digit s where
+  jObject :: Lens' c (JObject digit s)
+  jobjectL :: Lens' c [LeadingTrailing (JAssoc digit s) s]
+  {-# INLINE jobjectL #-}
+  jobjectL = jObject . jobjectL
+
+instance HasJObject (JObject digit s) digit s where
+  {-# INLINE jobjectL #-}
+  jObject = id
+  jobjectL = iso (\ (JObject x) -> x) JObject
+
+instance JObject digit s ~ t => Rewrapped (JObject digit s) t
+
+instance Wrapped (JObject digit s) where
+  type Unwrapped (JObject digit s) = [LeadingTrailing (JAssoc digit s) s]
+  _Wrapped' = iso (\ (JObject x) -> x) JObject
+
 -- | Core JSON data structure, conforms to: <https://tools.ietf.org/html/rfc7159 rfc7159>
 data Json digit s
   = JsonNull s
@@ -124,6 +182,66 @@ data Json digit s
   | JsonArray (Jsons digit s) s
   | JsonObject (JObject digit s) s
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+class HasJson c digit s | c -> digit s where
+  json :: Lens' c (Json digit s)
+
+instance HasJson (Json digit s) digit s where
+  json = id
+
+class AsJson r digit s | r -> digit s where
+  _Json       :: Prism' r (Json digit s)
+  _JsonNull   :: Prism' r s
+  _JsonBool   :: Prism' r (Bool, s)
+  _JsonNumber :: Prism' r (Waargonaut.Types.JNumber.JNumber, s)
+  _JsonString :: Prism' r (Waargonaut.Types.JString.JString digit, s)
+  _JsonArray  :: Prism' r (Jsons digit s, s)
+  _JsonObject :: Prism' r (JObject digit s, s)
+
+  _JsonNull   = _Json . _JsonNull
+  _JsonBool   = _Json . _JsonBool
+  _JsonNumber = _Json . _JsonNumber
+  _JsonString = _Json . _JsonString
+  _JsonArray  = _Json . _JsonArray
+  _JsonObject = _Json . _JsonObject
+
+instance AsJson (Json digit s) digit s where
+  _Json = id
+  _JsonNull = prism JsonNull
+    (\ x -> case x of
+        JsonNull y1 -> Right y1
+        _           -> Left x
+    )
+
+  _JsonBool = prism (uncurry JsonBool)
+    (\ x -> case x of
+        JsonBool y1 y2 -> Right (y1, y2)
+        _              -> Left x
+    )
+
+  _JsonNumber = prism (uncurry JsonNumber)
+    (\ x -> case x of
+        JsonNumber y1 y2 -> Right (y1, y2)
+        _                -> Left x
+    )
+
+  _JsonString = prism (uncurry JsonString)
+    (\ x -> case x of
+        JsonString y1 y2 -> Right (y1, y2)
+        _                -> Left x
+    )
+
+  _JsonArray = prism (uncurry JsonArray)
+    (\ x -> case x of
+        JsonArray y1 y2 -> Right (y1, y2)
+        _               -> Left x
+    )
+
+  _JsonObject = prism (uncurry JsonObject)
+    (\ x -> case x of
+        JsonObject y1 y2 -> Right (y1, y2)
+        _                -> Left x
+    )
 
 parseJAssoc
   :: ( Monad f
@@ -187,7 +305,7 @@ jsonBuilder s (JsonNull tws)        = BB.stringUtf8 "null"                      
 jsonBuilder s (JsonBool b tws)      = BB.stringUtf8 (if b then "true" else "false") <> s tws
 jsonBuilder s (JsonNumber jn tws)   = jNumberBuilder jn                             <> s tws
 jsonBuilder s (JsonString js tws)   = jStringBuilder js                             <> s tws
-jsonBuilder s (JsonArray jsons tws) = jsonsBuilder s jsons                          <> s tws
+jsonBuilder s (JsonArray js tws)    = jsonsBuilder s js                             <> s tws
 jsonBuilder s (JsonObject jobj tws) = jObjectBuilder s jobj                         <> s tws
 
 -- |
@@ -233,8 +351,10 @@ parseJsonBool
   => f s
   -> f (Json digit s)
 parseJsonBool p =
-  let b q t = JsonBool q <$ text t <*> p
-  in  b False "false" <|> b True "true"
+  let
+    b q t = JsonBool q <$ text t <*> p
+  in
+    b False "false" <|> b True "true"
 
 parseJsonNumber
   :: ( Monad f
