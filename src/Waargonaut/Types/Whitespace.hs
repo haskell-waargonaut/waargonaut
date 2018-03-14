@@ -92,5 +92,12 @@ whitespaceBuilder CarriageReturn = BB.charUtf8 '\r'
 whitespaceBuilder NewLine        = BB.charUtf8 '\n'
 {-# INLINE whitespaceBuilder #-}
 
+-- | Reconstitute the given whitespace into its original form.
 wsBuilder :: WS -> Builder
 wsBuilder (WS ws) = foldMap whitespaceBuilder ws
+{-# INLINE wsBuilder #-}
+
+-- | Remove any whitespace. Minification for free, yay!
+wsRemover :: WS -> Builder
+wsRemover = const mempty
+{-# INLINE wsRemover #-}
