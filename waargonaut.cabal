@@ -52,6 +52,8 @@ tested-with:         GHC==8.2.2
 library
   -- Modules included in this executable, other than Main.
   exposed-modules:     Waargonaut
+                     , Waargonaut.Lens
+                     , Waargonaut.Types.Whitespace
                      , Waargonaut.Types.JChar
                      , Waargonaut.Types.JString
                      , Waargonaut.Types.JNumber
@@ -66,7 +68,6 @@ library
                      , text
                      , bytestring
                      , parsers
-                     , trifecta
                      , digit
                      , separated
                      , scientific

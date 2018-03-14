@@ -37,6 +37,7 @@ import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar, pars
 -- >>> import Data.Digit (Digit(..))
 -- >>> import Text.Parsec(ParseError)
 -- >>> import Utils
+-- >>> import Waargonaut.Types.Whitespace
 -- >>> import Waargonaut.Types.JChar
 
 ----
@@ -57,10 +58,10 @@ makeWrapped      ''JString
 -- Right (JString [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')])
 --
 -- >> testparse parseJString "\"a\\rbc\""
--- Right (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar CarriageReturn,UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')])
+-- Right (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')])
 --
 -- >>> testparse parseJString "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError (JString Digit)
--- Right (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar CarriageReturn,UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar LineFeed,UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark])
+-- Right (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark])
 --
 -- >>> testparsethennoteof parseJString "\"a\"\\u"
 -- Right (JString [UnescapedJChar (JCharUnescaped 'a')])
@@ -75,7 +76,7 @@ parseJString =
 
 -- | Convert a 'JString' to a strict 'Text'
 --
--- >>> jStringToText (JString [EscapedJChar Tab, UnescapedJChar (JCharUnescaped '1'), EscapedJChar (Hex (HexDigit4 Digit1 Digit2 Digit3 Digit4)), UnescapedJChar (JCharUnescaped '2')])
+-- >>> jStringToText (JString [EscapedJChar (WhiteSpace HorizontalTab), UnescapedJChar (JCharUnescaped '1'), EscapedJChar (Hex (HexDigit4 Digit1 Digit2 Digit3 Digit4)), UnescapedJChar (JCharUnescaped '2')])
 -- "\t1\4660\&2"
 jStringToText :: HeXaDeCiMaL digit => JString digit -> Text
 jStringToText (JString jcs) = Text.pack (jCharToChar <$> jcs)
@@ -88,10 +89,10 @@ jStringToText (JString jcs) = Text.pack (jCharToChar <$> jcs)
 -- >>> BB.toLazyByteString $ jStringBuilder ((JString [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString Digit)
 -- "\"abc\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar CarriageReturn,UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString Digit)
+-- >>> BB.toLazyByteString $ jStringBuilder ((JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString Digit)
 -- "\"a\\rbc\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar CarriageReturn,UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 Digita Digitb Digit1 Digit2)),EscapedJChar LineFeed,UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) :: JString Digit)
+-- >>> BB.toLazyByteString $ jStringBuilder ((JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 Digita Digitb Digit1 Digit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) :: JString Digit)
 -- "\"a\\rbc\\uab12\\ndef\\\"\""
 --
 -- >>> BB.toLazyByteString $ jStringBuilder ((JString [UnescapedJChar (JCharUnescaped 'a')]) :: JString Digit)

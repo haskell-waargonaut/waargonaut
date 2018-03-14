@@ -6,13 +6,9 @@ module Waargonaut.Types.LeadingTrailing where
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as BB
 
-import           Data.Foldable           (asum)
-import           Data.Functor            ((<$))
+import           Data.List               (intersperse)
 
 import           Data.Semigroup          ((<>))
-
-import           Text.Parser.Char        (CharParsing, char, newline, tab)
-import           Text.Parser.Combinators (many)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -48,62 +44,16 @@ leadingTrailingBuilder
 leadingTrailingBuilder innerBuilder sBuilder lt =
   sBuilder (_leading lt) <> innerBuilder (_a lt) <> sBuilder (_trailing lt)
 
--- ws =
-  -- %x20 /              ; Space
-  -- %x09 /              ; Horizontal tab
-  -- %x0A /              ; Line feed or New line
-  -- %x0D )              ; Carriage return
-data Whitespace
-  = Space
-  | HorizontalTab
-  | LineFeed
-  | NewLine
-  | CarriageReturn
-  deriving (Eq, Show)
-
-newtype WS = WS [Whitespace]
-  deriving (Eq, Show)
-
--- |
---
--- >>> testparse parseWhitespace " "
--- Right (WS [Space])
---
--- >>> testparse parseWhitespace " \t"
--- Right (WS [Space,HorizontalTab])
---
--- >>> testparse parseWhitespace "\f\f"
--- Right (WS [LineFeed,LineFeed])
---
--- >>> testparse parseWhitespace "\r\r\r"
--- Right (WS [CarriageReturn,CarriageReturn,CarriageReturn])
---
--- >>> testparse parseWhitespace "\n\r\r\n"
--- Right (WS [NewLine,CarriageReturn,CarriageReturn,NewLine])
---
--- >>> testparse parseWhitespace ""
--- Right (WS [])
---
-parseWhitespace
-  :: CharParsing f
-  => f WS
-parseWhitespace =
-  fmap WS . many $ asum
-    [ Space          <$ char ' '
-    , HorizontalTab  <$ tab
-    , LineFeed       <$ char '\f'
-    , CarriageReturn <$ char '\r'
-    , NewLine        <$ newline
-    ]
-
-whitespaceBuilder
-  :: WS
+buildWrapped
+  :: Char
+  -> Char
+  -> (s -> Builder)
+  -> ((s -> Builder) -> a -> Builder)
+  -> [LeadingTrailing a s]
   -> Builder
-whitespaceBuilder (WS ws) =
-  foldMap wsB ws
-  where
-    wsB Space          = BB.charUtf8 ' '
-    wsB HorizontalTab  = BB.charUtf8 '\t'
-    wsB LineFeed       = BB.charUtf8 '\f'
-    wsB CarriageReturn = BB.charUtf8 '\r'
-    wsB NewLine        = BB.charUtf8 '\n'
+buildWrapped h t sB iB i =
+  let
+    inner = leadingTrailingBuilder (iB sB) sB <$> i
+    commas = intersperse (BB.charUtf8 ',')
+  in
+    BB.charUtf8 h <> mconcat (commas inner) <> BB.charUtf8 t

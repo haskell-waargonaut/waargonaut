@@ -1,8 +1,7 @@
 { mkDerivation, base, bytestring, digit, directory, doctest
-, filepath, hedgehog, lens, mtl, papa, parsec, parsers, QuickCheck
-, quickcheck-text, scientific, separated, stdenv, tasty, nats
-, tasty-expected-failure, tasty-hedgehog, template-haskell, text
-, trifecta, tasty-hunit
+, filepath, hedgehog, lens, mtl, papa, parsec, parsers, scientific
+, separated, stdenv, tasty, nats, tasty-expected-failure
+, tasty-hedgehog, template-haskell, text, tasty-hunit
 }:
 mkDerivation {
   pname = "waargonaut";
@@ -10,12 +9,11 @@ mkDerivation {
   src = ./.;
   libraryHaskellDepends = [
     base bytestring digit lens mtl papa parsers scientific separated
-    text nats trifecta
+    text nats
   ];
   testHaskellDepends = [
-    base directory doctest filepath hedgehog parsec QuickCheck
-    quickcheck-text tasty tasty-expected-failure tasty-hedgehog
-    template-haskell tasty-hunit
+    base directory doctest filepath hedgehog parsec tasty tasty-expected-failure
+    tasty-hedgehog template-haskell tasty-hunit
   ];
   description = "JSON Mangling";
   license = stdenv.lib.licenses.bsd3;

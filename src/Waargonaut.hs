@@ -23,7 +23,6 @@ import           Data.Bool                        (Bool (..))
 import           Data.Foldable                    (Foldable (..), asum)
 import           Data.Function                    (($))
 import           Data.Functor                     (Functor (..))
-import           Data.List                        (intersperse)
 import           Data.Semigroup                   (mconcat, (<>))
 
 import           Data.Traversable                 (Traversable (..))
@@ -37,10 +36,13 @@ import           Waargonaut.Types.JNumber         (JNumber, jNumberBuilder,
                                                    parseJNumber)
 import           Waargonaut.Types.JString         (JString, jStringBuilder,
                                                    parseJString)
-import           Waargonaut.Types.LeadingTrailing (LeadingTrailing (..), WS,
+
+import           Waargonaut.Types.Whitespace      (WS, parseWhitespace)
+
+import           Waargonaut.Types.LeadingTrailing (LeadingTrailing (..),
+                                                   buildWrapped,
                                                    leadingTrailingBuilder,
-                                                   parseLeadingTrailing,
-                                                   parseWhitespace)
+                                                   parseLeadingTrailing)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -51,6 +53,7 @@ import           Waargonaut.Types.LeadingTrailing (LeadingTrailing (..), WS,
 -- >>> import Data.Digit (Digit)
 ----
 
+-- | Associated values, HashMap that cares about leading/trailing @Whitespace@
 data JAssoc digit s = JAssoc
   { _key   :: LeadingTrailing (JString digit) s
   , _value :: LeadingTrailing (Json digit s) s
@@ -71,6 +74,56 @@ instance Traversable (JAssoc digit) where
                 <$> f l
                 <*> traverse f x
                 <*> f r
+
+-- | JSON Array
+newtype Jsons digit s = Jsons
+  { _jsonsL :: [LeadingTrailing (Json digit s) s]
+  } deriving (Eq, Ord, Show)
+
+instance Functor (Jsons digit) where
+    fmap f (Jsons ls) = Jsons (fmap ((\x -> x{_a = fmap f (_a x)}) . fmap f) ls)
+
+instance Foldable (Jsons digit) where
+    foldMap f (Jsons ls) = (foldMap . foldMap) f ls
+
+instance Traversable (Jsons digit) where
+    traverse f (Jsons ls) = Jsons <$> traverse traverse' ls where
+        traverse' (LeadingTrailing l x r) =
+            LeadingTrailing
+                <$> f l
+                <*> traverse f x
+                <*> f r
+
+-- | JSON Object
+newtype JObject digit s = JObject
+  { _jobjectL :: [LeadingTrailing (JAssoc digit s) s]
+  } deriving (Eq, Ord, Show)
+
+instance Functor (JObject digit) where
+    fmap f (JObject ls) = JObject (fmap fmap' ls) where
+        fmap' (LeadingTrailing l x r) =
+            LeadingTrailing (f l) (fmap f x) (f r)
+
+instance Foldable (JObject digit) where
+    foldMap f (JObject ls) = (foldMap . foldMap) f ls
+
+instance Traversable (JObject digit) where
+    traverse f (JObject ls) = JObject <$> traverse traverse' ls where
+        traverse' (LeadingTrailing l x r) =
+            LeadingTrailing
+                <$> f l
+                <*> traverse f x
+                <*> f r
+
+-- | Core JSON data structure, conforms to: <https://tools.ietf.org/html/rfc7159 rfc7159>
+data Json digit s
+  = JsonNull s
+  | JsonBool Bool s
+  | JsonNumber JNumber s
+  | JsonString (JString digit) s
+  | JsonArray (Jsons digit s) s
+  | JsonObject (JObject digit s) s
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 parseJAssoc
   :: ( Monad f
@@ -94,41 +147,13 @@ jAssocBuilder sBuilder (JAssoc k v) =
   BB.charUtf8 ':' <>
   leadingTrailingBuilder (jsonBuilder sBuilder) sBuilder v
 
-newtype Jsons digit s = Jsons
-  { _jsonsL :: [LeadingTrailing (Json digit s) s]
-  } deriving (Eq, Ord, Show)
-
 jsonsBuilder
   :: HeXaDeCiMaL digit
   => (s -> Builder)
   -> Jsons digit s
   -> Builder
 jsonsBuilder sBuilder (Jsons jl) =
-  let
-    commas = intersperse (BB.charUtf8 ',')
-    innerBuild = leadingTrailingBuilder (jsonBuilder sBuilder) sBuilder
-  in
-    BB.charUtf8 '[' <> mconcat (commas $ innerBuild <$> jl) <> BB.charUtf8 ']'
-
-newtype JObject digit s = JObject
-  { _jobjectL :: [LeadingTrailing (JAssoc digit s) s]
-  } deriving (Eq, Ord, Show)
-
-instance Functor (JObject digit) where
-    fmap f (JObject ls) = JObject (fmap fmap' ls) where
-        fmap' (LeadingTrailing l x r) =
-            LeadingTrailing (f l) (fmap f x) (f r)
-
-instance Foldable (JObject digit) where
-    foldMap f (JObject ls) = mconcat (fmap (foldMap f) ls)
-
-instance Traversable (JObject digit) where
-    traverse f (JObject ls) = JObject <$> traverse traverse' ls where
-        traverse' (LeadingTrailing l x r) =
-            LeadingTrailing
-                <$> f l
-                <*> traverse f x
-                <*> f r
+  buildWrapped '[' ']' sBuilder jsonBuilder jl
 
 parseJObject
   :: ( Monad f
@@ -151,37 +176,7 @@ jObjectBuilder
   -> JObject digit s
   -> Builder
 jObjectBuilder sBuilder (JObject jL) =
-  let
-    commas = intersperse (BB.charUtf8 ',')
-    innerBuild = leadingTrailingBuilder (jAssocBuilder sBuilder) sBuilder
-  in
-    BB.charUtf8 '{' <>
-    mconcat (commas $ innerBuild <$> jL) <>
-    BB.charUtf8 '}'
-
-instance Functor (Jsons digit) where
-    fmap f (Jsons ls) = Jsons (fmap ((\x -> x{_a = fmap f (_a x)}) . fmap f) ls)
-
-instance Foldable (Jsons digit) where
-    foldMap f (Jsons ls) = mconcat (fmap (foldMap f) ls)
-
-instance Traversable (Jsons digit) where
-    traverse f (Jsons ls) = Jsons <$> traverse traverse' ls where
-        traverse' (LeadingTrailing l x r) =
-            LeadingTrailing
-                <$> f l
-                <*> traverse f x
-                <*> f r
-
---  https://tools.ietf.org/html/rfc7159
-data Json digit s
-  = JsonNull s
-  | JsonBool Bool s
-  | JsonNumber JNumber s
-  | JsonString (JString digit) s
-  | JsonArray (Jsons digit s) s
-  | JsonObject (JObject digit s) s
-  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+  buildWrapped '{' '}' sBuilder jAssocBuilder jL
 
 jsonBuilder
   :: HeXaDeCiMaL digit
@@ -260,10 +255,10 @@ parseJsonNumber p =
 -- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
 --
 -- >> testparse (parseJsonString (return ())) "\"a\\rbc\""
--- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar CarriageReturn,UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar LineFeed,UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
+-- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
 --
 -- >>> testparse (parseJsonString (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError (Json Digit ())
--- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar CarriageReturn,UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar LineFeed,UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
+-- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
 --
 -- >>> testparsetheneof (parseJsonString (return ())) "\"\""
 -- Right (JsonString (JString []) ())

@@ -5,30 +5,35 @@
 {-# LANGUAGE TemplateHaskell        #-}
 module Waargonaut.Types.JChar where
 
-import           Prelude                 (Char, Eq, Ord, Show, show, (&&), (*),
-                                          (+), (<=), (==), (>=))
+import           Prelude                     (Char, Eq, Ord, Show, show, (&&),
+                                              (*), (+), (<=), (==), (>=))
 
-import           Control.Category        (id, (.))
-import           Control.Lens            (Lens', Prism', has, makeClassy,
-                                          makeClassyPrisms, prism', ( # ))
+import           Control.Category            (id, (.))
+import           Control.Lens                (Lens', Prism', has, makeClassy,
+                                              makeClassyPrisms, prism', ( # ))
 
-import           Control.Applicative     (pure, (*>), (<$>), (<*>), (<|>))
-import           Control.Monad           ((>>=))
+import           Control.Applicative         (pure, (*>), (<$>), (<*>), (<|>))
+import           Control.Monad               ((>>=))
 
-import           Data.Char               (chr)
-import           Data.Maybe              (Maybe (..))
+import           Data.Char                   (chr)
+import           Data.Maybe                  (Maybe (..))
 
-import           Data.Foldable           (any, asum, foldMap, foldl)
-import           Data.Semigroup          ((<>))
+import           Data.Foldable               (any, asum, foldMap, foldl)
+import           Data.Semigroup              ((<>))
 
-import           Data.Digit              (HeXaDeCiMaL)
-import qualified Data.Digit              as D
+import           Data.Digit                  (HeXaDeCiMaL)
+import qualified Data.Digit                  as D
 
-import           Data.ByteString.Builder (Builder)
-import qualified Data.ByteString.Builder as BB
+import           Data.ByteString.Builder     (Builder)
+import qualified Data.ByteString.Builder     as BB
 
-import           Text.Parser.Char        (CharParsing, char, satisfy)
-import           Text.Parser.Combinators (try)
+import           Waargonaut.Types.Whitespace (Whitespace (..),
+                                              escapedWhitespaceChar,
+                                              unescapedWhitespaceChar)
+
+import           Text.Parser.Char            (CharParsing, char, satisfy)
+import           Text.Parser.Combinators     (try)
+
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -83,10 +88,7 @@ data JCharEscaped digit
   | ReverseSolidus
   | Solidus
   | Backspace
-  | FormFeed
-  | LineFeed
-  | CarriageReturn
-  | Tab
+  | WhiteSpace Whitespace
   | Hex ( HexDigit4 digit )
   deriving (Eq, Ord, Show)
 makeClassy       ''JCharEscaped
@@ -158,25 +160,25 @@ parseJCharUnescaped =
 -- Right Backspace
 --
 -- >>> testparse parseJCharEscaped "\\f"
--- Right FormFeed
+-- Right (WhiteSpace LineFeed)
 --
 -- >>> testparse parseJCharEscaped "\\n"
--- Right LineFeed
+-- Right (WhiteSpace NewLine)
 --
 -- >>> testparse parseJCharEscaped "\\r"
--- Right CarriageReturn
+-- Right (WhiteSpace CarriageReturn)
 --
 -- >>> testparse parseJCharEscaped "\\t"
--- Right Tab
+-- Right (WhiteSpace HorizontalTab)
 --
 -- >>> testparse parseJCharEscaped "\\u1234" :: Either ParseError (JCharEscaped Digit)
 -- Right (Hex 1234)
 --
 -- >>> testparsetheneof parseJCharEscaped "\\t"
--- Right Tab
+-- Right (WhiteSpace HorizontalTab)
 --
 -- >>> testparsethennoteof parseJCharEscaped "\\tx"
--- Right Tab
+-- Right (WhiteSpace HorizontalTab)
 parseJCharEscaped ::
   (CharParsing f, HeXaDeCiMaL digit) =>
   f ( JCharEscaped digit )
@@ -189,10 +191,10 @@ parseJCharEscaped =
             , ('\\', ReverseSolidus)
             , ('/' , Solidus)
             , ('b' , Backspace)
-            , ('f' , FormFeed)
-            , ('n' , LineFeed)
-            , ('r' , CarriageReturn)
-            , ('t' , Tab)
+            , ('f' , WhiteSpace LineFeed)
+            , ('n' , WhiteSpace NewLine)
+            , ('r' , WhiteSpace CarriageReturn)
+            , ('t' , WhiteSpace HorizontalTab)
             ])
       h =
         Hex <$> (char 'u' *> parseHexDigit4)
@@ -210,7 +212,7 @@ parseJCharEscaped =
 -- Right (EscapedJChar ReverseSolidus)
 --
 -- >>> testparse parseJChar "\\r"
--- Right (EscapedJChar CarriageReturn)
+-- Right (EscapedJChar (WhiteSpace CarriageReturn))
 --
 -- >>> testparsetheneof parseJChar "a"
 -- Right (UnescapedJChar (JCharUnescaped 'a'))
@@ -230,14 +232,11 @@ parseJChar =
 jCharToChar :: HeXaDeCiMaL digit => JChar digit -> Char
 jCharToChar (UnescapedJChar (JCharUnescaped c)) = c
 jCharToChar (EscapedJChar jca) = case jca of
-    QuotationMark  -> '"'
-    ReverseSolidus -> '\\'
-    Solidus        -> '/'
-    Backspace      -> '\b'
-    FormFeed       -> '\f'
-    LineFeed       -> '\n'
-    CarriageReturn -> '\r'
-    Tab            -> '\t'
+    QuotationMark           -> '"'
+    ReverseSolidus          -> '\\'
+    Solidus                 -> '/'
+    Backspace               -> '\b'
+    (WhiteSpace ws)         -> escapedWhitespaceChar ws
     Hex (HexDigit4 a b c d) ->
       chr (foldl (\acc x -> 16*acc + (D.integralDecimal # x)) 0 [a,b,c,d])
 
@@ -247,14 +246,11 @@ jCharBuilder
   -> Builder
 jCharBuilder (UnescapedJChar (JCharUnescaped c)) = BB.charUtf8 c
 jCharBuilder (EscapedJChar jca) = BB.charUtf8 '\\' <> case jca of
-    QuotationMark  -> BB.charUtf8 '"'
-    ReverseSolidus -> BB.charUtf8 '\\'
-    Solidus        -> BB.charUtf8 '/'
-    Backspace      -> BB.charUtf8 'b'
-    FormFeed       -> BB.charUtf8 'f'
-    LineFeed       -> BB.charUtf8 'n'
-    CarriageReturn -> BB.charUtf8 'r'
-    Tab            -> BB.charUtf8 't'
+    QuotationMark           -> BB.charUtf8 '"'
+    ReverseSolidus          -> BB.charUtf8 '\\'
+    Solidus                 -> BB.charUtf8 '/'
+    Backspace               -> BB.charUtf8 'b'
+    (WhiteSpace ws)         -> BB.charUtf8 (unescapedWhitespaceChar ws)
     Hex (HexDigit4 a b c d) -> BB.charUtf8 'u' <> foldMap hexChar [a,b,c,d]
   where
     hexChar =
