@@ -31,6 +31,7 @@ import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar,
 
 -- $setup
 -- >>> :set -XOverloadedStrings
+-- >>> import Control.Lens ((#))
 -- >>> import Control.Monad (return)
 -- >>> import Data.Function (($))
 -- >>> import Data.Either(Either (..), isLeft)

@@ -2,7 +2,28 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
-module Waargonaut.Types.JChar where
+module Waargonaut.Types.JChar
+  ( HexDigit4 (..)
+  , HasHexDigit4 (..)
+
+  , JChar (..)
+  , AsJChar (..)
+  , HasJChar (..)
+  , parseJChar
+
+  , JCharEscaped (..)
+  , AsJCharEscaped (..)
+  , HasJCharEscaped (..)
+  , parseJCharEscaped
+
+  , JCharUnescaped (..)
+  , AsJCharUnescaped (..)
+  , HasJCharUnescaped (..)
+  , parseJCharUnescaped
+
+  , jCharBuilder
+  , jCharToChar
+  ) where
 
 import           Prelude                     (Char, Eq, Ord, Show, show, (&&),
                                               (*), (+), (<=), (==), (>=))
@@ -58,8 +79,7 @@ instance HasHexDigit4 (HexDigit4 d) d where
 
 instance Show d => Show ( HexDigit4 d ) where
   show (HexDigit4 q1 q2 q3 q4) =
-    [
-      q1
+    [ q1
     , q2
     , q3
     , q4

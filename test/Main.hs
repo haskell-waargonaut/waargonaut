@@ -109,20 +109,29 @@ properties = testGroup "Property Tests"
       prop_gen_json_print_parse_print_id
   ]
 
-testFile1 :: Assertion
-testFile1 = do
-  s <- BS8.readFile "test/test1.json"
+testFile :: FilePath -> Assertion
+testFile fp = do
+  s <- BS8.readFile fp
   printParse s @?= Right s
 
+testFile1 :: Assertion
+testFile1 = testFile "test/test1.json"
+
 testFile2 :: Assertion
-testFile2 = do
-  s <- BS8.readFile "test/test2.json"
-  printParse s @?= Right s
+testFile2 = testFile "test/test2.json"
+
+testFile3 :: Assertion
+testFile3 = testFile "test/json-data/jp100.json"
+
+testFile4 :: Assertion
+testFile4 = testFile "test/json-data/twitter100.json"
 
 unitTests :: TestTree
 unitTests = testGroup "Unit Tests"
   [ testCase "Round Trip on Test File 1 test1.json" testFile1
   , testCase "Round Trip on Test File 2 test2.json" testFile2
+  , testCase "Round Trip on Test File 3 jp100.json" testFile3
+  , testCase "Round Trip on Test File 4 twitter100.json" testFile4
   ]
 
 main :: IO ()
