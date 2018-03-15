@@ -3,6 +3,9 @@
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TypeFamilies          #-}
+--
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE StandaloneDeriving    #-}
 module Waargonaut.Types.JNumber where
 
 import           Prelude                 (Bool (..), Eq, Int, Ord, Show, error,
@@ -54,30 +57,20 @@ import qualified Data.ByteString.Builder as BB
 -- >>> import Data.ByteString.Builder (toLazyByteString)
 -- >>> import Utils
 
-data JInt
-  = JZero
-  | JIntInt (NonEmpty Digit)
-  deriving (Eq, Ord, Show)
+-- data JInt
+--   = JZero
+--   | JIntInt (NonEmpty Digit)
+--   deriving (Eq, Ord, Show)
 
-class AsJInt r where
-  _JInt :: Prism' r JInt
-  _JZero :: Prism' r ()
-  _JIntInt :: Prism' r (NonEmpty Digit)
-  _JZero = _JInt . _JZero
-  _JIntInt = _JInt . _JIntInt
+data JInt' digit where
+  JZero   :: JInt' digit
+  JIntInt :: D.DecimalNoZero digit => digit -> [Digit] -> JInt' digit
 
-instance AsJInt JInt where
-  _JInt = id
-  _JZero = prism (const JZero)
-      (\x -> case x of
-          JZero -> Right ()
-          _     -> Left x
-      )
-  _JIntInt = prism JIntInt
-      (\ x -> case x of
-                JIntInt y -> Right y
-                _         -> Left x
-      )
+type JInt = JInt' Digit
+
+deriving instance Show JInt
+deriving instance Eq JInt
+deriving instance Ord JInt
 
 data E
   = EE
@@ -85,7 +78,7 @@ data E
   deriving (Eq, Ord, Show)
 
 class AsE r where
-  _E :: Prism' r E
+  _E  :: Prism' r E
   _EE :: Prism' r ()
   _Ee :: Prism' r ()
   _EE = _E . _EE
@@ -107,10 +100,10 @@ instance AsE E where
 newtype Frac = Frac (NonEmpty Digit)
   deriving (Eq, Ord, Show)
 
-instance Frac ~ t_aK37 => Rewrapped Frac t_aK37
+instance Frac ~ t => Rewrapped Frac t
 instance Wrapped Frac where
   type Unwrapped Frac = NonEmpty Digit
-  _Wrapped' = iso (\ (Frac x_aK36) -> x_aK36) Frac
+  _Wrapped' = iso (\ (Frac x) -> x) Frac
 
 data Exp = Exp
   { _ex        :: E
@@ -119,13 +112,13 @@ data Exp = Exp
   }
   deriving (Eq, Ord, Show)
 
-class HasExp c_aUke where
-  exp :: Lens' c_aUke Exp
-  ex :: Lens' c_aUke E
+class HasExp c where
+  exp :: Lens' c Exp
+  ex :: Lens' c E
   {-# INLINE ex #-}
-  expdigits :: Lens' c_aUke (NonEmpty Digit)
+  expdigits :: Lens' c (NonEmpty Digit)
   {-# INLINE expdigits #-}
-  minusplus :: Lens' c_aUke (Maybe Bool)
+  minusplus :: Lens' c (Maybe Bool)
   {-# INLINE minusplus #-}
   ex = exp . ex
   expdigits = exp . expdigits
@@ -148,47 +141,48 @@ data JNumber = JNumber
   }
   deriving (Eq, Ord, Show)
 
-class HasJNumber c_a14Si where
-  jNumber :: Lens' c_a14Si JNumber
-  expn :: Lens' c_a14Si (Maybe Exp)
+class HasJNumber c where
+  jNumber   :: Lens' c JNumber
+  expn      :: Lens' c (Maybe Exp)
   {-# INLINE expn #-}
-  frac :: Lens' c_a14Si (Maybe Frac)
+  frac      :: Lens' c (Maybe Frac)
   {-# INLINE frac #-}
-  minus :: Lens' c_a14Si Bool
+  minus     :: Lens' c Bool
   {-# INLINE minus #-}
-  numberint :: Lens' c_a14Si JInt
+  numberint :: Lens' c JInt
   {-# INLINE numberint #-}
-  expn = jNumber . expn
-  frac = jNumber . frac
-  minus = jNumber . minus
+  expn      = jNumber . expn
+  frac      = jNumber . frac
+  minus     = jNumber . minus
   numberint = jNumber . numberint
+
 instance HasJNumber JNumber where
   {-# INLINE expn #-}
   {-# INLINE frac #-}
   {-# INLINE minus #-}
   {-# INLINE numberint #-}
   jNumber = id
-  expn f (JNumber x1 x2 x3 x4) = fmap (JNumber x1 x2 x3) (f x4)
-  frac f (JNumber x1 x2 x3 x4) = fmap (\ y1 -> JNumber x1 x2 y1 x4) (f x3)
-  minus f (JNumber x1 x2 x3 x4) = fmap (\ y1 -> JNumber y1 x2 x3 x4) (f x1)
+  expn f (JNumber x1 x2 x3 x4)      = fmap (JNumber x1 x2 x3) (f x4)
+  frac f (JNumber x1 x2 x3 x4)      = fmap (\ y1 -> JNumber x1 x2 y1 x4) (f x3)
+  minus f (JNumber x1 x2 x3 x4)     = fmap (\ y1 -> JNumber y1 x2 x3 x4) (f x1)
   numberint f (JNumber x1 x2 x3 x4) = fmap (\ y1 -> JNumber x1 y1 x3 x4) (f x2)
 
 -- |
 --
 -- >>> testparse parseJInt "1"
--- Right (JIntInt (1 :| []))
+-- Right (JIntInt 1 [])
 --
 -- >>> testparse parseJInt "9"
--- Right (JIntInt (9 :| []))
+-- Right (JIntInt 9 [])
 --
 -- >>> testparse parseJInt "10"
--- Right (JIntInt (1 :| [0]))
+-- Right (JIntInt 1 [0])
 --
 -- >>> testparse parseJInt "39"
--- Right (JIntInt (3 :| [9]))
+-- Right (JIntInt 3 [9])
 --
 -- >>> testparse parseJInt "393564"
--- Right (JIntInt (3 :| [9,3,5,6,4]))
+-- Right (JIntInt 3 [9,3,5,6,4])
 --
 -- >>> testparse parseJInt "0"
 -- Right JZero
@@ -200,19 +194,19 @@ instance HasJNumber JNumber where
 -- Right JZero
 --
 -- >>> testparsetheneof parseJInt "1"
--- Right (JIntInt (1 :| []))
+-- Right (JIntInt 1 [])
 --
 -- >>> testparsetheneof parseJInt "9"
--- Right (JIntInt (9 :| []))
+-- Right (JIntInt 9 [])
 --
 -- >>> testparsetheneof parseJInt "10"
--- Right (JIntInt (1 :| [0]))
+-- Right (JIntInt 1 [0])
 --
 -- >>> testparsetheneof parseJInt "39"
--- Right (JIntInt (3 :| [9]))
+-- Right (JIntInt 3 [9])
 --
 -- >>> testparsetheneof parseJInt "393564"
--- Right (JIntInt (3 :| [9,3,5,6,4]))
+-- Right (JIntInt 3 [9,3,5,6,4])
 --
 -- >>> testparsetheneof parseJInt "0"
 -- Right JZero
@@ -228,14 +222,14 @@ parseJInt ::
 parseJInt =
   asum [
     JZero <$ try (char '0')
-  , fmap JIntInt ( ( NE.:| ) <$> D.parseDecimalNoZero <*> many D.parseDecimal )
+  , JIntInt <$> D.parseDecimalNoZero <*> many D.parseDecimal
   ]
 
 jIntBuilder
   :: JInt
   -> Builder
-jIntBuilder JZero          = BB.int8Dec 0
-jIntBuilder (JIntInt digs) = digitsBuilder digs
+jIntBuilder JZero              = BB.int8Dec 0
+jIntBuilder (JIntInt dig digs) = digitsBuilder ( dig NE.:| digs )
 
 -- |
 --
@@ -357,10 +351,10 @@ expBuilder (Exp e sign digs) =
 -- |
 --
 -- >>> testparsethen parseJNumber "3x"
--- Right (JNumber {_minus = False, _numberint = JIntInt (3 :| []), _frac = Nothing, _expn = Nothing},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt 3 [], _frac = Nothing, _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "-3x"
--- Right (JNumber {_minus = True, _numberint = JIntInt (3 :| []), _frac = Nothing, _expn = Nothing},'x')
+-- Right (JNumber {_minus = True, _numberint = JIntInt 3 [], _frac = Nothing, _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "0x"
 -- Right (JNumber {_minus = False, _numberint = JZero, _frac = Nothing, _expn = Nothing},'x')
@@ -369,22 +363,22 @@ expBuilder (Exp e sign digs) =
 -- Right (JNumber {_minus = True, _numberint = JZero, _frac = Nothing, _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "3.45x"
--- Right (JNumber {_minus = False, _numberint = JIntInt (3 :| []), _frac = Just (Frac (4 :| [5])), _expn = Nothing},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt 3 [], _frac = Just (Frac (4 :| [5])), _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "-3.45x"
--- Right (JNumber {_minus = True, _numberint = JIntInt (3 :| []), _frac = Just (Frac (4 :| [5])), _expn = Nothing},'x')
+-- Right (JNumber {_minus = True, _numberint = JIntInt 3 [], _frac = Just (Frac (4 :| [5])), _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "3.45e10x"
--- Right (JNumber {_minus = False, _numberint = JIntInt (3 :| []), _frac = Just (Frac (4 :| [5])), _expn = Just (Exp {_ex = Ee, _minusplus = Nothing, _expdigits = 1 :| [0]})},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt 3 [], _frac = Just (Frac (4 :| [5])), _expn = Just (Exp {_ex = Ee, _minusplus = Nothing, _expdigits = 1 :| [0]})},'x')
 --
 -- >>> testparsethen parseJNumber "3e10x"
--- Right (JNumber {_minus = False, _numberint = JIntInt (3 :| []), _frac = Nothing, _expn = Just (Exp {_ex = Ee, _minusplus = Nothing, _expdigits = 1 :| [0]})},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt 3 [], _frac = Nothing, _expn = Just (Exp {_ex = Ee, _minusplus = Nothing, _expdigits = 1 :| [0]})},'x')
 --
 -- >>> testparsethen parseJNumber "3.45e+10x"
--- Right (JNumber {_minus = False, _numberint = JIntInt (3 :| []), _frac = Just (Frac (4 :| [5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = 1 :| [0]})},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt 3 [], _frac = Just (Frac (4 :| [5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = 1 :| [0]})},'x')
 --
 -- >>> testparsethen parseJNumber "-3.45e-02x"
--- Right (JNumber {_minus = True, _numberint = JIntInt (3 :| []), _frac = Just (Frac (4 :| [5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = 0 :| [2]})},'x')
+-- Right (JNumber {_minus = True, _numberint = JIntInt 3 [], _frac = Just (Frac (4 :| [5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = 0 :| [2]})},'x')
 --
 -- >>> isLeft (testparsethen parseJNumber "-3.45ex")
 -- True
@@ -402,11 +396,14 @@ parseJNumber = JNumber
 
 -- | Printing of JNumbers
 --
--- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt (D.Digit3 :| []), _frac = Just (Frac (D.Digit4 :| [D.Digit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = D.Digit1 :| [D.Digit0]})})
+-- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.Digit3 [], _frac = Just (Frac (D.Digit4 :| [D.Digit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = D.Digit1 :| [D.Digit0]})})
 -- "3.45e+10"
 --
--- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = True, _numberint = JIntInt (D.Digit3 :| []), _frac = Just (Frac (D.Digit4 :| [D.Digit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.Digit0 :| [D.x2]})})
+-- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = True, _numberint = JIntInt D.Digit3 [], _frac = Just (Frac (D.Digit4 :| [D.Digit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.Digit0 :| [D.x2]})})
 -- "-3.45e-02"
+--
+-- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.Digit0 [D.Digit0], _frac = Nothing, _expn = Nothing})
+-- "00"
 --
 jNumberBuilder
   :: JNumber
@@ -422,13 +419,13 @@ jNumberBuilder (JNumber sign digs mfrac mexp) =
 -- | Returns a normalised 'Scientific' value or Nothing if the exponent
 --   is out of the range @[minBound,maxBound::Int]@
 --
--- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt ( Digit3 :| [] ), _frac = Just (Frac (D.x4 :| [D.x5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.x0 :| [D.x2]})}
+-- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt Digit3 [], _frac = Just (Frac (D.x4 :| [D.x5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.x0 :| [D.x2]})}
 -- Just -3.45e-2
 --
--- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt (D.x1 :| [D.x2, D.x3]), _frac = Just (Frac (D.x4 :| [D.x5, D.x6])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = (D.x7 :| [D.x8, D.x9])})}
+-- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt D.x1 [D.x2, D.x3], _frac = Just (Frac (D.x4 :| [D.x5, D.x6])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = (D.x7 :| [D.x8, D.x9])})}
 -- Just -1.23456e-787
 --
--- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt (D.x1 :| [D.x2, D.x3]), _frac = Just (Frac (D.x4 :| [D.x5, D.x6])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = (D.x7 :| [D.x8, D.x9])})}
+-- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt D.x1 [D.x2, D.x3], _frac = Just (Frac (D.x4 :| [D.x5, D.x6])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = (D.x7 :| [D.x8, D.x9])})}
 -- Just -1.23456e791
 --
 jNumberToScientific :: JNumber -> Maybe Scientific
@@ -455,8 +452,8 @@ jNumberToScientific (JNumber sign int mfrac mexp) =
     expval (Exp _ msign digs) = natToNeg msign (naturalFromDigits digs)
 
 jIntToDigits :: JInt -> NonEmpty Digit
-jIntToDigits JZero        = D.x0 NE.:| []
-jIntToDigits (JIntInt ds) = ds
+jIntToDigits JZero          = D.x0 NE.:| []
+jIntToDigits (JIntInt d ds) = d NE.:| ds
 
 _NaturalDigits :: Prism' (NonEmpty Digit) Natural
 _NaturalDigits = prism' naturalDigits naturalFromDigits

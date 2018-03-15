@@ -1,14 +1,30 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveFoldable         #-}
+{-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE NoImplicitPrelude      #-}
 module Waargonaut.Types.LeadingTrailing where
+
+import           Prelude                 (Eq, Ord, Show)
+
+import           Control.Applicative     (Applicative, (<$>), (<*>))
+import           Control.Category        (id, (.))
+import           Control.Lens            (Lens')
+
+import           Data.Foldable           (Foldable)
+import           Data.Functor            (Functor, fmap)
+import           Data.Traversable        (Traversable)
+
+import           Data.Char               (Char)
 
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as BB
 
 import           Data.List               (intersperse)
 
-import           Data.Semigroup          ((<>))
+import           Data.Semigroup          (mconcat, (<>))
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -28,13 +44,40 @@ data LeadingTrailing a s = LeadingTrailing
   }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
+class HasLeadingTrailing c a s | c -> a s where
+  leadingTrailing :: Lens' c (LeadingTrailing a s)
+  a :: Lens' c a
+  {-# INLINE a #-}
+  leading :: Lens' c s
+  {-# INLINE leading #-}
+  trailing :: Lens' c s
+  {-# INLINE trailing #-}
+  a        = leadingTrailing . a
+  leading  = leadingTrailing . leading
+  trailing = leadingTrailing . trailing
+
+instance HasLeadingTrailing (LeadingTrailing a s) a s where
+  {-# INLINE a #-}
+  {-# INLINE leading #-}
+  {-# INLINE trailing #-}
+  leadingTrailing = id
+
+  a f (LeadingTrailing x1 x2 x3) =
+    fmap (\ y1 -> LeadingTrailing x1 y1 x3) (f x2)
+
+  leading f (LeadingTrailing x1 x2 x3) =
+    fmap (\ y1 -> LeadingTrailing y1 x2 x3) (f x1)
+
+  trailing f (LeadingTrailing x1 x2 x3) =
+    fmap (LeadingTrailing x1 x2) (f x3)
+
 parseLeadingTrailing
   :: Applicative f
   => f s
   -> f a
   -> f (LeadingTrailing a s)
-parseLeadingTrailing s a =
-  LeadingTrailing <$> s <*> a <*> s
+parseLeadingTrailing s a' =
+  LeadingTrailing <$> s <*> a' <*> s
 
 leadingTrailingBuilder
   :: (a -> Builder)

@@ -14,19 +14,21 @@ module Waargonaut where
 import           Data.ByteString.Builder          (Builder)
 import qualified Data.ByteString.Builder          as BB
 
-import           Prelude                          (Eq, Ord, Show)
+import           Prelude                          (Eq, Ord, Show, (==))
 
-import           Control.Applicative              (Alternative ((<|>)), (*>),
-                                                   (<$>), (<*), (<*>))
+import           Control.Applicative              (Alternative ((<|>)), pure,
+                                                   (*>), (<$>), (<*), (<*>))
 import           Control.Category                 (id, (.))
-import           Control.Lens                     (Lens', Prism', Rewrapped,
-                                                   Wrapped (..), iso, prism)
+import           Control.Lens                     (Index, IxValue, Ixed (..),
+                                                   Lens', Prism', Rewrapped,
+                                                   Wrapped (..), iso, prism, to,
+                                                   (%%~), (^.))
 import           Control.Monad                    (Monad)
 
 import           Data.Bool                        (Bool (..))
 import           Data.Either                      (Either (..))
 import           Data.Foldable                    (Foldable (..), asum)
-import           Data.Function                    (($))
+import           Data.Function                    (($), (&))
 import           Data.Functor                     (Functor (..))
 import           Data.Semigroup                   (mconcat, (<>))
 import           Data.Tuple                       (uncurry)
@@ -45,7 +47,7 @@ import           Waargonaut.Types.JString         (JString, jStringBuilder,
 
 import           Waargonaut.Types.Whitespace      (WS, parseWhitespace)
 
-import           Waargonaut.Types.LeadingTrailing (LeadingTrailing (..),
+import           Waargonaut.Types.LeadingTrailing (LeadingTrailing (..), a,
                                                    buildWrapped,
                                                    leadingTrailingBuilder,
                                                    parseLeadingTrailing)
@@ -109,17 +111,18 @@ class HasJsons c digit s | c -> digit s where
   jsons :: Lens' c (Jsons digit s)
   jsonsL :: Lens' c [Waargonaut.Types.LeadingTrailing.LeadingTrailing (Json digit s) s]
   {-# INLINE jsonsL #-}
-  jsonsL = (.) jsons jsonsL
+  jsonsL = jsons . jsonsL
+
 instance HasJsons (Jsons digit s) digit s where
   {-# INLINE jsonsL #-}
   jsons = id
-  jsonsL = iso (\ (Jsons x) -> x) Jsons
+  jsonsL = iso (\(Jsons x) -> x) Jsons
 
 instance Jsons digit s ~ t => Rewrapped (Jsons digit s) t
 
 instance Wrapped (Jsons digit s) where
   type Unwrapped (Jsons digit s) = [LeadingTrailing (Json digit s) s]
-  _Wrapped' = iso (\ (Jsons x) -> x) Jsons
+  _Wrapped' = iso (\(Jsons x) -> x) Jsons
 
 instance Functor (Jsons digit) where
     fmap f (Jsons ls) = Jsons (fmap ((\x -> x{_a = fmap f (_a x)}) . fmap f) ls)
@@ -128,7 +131,8 @@ instance Foldable (Jsons digit) where
     foldMap f (Jsons ls) = (foldMap . foldMap) f ls
 
 instance Traversable (Jsons digit) where
-    traverse f (Jsons ls) = Jsons <$> traverse traverse' ls where
+    traverse f (Jsons ls) = Jsons <$> traverse traverse' ls
+      where
         traverse' (LeadingTrailing l x r) =
             LeadingTrailing
                 <$> f l
@@ -141,7 +145,8 @@ newtype JObject digit s = JObject
   } deriving (Eq, Ord, Show)
 
 instance Functor (JObject digit) where
-    fmap f (JObject ls) = JObject (fmap fmap' ls) where
+    fmap f (JObject ls) = JObject (fmap fmap' ls)
+      where
         fmap' (LeadingTrailing l x r) =
             LeadingTrailing (f l) (fmap f x) (f r)
 
@@ -149,7 +154,8 @@ instance Foldable (JObject digit) where
     foldMap f (JObject ls) = (foldMap . foldMap) f ls
 
 instance Traversable (JObject digit) where
-    traverse f (JObject ls) = JObject <$> traverse traverse' ls where
+    traverse f (JObject ls) = JObject <$> traverse traverse' ls
+      where
         traverse' (LeadingTrailing l x r) =
             LeadingTrailing
                 <$> f l
@@ -157,23 +163,29 @@ instance Traversable (JObject digit) where
                 <*> f r
 
 class HasJObject c digit s | c -> digit s where
-  jObject :: Lens' c (JObject digit s)
+  jObject  :: Lens' c (JObject digit s)
   jobjectL :: Lens' c [LeadingTrailing (JAssoc digit s) s]
   {-# INLINE jobjectL #-}
   jobjectL = jObject . jobjectL
 
 instance HasJObject (JObject digit s) digit s where
   {-# INLINE jobjectL #-}
-  jObject = id
+  jObject  = id
   jobjectL = iso (\ (JObject x) -> x) JObject
 
 instance JObject digit s ~ t => Rewrapped (JObject digit s) t
-
 instance Wrapped (JObject digit s) where
   type Unwrapped (JObject digit s) = [LeadingTrailing (JAssoc digit s) s]
   _Wrapped' = iso (\ (JObject x) -> x) JObject
 
--- | Core JSON data structure, conforms to: <https://tools.ietf.org/html/rfc7159 rfc7159>
+-- | Base JSON data structure, conforms to: <https://tools.ietf.org/html/rfc7159 rfc7159>
+--
+-- Not entirely convinced this structure should contain information about the whitespace.
+-- Consider this type with the 's' dropped and then wrapped with newtype that had the 'LeadingTrailing':
+--
+-- newtype JSON digit s = JSON
+--   { _unJSON :: LeadingTrailing (Json digit s) s }
+--
 data Json digit s
   = JsonNull s
   | JsonBool Bool s
@@ -193,8 +205,8 @@ class AsJson r digit s | r -> digit s where
   _Json       :: Prism' r (Json digit s)
   _JsonNull   :: Prism' r s
   _JsonBool   :: Prism' r (Bool, s)
-  _JsonNumber :: Prism' r (Waargonaut.Types.JNumber.JNumber, s)
-  _JsonString :: Prism' r (Waargonaut.Types.JString.JString digit, s)
+  _JsonNumber :: Prism' r (JNumber, s)
+  _JsonString :: Prism' r (JString digit, s)
   _JsonArray  :: Prism' r (Jsons digit s, s)
   _JsonObject :: Prism' r (JObject digit s, s)
 
@@ -242,6 +254,18 @@ instance AsJson (Json digit s) digit s where
         JsonObject y1 y2 -> Right (y1, y2)
         _                -> Left x
     )
+
+type instance Index (Json digit s)   = JString digit
+type instance IxValue (Json digit s) = Json digit s
+
+instance Eq digit => Ixed (Json digit s) where
+  ix i f (JsonObject (JObject j) s) = (`JsonObject` s) . JObject <$> traverse m j
+    where
+      m lt = if lt ^. a . key . a . to (== i)
+        then lt & a . value . a %%~ f
+        else pure lt
+
+  ix _ _ j           = pure j
 
 parseJAssoc
   :: ( Monad f
@@ -400,6 +424,11 @@ parseJsonString
 parseJsonString p =
   JsonString <$> parseJString <*> p
 
+-- |
+--
+-- >>> testparse (parseJsons parseWhitespace) "[null ]"
+-- Right (Jsons {_jsonsL = [LeadingTrailing {_leading = WS [], _a = JsonNull (WS [Space]), _trailing = WS []}]})
+--
 parseJsons
   :: ( Monad f
      , CharParsing f

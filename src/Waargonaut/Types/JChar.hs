@@ -8,7 +8,8 @@ import           Prelude                     (Char, Eq, Ord, Show, show, (&&),
                                               (*), (+), (<=), (==), (>=))
 
 import           Control.Category            (id, (.))
-import           Control.Lens                (Lens', Prism', has, prism, prism', ( # ))
+import           Control.Lens                (Lens', Prism', has, prism, prism',
+                                              ( # ))
 
 import           Control.Applicative         (pure, (*>), (<$>), (<*>), (<|>))
 import           Control.Monad               ((>>=))
@@ -18,7 +19,7 @@ import           Data.Either                 (Either (..))
 import           Data.Maybe                  (Maybe (..))
 
 import           Data.Foldable               (any, asum, foldMap, foldl)
-import           Data.Function               (const)
+import           Data.Function               (const, ($))
 import           Data.Semigroup              ((<>))
 
 import           Data.Digit                  (HeXaDeCiMaL)
@@ -83,10 +84,17 @@ instance AsJCharUnescaped JCharUnescaped where
 instance AsJCharUnescaped Char where
   _JCharUnescaped = prism'
     (\(JCharUnescaped c) -> c)
-    (\c ->  if any (\f -> f c) [(== '"'), (== '\\'), \x -> x >= '\x00' && x <= '\x1f']
-            then Nothing
+    (\c ->  if any ($ c) excluded then Nothing
             else Just (JCharUnescaped c)
     )
+    where
+      excluded =
+        [ (== '\NUL')
+        , (== '"')
+        , (== '\\')
+        , \x -> x >= '\x00' && x <= '\x1f'
+        ]
+
 
 data JCharEscaped digit
   = QuotationMark
@@ -176,16 +184,13 @@ instance AsJChar (JChar digit) digit where
   _EscapedJChar = prism EscapedJChar
     (\ x -> case x of
         EscapedJChar y1 -> Right y1
-        _ -> Left x
+        _               -> Left x
     )
   _UnescapedJChar = prism UnescapedJChar
     (\ x -> case x of
         UnescapedJChar y1 -> Right y1
-        _ -> Left x
+        _                 -> Left x
     )
-
-
-
 
 -- |
 --
@@ -277,6 +282,7 @@ parseJCharEscaped =
             , ('\\', ReverseSolidus)
             , ('/' , Solidus)
             , ('b' , Backspace)
+            , (' ' , WhiteSpace Space)
             , ('f' , WhiteSpace LineFeed)
             , ('n' , WhiteSpace NewLine)
             , ('r' , WhiteSpace CarriageReturn)

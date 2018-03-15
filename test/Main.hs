@@ -11,6 +11,8 @@ import qualified Data.ByteString.Lazy.Char8  as BSL8
 import           Data.Text                   (Text)
 import qualified Data.Text.Encoding          as Text
 
+import           Data.Digit                  (Digit)
+
 import           Hedgehog
 import           Text.Parsec                 (ParseError, Parsec)
 
@@ -20,13 +22,15 @@ import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Test.Tasty.HUnit
 
-import           Waargonaut                  (jsonBuilder, parseJsonBool,
+import           Waargonaut                  (Json, jsonBuilder, parseJsonBool,
                                               parseJsonNull, simpleParseJson)
 
 import           Waargonaut.Types.JNumber    (naturalDigits, naturalFromDigits)
-import           Waargonaut.Types.Whitespace (wsBuilder)
+import           Waargonaut.Types.Whitespace (WS, wsBuilder)
 
 import           Types.Common                (genNatural, genText)
+
+import           Types.Json
 
 import qualified Utils
 
@@ -41,7 +45,7 @@ prop_parse_except
   -> Property
 prop_parse_except fi pa = property $ do
   t <- forAll (Gen.filter fi genText)
-  isLeft (Utils.testparse pa t) === True
+  Hedgehog.assert . isLeft . Utils.testparse pa $ t
 
 prop_parse_null_term_only :: Property
 prop_parse_null_term_only = prop_parse_except
@@ -57,11 +61,52 @@ printParse :: ByteString -> Either ParseError ByteString
 printParse o = BSL8.toStrict . BB.toLazyByteString . jsonBuilder wsBuilder
   <$> Utils.testparse simpleParseJson (Text.decodeUtf8 o)
 
+prop_gen_json_tripping :: Property
+prop_gen_json_tripping = withTests 1000 . property $ do
+  j <- forAll genJson
+  tripping j encode decode
+
+prop_gen_json_print_parse_print_id :: Property
+prop_gen_json_print_parse_print_id = withTests 1000 . property $ do
+  printedA <- forAll $ encode <$> genJson
+  Right printedA === (encode <$> decode printedA)
+
+decode
+  :: Text
+  -> Either ParseError (Json Digit WS)
+decode =
+  Utils.testparse simpleParseJson
+
+encode
+  :: Json Digit WS
+  -> Text
+encode =
+  Text.decodeUtf8 .
+  BSL8.toStrict .
+  BB.toLazyByteString .
+  jsonBuilder wsBuilder
+
 properties :: TestTree
 properties = testGroup "Property Tests"
-  [ testProperty "Round Trip: Natural <-> NonEmpty Digits" prop_natural_digits_roundtrip
-  , testProperty "parseJsonNull 'null' parse only" prop_parse_null_term_only
-  , testProperty "parseJsonBool 'true'/'false' parse only" prop_parse_bool_term_only
+  [ testProperty
+      "Round Trip: Natural <-> NonEmpty Digits"
+      prop_natural_digits_roundtrip
+
+  , testProperty
+      "parseJsonNull 'null' parse only"
+      prop_parse_null_term_only
+
+  , testProperty
+      "parseJsonBool 'true'/'false' parse only"
+      prop_parse_bool_term_only
+
+  -- , testProperty
+  --     "Generate AST, round trip, compare ASTs"
+  --     prop_gen_json_tripping
+
+  , testProperty
+      "Generate AST -> print AST = (print . parse AST)"
+      prop_gen_json_print_parse_print_id
   ]
 
 testFile1 :: Assertion
