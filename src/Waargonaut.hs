@@ -11,6 +11,7 @@
 --
 module Waargonaut where
 
+
 import           Data.ByteString.Builder          (Builder)
 import qualified Data.ByteString.Builder          as BB
 
@@ -22,7 +23,7 @@ import           Control.Category                 (id, (.))
 import           Control.Lens                     (Index, IxValue, Ixed (..),
                                                    Lens', Prism', Rewrapped,
                                                    Wrapped (..), iso, prism, to,
-                                                   (%%~), (^.))
+                                                   (%%~), (^.), _1)
 import           Control.Monad                    (Monad)
 
 import           Data.Bool                        (Bool (..))
@@ -88,7 +89,7 @@ instance HasJAssoc (JAssoc digit s) digit s where
   {-# INLINE value #-}
 
 instance Functor (JAssoc digit) where
-    fmap f (JAssoc k v) = JAssoc (fmap f k) ((\x -> x{_a = fmap f (_a x)}) . fmap f $ v)
+    fmap f (JAssoc k v) = JAssoc (fmap f k) ((\x -> x {_a = fmap f (_a x)}) . fmap f $ v)
 
 instance Foldable (JAssoc digit) where
     foldMap f (JAssoc k v) = mconcat [foldMap f k, foldMap' v] where
@@ -186,6 +187,7 @@ instance Wrapped (JObject digit s) where
 -- newtype JSON digit s = JSON
 --   { _unJSON :: LeadingTrailing (Json digit s) s }
 --
+
 data Json digit s
   = JsonNull s
   | JsonBool Bool s
@@ -193,6 +195,7 @@ data Json digit s
   | JsonString (JString digit) s
   | JsonArray (Jsons digit s) s
   | JsonObject (JObject digit s) s
+  -- I don't think these are the instances that we want.
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 class HasJson c digit s | c -> digit s where
@@ -259,13 +262,10 @@ type instance Index (Json digit s)   = JString digit
 type instance IxValue (Json digit s) = Json digit s
 
 instance Eq digit => Ixed (Json digit s) where
-  ix i f (JsonObject (JObject j) s) = (`JsonObject` s) . JObject <$> traverse m j
-    where
-      m lt = if lt ^. a . key . a . to (== i)
-        then lt & a . value . a %%~ f
-        else pure lt
-
-  ix _ _ j           = pure j
+  ix i f = _JsonObject . _1 . jobjectL . traverse . a %%~ \ja ->
+    if ja ^. key . a . to (== i)
+      then ja & value . a %%~ f
+      else pure ja
 
 parseJAssoc
   :: ( Monad f

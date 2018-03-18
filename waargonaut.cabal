@@ -58,7 +58,7 @@ library
                      , Waargonaut.Types.JNumber
                      , Waargonaut.Types.LeadingTrailing
 
-  ghc-options:         -Wall -ddump-splices
+  ghc-options:         -Wall
 
   -- Other library packages from which modules are imported.
   build-depends:       base >=4.7 && <4.11
