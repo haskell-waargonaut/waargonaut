@@ -1,10 +1,24 @@
+{-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeFamilies               #-}
 module Waargonaut.Types.Whitespace where
+
+import           Control.Applicative     (liftA2)
+import           Control.Lens            (makeWrapped)
 
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as BB
 
+import           Data.Data               (Data)
+
+import           Data.List.NonEmpty      (NonEmpty ((:|)))
+
 import           Data.Foldable           (asum)
 import           Data.Functor            ((<$))
+import           Data.Semigroup          (Semigroup (..))
 
 import           Text.Parser.Char        (CharParsing, char, newline, tab)
 import           Text.Parser.Combinators (many)
@@ -31,15 +45,29 @@ data Whitespace
   | LineFeed
   | NewLine
   | CarriageReturn
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Data)
 
 newtype WS = WS [Whitespace]
-  deriving (Eq,  Show)
+  deriving (Eq, Show, Monoid, Semigroup, Data)
+makeWrapped ''WS
 
+oneWhitespace
+  :: CharParsing f
+  => f Whitespace
+oneWhitespace = asum
+  [ Space          <$ char ' '
+  , HorizontalTab  <$ tab
+  , LineFeed       <$ char '\f'
+  , CarriageReturn <$ char '\r'
+  , NewLine        <$ newline
+  ]
 -- |
 --
 -- >>> testparse parseWhitespace " "
 -- Right (WS [Space])
+--
+-- >>> testparse parseWhitespace "\n    "
+-- Right (WS [NewLine,Space,Space,Space,Space])
 --
 -- >>> testparse parseWhitespace " \t"
 -- Right (WS [Space,HorizontalTab])
@@ -56,17 +84,20 @@ newtype WS = WS [Whitespace]
 -- >>> testparse parseWhitespace ""
 -- Right (WS [])
 --
+-- >>> testparse parseWhitespace "\n   ]"
+-- Right (WS [NewLine,Space,Space,Space])
+--
 parseWhitespace
   :: CharParsing f
   => f WS
 parseWhitespace =
-  fmap WS . many $ asum
-    [ Space          <$ char ' '
-    , HorizontalTab  <$ tab
-    , LineFeed       <$ char '\f'
-    , CarriageReturn <$ char '\r'
-    , NewLine        <$ newline
-    ]
+  WS <$> many oneWhitespace
+
+parseSomeWhitespace
+  :: CharParsing f
+  => f (NonEmpty Whitespace)
+parseSomeWhitespace =
+  liftA2 (:|) oneWhitespace (many oneWhitespace)
 
 unescapedWhitespaceChar :: Whitespace -> Char
 unescapedWhitespaceChar Space          = ' '
@@ -95,6 +126,7 @@ whitespaceBuilder NewLine        = BB.charUtf8 '\n'
 -- | Reconstitute the given whitespace into its original form.
 wsBuilder :: WS -> Builder
 wsBuilder (WS ws) = foldMap whitespaceBuilder ws
+
 {-# INLINE wsBuilder #-}
 
 -- | Remove any whitespace. Minification for free, yay!

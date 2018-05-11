@@ -11,7 +11,6 @@
 --
 module Waargonaut where
 
-
 import           Data.ByteString.Builder          (Builder)
 import qualified Data.ByteString.Builder          as BB
 
@@ -41,9 +40,9 @@ import           Text.Parser.Combinators          (sepBy)
 
 import           Data.Digit                       (Decimal, Digit, HeXaDeCiMaL)
 
-import           Waargonaut.Types.JNumber         (JNumber, jNumberBuilder,
+import           Waargonaut.Types.JNumber         (HasJNumber (..), JNumber, jNumberBuilder,
                                                    parseJNumber)
-import           Waargonaut.Types.JString         (JString, jStringBuilder,
+import           Waargonaut.Types.JString         (HasJString (..), JString, jStringBuilder,
                                                    parseJString)
 
 import           Waargonaut.Types.Whitespace      (WS, parseWhitespace)
@@ -52,6 +51,8 @@ import           Waargonaut.Types.LeadingTrailing (LeadingTrailing (..), a,
                                                    buildWrapped,
                                                    leadingTrailingBuilder,
                                                    parseLeadingTrailing)
+
+import qualified WaargDraft as W
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -88,6 +89,9 @@ instance HasJAssoc (JAssoc digit s) digit s where
   value f (JAssoc x1 x2) = fmap (JAssoc x1) (f x2)
   {-# INLINE value #-}
 
+instance HasJAssoc (JObject digit s) digit s where
+  jAssoc = jObject . jAssoc
+
 instance Functor (JAssoc digit) where
     fmap f (JAssoc k v) = JAssoc (fmap f k) ((\x -> x {_a = fmap f (_a x)}) . fmap f $ v)
 
@@ -110,7 +114,7 @@ newtype Jsons digit s = Jsons
 
 class HasJsons c digit s | c -> digit s where
   jsons :: Lens' c (Jsons digit s)
-  jsonsL :: Lens' c [Waargonaut.Types.LeadingTrailing.LeadingTrailing (Json digit s) s]
+  jsonsL :: Lens' c [LeadingTrailing (Json digit s) s]
   {-# INLINE jsonsL #-}
   jsonsL = jsons . jsonsL
 
@@ -185,7 +189,7 @@ instance Wrapped (JObject digit s) where
 -- Consider this type with the 's' dropped and then wrapped with newtype that had the 'LeadingTrailing':
 --
 -- newtype JSON digit s = JSON
---   { _unJSON :: LeadingTrailing (Json digit s) s }
+--   { _unJSON :: LeadingTrailing (Jsonthree years of being useful, then they ruined it. tisk tisk. unJ :: Wrap s (JBit digit s) digit s) s }
 --
 
 data Json digit s
@@ -203,6 +207,18 @@ class HasJson c digit s | c -> digit s where
 
 instance HasJson (Json digit s) digit s where
   json = id
+
+instance HasJObject (Json digit s) digit s where
+  jObject = json . jObject
+
+instance HasJString (Json digit s) digit where
+  jString = json . jString
+
+instance HasJNumber (Json digit s) where
+  jNumber = json . jNumber
+
+instance HasJsons (Json digit s) digit s where
+  jsons = json . jsons
 
 class AsJson r digit s | r -> digit s where
   _Json       :: Prism' r (Json digit s)

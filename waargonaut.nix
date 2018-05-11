@@ -2,6 +2,7 @@
 , filepath, hedgehog, lens, mtl, papa, parsec, parsers, scientific
 , separated, stdenv, tasty, nats, tasty-expected-failure
 , tasty-hedgehog, template-haskell, text, tasty-hunit
+, contravariant, zippers
 }:
 mkDerivation {
   pname = "waargonaut";
@@ -9,7 +10,7 @@ mkDerivation {
   src = ./.;
   libraryHaskellDepends = [
     base bytestring digit lens mtl papa parsers scientific separated
-    text nats
+    text nats contravariant zippers
   ];
   testHaskellDepends = [
     base directory doctest filepath hedgehog parsec tasty tasty-expected-failure

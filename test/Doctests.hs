@@ -5,6 +5,7 @@ import           Test.DocTest
 main :: IO ()
 main = doctest
   [ "test/Utils.hs"
+  , "src/WaargDraft.hs"
   , "src/Waargonaut.hs"
   , "src/Waargonaut/Types/Whitespace.hs"
   , "src/Waargonaut/Types/JNumber.hs"

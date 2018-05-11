@@ -1,9 +1,13 @@
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoImplicitPrelude     #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE NoImplicitPrelude      #-}
+{-# LANGUAGE TypeFamilies           #-}
+--
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TemplateHaskell        #-}
 module Waargonaut.Types.JString
   ( JString (..)
+  , HasJString (..)
   , parseJString
   , jStringToText
   , jStringBuilder
@@ -12,7 +16,8 @@ module Waargonaut.Types.JString
 import           Prelude                 (Eq, Ord, Show)
 
 import           Control.Applicative     ((*>), (<*))
-import           Control.Lens            (Rewrapped, Wrapped (..), iso)
+import           Control.Lens            (Rewrapped, Wrapped (..), iso,
+                                          makeClassy)
 
 import           Data.Digit              (HeXaDeCiMaL)
 import           Data.Foldable           (foldMap)
@@ -52,6 +57,7 @@ instance Wrapped (JString digit) where
   type Unwrapped (JString digit) = [JChar digit]
   _Wrapped' = iso (\ (JString x) -> x) JString
 
+makeClassy ''JString
 -- |
 --
 -- >>> testparse parseJString "\"\""
