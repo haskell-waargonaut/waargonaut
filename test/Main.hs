@@ -8,6 +8,7 @@ import qualified Data.ByteString.Builder     as BB
 import qualified Data.ByteString.Char8       as BS8
 import qualified Data.ByteString.Lazy.Char8  as BSL8
 
+import Data.Semigroup ((<>))
 import           Data.Text                   (Text)
 import qualified Data.Text.Encoding          as Text
 
@@ -60,10 +61,6 @@ prop_parse_bool_term_only = prop_parse_except
   (\x -> x /= "true" && x /= "false")
   (parseJsonBool (return ()))
 
-printParse :: ByteString -> Either ParseError ByteString
-printParse o = BSL8.toStrict . BB.toLazyByteString . WD.jsonBuilder wsBuilder
-  <$> Utils.testparse WD.simpleWaargDraft (Text.decodeUtf8 o)
-
 prop_gen_json_tripping :: Property
 prop_gen_json_tripping = withTests 1000 . property $ do
   j <- forAll JD.genJson
@@ -75,10 +72,10 @@ prop_gen_json_tripping = withTests 1000 . property $ do
       BB.toLazyByteString .
       WD.jsonBuilder wsBuilder
 
-    dedecode = Utils.testparse WD.simpleWaargDraft
+    dedecode = Utils.testparsetheneof WD.simpleWaargDraft
 
 prop_gen_json_draft_print_parse_print_id :: Property
-prop_gen_json_draft_print_parse_print_id = withTests 1000 . property $ do
+prop_gen_json_draft_print_parse_print_id = withTests 5000 . property $ do
   printedA <- forAll $ enencode <$> JD.genJson
   Right printedA === (enencode <$> dedecode printedA)
   where
@@ -90,10 +87,10 @@ prop_gen_json_draft_print_parse_print_id = withTests 1000 . property $ do
 
     dedecode = Utils.testparse WD.simpleWaargDraft
 
-prop_gen_json_print_parse_print_id :: Property
-prop_gen_json_print_parse_print_id = withTests 1000 . property $ do
-  printedA <- forAll $ encode <$> genJson
-  Right printedA === (encode <$> decode printedA)
+-- prop_gen_json_print_parse_print_id :: Property
+-- prop_gen_json_print_parse_print_id = withTests 5000 . property $ do
+--   printedA <- forAll $ encode <$> genJson
+--   Right printedA === (encode <$> decode printedA)
 
 decode
   :: Text
@@ -125,23 +122,32 @@ properties = testGroup "Property Tests"
       prop_parse_bool_term_only
 
   , testProperty
-      "Generate DRAFT AST, round trip, compare ASTs"
+      "Using WaargDraft Types: parse . print = id"
       prop_gen_json_tripping
 
-  -- , testProperty
-  --     "Generate DRAFT AST -> print DRAFT AST = (print . parse DRAFT AST)"
-  --     prop_gen_json_draft_print_parse_print_id
+  , testProperty
+      "Using WaargDraft Types: print . parse . print = print"
+      prop_gen_json_draft_print_parse_print_id
 
   -- , testProperty
   --     "Generate AST -> print AST = (print . parse AST)"
   --     prop_gen_json_print_parse_print_id
-
   ]
+
+
+parsePrint :: ByteString -> Either ParseError ByteString
+parsePrint o = BSL8.toStrict . BB.toLazyByteString . WD.jsonBuilder wsBuilder
+  <$> Utils.testparse WD.simpleWaargDraft (Text.decodeUtf8 o)
 
 testFile :: FilePath -> Assertion
 testFile fp = do
   s <- BS8.readFile fp
-  printParse s @?= Right s
+  parsePrint s @?= Right s
+
+testFileFailure :: FilePath -> Assertion
+testFileFailure fp = do
+  s <- BS8.readFile fp
+  assertBool (fp <> " should fail to parse!") (isLeft $ parsePrint s)
 
 testFile1 :: Assertion
 testFile1 = testFile "test/test1.json"
@@ -159,13 +165,13 @@ testFile5 :: Assertion
 testFile5 = testFile "test/test3.json"
 
 unitTests :: TestTree
-unitTests = testGroup "Unit Tests" []
-  -- [ testCase "Round Trip on Test File 1 test1.json" testFile1
-  -- , testCase "Round Trip on Test File 2 test2.json" testFile2
-  -- , testCase "Round Trip on Test File 3 test3.json" testFile3
-  -- , testCase "Round Trip on Test File 4 twitter100.json" testFile4
-  -- , testCase "Round Trip on Test File 5 jp100.json" testFile5
-  -- ]
+unitTests = testGroup "Unit Tests"
+  [ testCase "print . parse = id on Test File 1 test1.json" testFile1
+  , testCase "print . parse = id on Test File 2 test2.json" testFile2
+  , testCase "print . parse = id on Test File 3 test3.json" testFile3
+  , testCase "print . parse = id on Test File 4 twitter100.json" testFile4
+  , testCase "print . parse = id on Test File 5 jp100.json" testFile5
+  ]
 
 main :: IO ()
 main = defaultMain $ testGroup "Waargonaut All Tests"

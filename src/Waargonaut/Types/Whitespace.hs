@@ -51,6 +51,9 @@ newtype WS = WS [Whitespace]
   deriving (Eq, Show, Monoid, Semigroup, Data)
 makeWrapped ''WS
 
+emptyWS :: WS
+emptyWS = WS []
+
 oneWhitespace
   :: CharParsing f
   => f Whitespace

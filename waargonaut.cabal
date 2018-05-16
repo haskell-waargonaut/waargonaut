@@ -54,6 +54,7 @@ library
   exposed-modules:     Waargonaut
                      , WaargDraft
                      , Waargonaut.Types.Whitespace
+                     , Waargonaut.Types.CommaSep
                      , Waargonaut.Types.JChar
                      , Waargonaut.Types.JString
                      , Waargonaut.Types.JNumber
@@ -73,6 +74,7 @@ library
                      , scientific
                      , contravariant
                      , zippers
+                     , distributive > 0.5 && <= 0.6
                      , nats >= 1 && <1.2
 
   -- Directories containing source files.

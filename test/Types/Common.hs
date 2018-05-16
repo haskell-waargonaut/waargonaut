@@ -16,8 +16,8 @@ import           Numeric.Natural             (Natural)
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Semigroup              ((<>))
 import           Data.Text                   (Text)
-import           Hedgehog
 
+import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
 import qualified Hedgehog.Range              as Range
 
