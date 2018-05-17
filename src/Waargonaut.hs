@@ -8,9 +8,7 @@
 {-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE TypeFamilies           #-}
---
 {-# LANGUAGE OverloadedStrings      #-}
-{-# LANGUAGE StandaloneDeriving     #-}
 module Waargonaut where
 
 import           Prelude                     (Eq, Show)

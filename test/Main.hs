@@ -94,21 +94,33 @@ testFileFailure fp = do
   assertBool (fp <> " should fail to parse!") (isLeft $ parsePrint s)
 
 unitTests :: TestTree
-unitTests = testGroup "Unit Tests (print . parse = id)"
-  [ testCase "test1.json" (testFile "test/test1.json")
-  , testCase "test2.json" (testFile "test/test2.json")
-  , testCase "test3.json" (testFile "test/test3.json")
-  , testCase "test5.json" (testFile "test/test5.json")
-  , testCase "test7.json" (testFile "test/test7.json")
-  , testCase "twitter100.json" (testFile "test/json-data/twitter100.json")
-  , testCase "jp100.json" (testFile "test/json-data/jp100.json")
-  ]
+unitTests =
+  testGroup "Unit Tests (print . parse = id)" (toTest <$> fs)
+  where
+    toTest f = testCase f (testFile f)
+
+    fs =
+      [ "test/json-data/test1.json"
+      , "test/json-data/test2.json"
+      , "test/json-data/test3.json"
+      , "test/json-data/test5.json"
+      , "test/json-data/test7.json"
+      , "test/json-data/twitter100.json"
+      , "test/json-data/jp100.json"
+      ]
 
 regressionTests :: TestTree
-regressionTests = testGroup "Regression Tests - Failure to parse = Success"
-  [ testCase "[11 12 13] (test4.json)" (testFileFailure "test/test4.json")
-  , testCase "{\"foo\":3\"bar\":4} (test6.json)" (testFileFailure "test/test6.json")
-  ]
+regressionTests = testGroup
+  "Regression Tests - Failure to parse = Success"
+  (toTestFail <$> fs)
+  where
+    toTestFail (dsc, f) =
+      testCase dsc (testFileFailure f)
+
+    fs =
+      [ ("[11 12 13] (test4.json)","test/json-data/test4.json")
+      , ("{\"foo\":3\"bar\":4} (test6.json)", "test/json-data/test6.json")
+      ]
 
 main :: IO ()
 main = defaultMain $ testGroup "Waargonaut All Tests"
