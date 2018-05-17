@@ -36,15 +36,13 @@ prop_natural_digits_roundtrip = property $ do
   naturalFromDigits (naturalDigits n) === Just n
 
 prop_gen_json_tripping :: Property
-prop_gen_json_tripping = withTests 1000 . property $ do
-  j <- forAll J.genJson
-  tripping j encodeText decode
+prop_gen_json_tripping = withTests 5000 . property $
+  forAll J.genJson >>= (\j -> tripping j encodeText decode)
 
 prop_gen_json_draft_print_parse_print_id :: Property
 prop_gen_json_draft_print_parse_print_id = withTests 5000 . property $ do
   printedA <- forAll $ encodeText <$> J.genJson
   Right printedA === (encodeText <$> decode printedA)
-
 
 encodeText
   :: Json
@@ -80,7 +78,6 @@ properties = testGroup "Property Tests"
   , testProperty
       "Using Waargonaut Types: print . parse . print = print"
       prop_gen_json_draft_print_parse_print_id
-
   ]
 
 parsePrint :: ByteString -> Either ParseError ByteString

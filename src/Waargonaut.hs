@@ -109,13 +109,17 @@ jsonAssocBuilder
   => (WS -> Builder)
   -> JsonAssoc digit WS Json
   -> Builder
-jsonAssocBuilder sBuilder (JsonAssoc k ktws vpws v) =
-  jStringBuilder k <>
-  sBuilder ktws <>
-  BB.charUtf8 ':' <>
-  sBuilder vpws <>
-  jsonBuilder sBuilder v
+jsonAssocBuilder ws (JsonAssoc k ktws vpws v) =
+  jStringBuilder k <> ws ktws <> BB.charUtf8 ':' <> ws vpws <> jsonBuilder ws v
 
+-- |
+--
+-- >>> testparse (parseJObject parseWhitespace simpleWaargonaut) "{\"foo\":null }"
+-- Right (JObject (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = JsonAssoc {_jsonAssocKey = JString [UnescapedJChar (JCharUnescaped 'f'),UnescapedJChar (JCharUnescaped 'o'),UnescapedJChar (JCharUnescaped 'o')], _jsonAssocKeyTrailingWS = WS [], _jsonAssocValPreceedingWS = WS [], _jsonAssocVal = Json (JNull (WS [Space]))}, _elemTrailing = Nothing}}))))
+--
+-- >>> testparse (parseJObject parseWhitespace simpleWaargonaut) "{\"foo\":null, }"
+-- Right (JObject (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = JsonAssoc {_jsonAssocKey = JString [UnescapedJChar (JCharUnescaped 'f'),UnescapedJChar (JCharUnescaped 'o'),UnescapedJChar (JCharUnescaped 'o')], _jsonAssocKeyTrailingWS = WS [], _jsonAssocValPreceedingWS = WS [], _jsonAssocVal = Json (JNull (WS []))}, _elemTrailing = Just (Comma,WS [Space])}}))))
+--
 parseJObject
   :: ( Monad f
      , CharParsing f
@@ -246,20 +250,21 @@ parseJStr ws =
 
 -- |
 --
--- >>> testparse (parseJArray parseWhitespace) "[null ]"
--- Right (JArray (WS []) (Just (JsonArr {_jsonArrVals = [], _jsonArrValLast = JsonArrElem {_jsonArrElemVal = Json (JNull (WS [Space])), _jsonArrElemTrailing = Nothing}})))
+-- >>> testparse (parseJArray parseWhitespace simpleWaargonaut) "[null ]"
+-- Right (JArray (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = Json (JNull (WS [Space])), _elemTrailing = Nothing}}))))
 --
--- >>> testparse (parseJArray parseWhitespace) "[null,]"
--- Right (JArray (WS []) (Just (JsonArr {_jsonArrVals = [], _jsonArrValLast = JsonArrElem {_jsonArrElemVal = Json (JNull (WS [])), _jsonArrElemTrailing = Just (Comma,WS [])}})))
+-- >>> testparse (parseJArray parseWhitespace simpleWaargonaut) "[null,]"
+-- Right (JArray (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = Json (JNull (WS [])), _elemTrailing = Just (Comma,WS [])}}))))
 --
 parseJArray
   :: ( Monad f
      , CharParsing f
      )
   => f ws
-  -> f (JArray ws Json)
-parseJArray ws = JArray <$>
-  parseCommaSeparated (char '[') (char ']') ws simpleWaargonaut
+  -> f a
+  -> f (JArray ws a)
+parseJArray ws a = JArray <$>
+  parseCommaSeparated (char '[') (char ']') ws a
 
 parseJArr
   :: ( Monad f
@@ -268,7 +273,7 @@ parseJArr
   => f ws
   -> f (JTypes Digit ws Json)
 parseJArr ws =
-  JArr <$> parseJArray ws <*> ws
+  JArr <$> parseJArray ws simpleWaargonaut <*> ws
 
 parseJObj
   :: ( Monad f
