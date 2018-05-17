@@ -11,5 +11,4 @@ main = doctest
   , "src/Waargonaut/Types/JNumber.hs"
   , "src/Waargonaut/Types/JChar.hs"
   , "src/Waargonaut/Types/JString.hs"
-  , "src/Waargonaut/Types/LeadingTrailing.hs"
   ]

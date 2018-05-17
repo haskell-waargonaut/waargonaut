@@ -162,7 +162,6 @@ jTypesBuilder s (JStr js tws)   = jStringBuilder js                             
 jTypesBuilder s (JArr js tws)   = jArrayBuilder s js                            <> s tws
 jTypesBuilder s (JObj jobj tws) = jObjectBuilder s jobj                         <> s tws
 
-
 jsonBuilder
   :: (WS -> Builder)
   -> Json

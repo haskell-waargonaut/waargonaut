@@ -115,7 +115,6 @@ instance AsJCharUnescaped Char where
         , \x -> x >= '\x00' && x <= '\x1f'
         ]
 
-
 data JCharEscaped digit
   = QuotationMark
   | ReverseSolidus
@@ -334,12 +333,10 @@ parseJCharEscaped =
 parseJChar ::
   (CharParsing f, HeXaDeCiMaL digit) =>
   f ( JChar digit )
-parseJChar =
-  asum
-    [
-      EscapedJChar <$> try parseJCharEscaped
-    , UnescapedJChar <$> parseJCharUnescaped
-    ]
+parseJChar = asum
+  [ EscapedJChar <$> try parseJCharEscaped
+  , UnescapedJChar <$> parseJCharUnescaped
+  ]
 
 jCharToChar :: HeXaDeCiMaL digit => JChar digit -> Char
 jCharToChar (UnescapedJChar (JCharUnescaped c)) = c

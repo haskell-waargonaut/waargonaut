@@ -8,7 +8,7 @@ import qualified Hedgehog.Gen                as Gen
 
 import qualified Types.JNumber               as G
 import qualified Types.JString               as G
-import qualified Types.LeadingTrailing       as G
+import qualified Types.Whitespace            as G
 
 import           Data.Digit                  (Digit)
 
@@ -46,8 +46,12 @@ genJsonNonRecursive = (fmap . fmap) Json
   , JBool <$> Gen.bool     <*> G.genWS
   , JNum  <$> G.genJNumber <*> G.genWS
   , JStr  <$> G.genJString <*> G.genWS
-  , JArr  <$> (JArray      <$> genEmptyCommaSeparated G.genWS) <*> G.genWS
+  , emptyCommaSep JArr JArray
+  , emptyCommaSep JObj JObject
   ]
+  where
+    emptyCommaSep oc c =
+      oc <$> (c <$> genEmptyCommaSeparated G.genWS) <*> G.genWS
 
 genJson :: Gen Json
 genJson = Gen.recursive Gen.choice

@@ -57,7 +57,6 @@ library
                      , Waargonaut.Types.JChar
                      , Waargonaut.Types.JString
                      , Waargonaut.Types.JNumber
-                     , Waargonaut.Types.LeadingTrailing
 
   ghc-options:         -Wall
 
@@ -104,7 +103,7 @@ test-suite waarg-tests
                     , Types.JNumber
                     , Types.JString
                     , Types.Json
-                    , Types.LeadingTrailing
+                    , Types.Whitespace
                     , Utils
 
   type:                exitcode-stdio-1.0

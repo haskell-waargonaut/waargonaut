@@ -27,15 +27,6 @@ import qualified Types.Json                  as J
 
 import qualified Utils
 
-prop_gen_json_tripping :: Property
-prop_gen_json_tripping = withTests 5000 . property $
-  forAll J.genJson >>= (\j -> tripping j encodeText decode)
-
-prop_gen_json_draft_print_parse_print_id :: Property
-prop_gen_json_draft_print_parse_print_id = withTests 5000 . property $ do
-  printedA <- forAll $ encodeText <$> J.genJson
-  Right printedA === (encodeText <$> decode printedA)
-
 encodeText
   :: Json
   -> Text
@@ -56,6 +47,15 @@ decode
   -> Either ParseError Json
 decode =
   Utils.testparse W.simpleWaargonaut
+
+prop_gen_json_tripping :: Property
+prop_gen_json_tripping = withTests 5000 . property $
+  forAll J.genJson >>= (\j -> tripping j encodeText decode)
+
+prop_gen_json_draft_print_parse_print_id :: Property
+prop_gen_json_draft_print_parse_print_id = withTests 5000 . property $ do
+  printedA <- forAll $ encodeText <$> J.genJson
+  Right printedA === (encodeText <$> decode printedA)
 
 properties :: TestTree
 properties = testGroup "Property Tests"
