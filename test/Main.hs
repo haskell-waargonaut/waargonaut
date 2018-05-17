@@ -21,19 +21,11 @@ import           Test.Tasty.HUnit
 
 import           Waargonaut                  (Json)
 import qualified Waargonaut                  as W
-
-import           Waargonaut.Types.JNumber    (naturalDigits, naturalFromDigits)
 import qualified Waargonaut.Types.Whitespace as WS
 
-import           Types.Common                (genNatural)
 import qualified Types.Json                  as J
 
 import qualified Utils
-
-prop_natural_digits_roundtrip :: Property
-prop_natural_digits_roundtrip = property $ do
-  n <- forAll genNatural
-  naturalFromDigits (naturalDigits n) === Just n
 
 prop_gen_json_tripping :: Property
 prop_gen_json_tripping = withTests 5000 . property $
@@ -68,10 +60,6 @@ decode =
 properties :: TestTree
 properties = testGroup "Property Tests"
   [ testProperty
-      "Round Trip: Natural <-> NonEmpty Digits"
-      prop_natural_digits_roundtrip
-
-  , testProperty
       "Using Waargonaut Types: parse . print = id"
       prop_gen_json_tripping
 

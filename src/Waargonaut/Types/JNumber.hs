@@ -8,19 +8,17 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 module Waargonaut.Types.JNumber where
 
-import           Prelude                 (Bool (..), Eq, Int, Ord, Show, error,
+import           Prelude                 (Bool (..), Eq, Int, Ord, Show,
                                           fromIntegral, maxBound, minBound,
-                                          negate, replicate, (*), (+), (-), (<),
-                                          (>), (^), (||))
+                                          negate, (-), (<), (>), (||))
 
 import           Data.Scientific         (Scientific)
 import qualified Data.Scientific         as Sci
-import           Numeric.Natural         (Natural)
 
 import           Control.Category        (id, (.))
 import           Control.Lens            (Lens', Prism', Rewrapped,
-                                          Wrapped (..), ifoldrM, iso, prism,
-                                          prism', ( # ), (^?), _Just, _Wrapped)
+                                          Wrapped (..), iso, prism, ( # ), (^?),
+                                          _Just, _Wrapped)
 
 import           Control.Applicative     (pure, (*>), (<$), (<$>), (<*>))
 import           Control.Monad           (Monad, (=<<))
@@ -32,7 +30,7 @@ import           Data.Maybe              (Maybe (..), fromMaybe, isJust, maybe)
 import           Data.Monoid             (mempty)
 import           Data.Semigroup          (mappend, (<>))
 
-import           Data.List.NonEmpty      (NonEmpty ((:|)), some1)
+import           Data.List.NonEmpty      (NonEmpty, some1)
 import qualified Data.List.NonEmpty      as NE
 
 import           Data.Foldable           (asum, foldMap, length)
@@ -51,16 +49,12 @@ import qualified Data.ByteString.Builder as BB
 -- >>> import Control.Monad (return)
 -- >>> import Data.Either(Either (..), isLeft)
 -- >>> import Data.Digit (Digit(..))
+-- >>> import Data.List.NonEmpty (NonEmpty ((:|)))
 -- >>> import qualified Data.Digit as D
 -- >>> import Text.Parsec(ParseError)
 -- >>> import Data.ByteString.Lazy (toStrict)
 -- >>> import Data.ByteString.Builder (toLazyByteString)
 -- >>> import Utils
-
--- data JInt
---   = JZero
---   | JIntInt (NonEmpty Digit)
---   deriving (Eq, Ord, Show)
 
 data JInt' digit where
   JZero   :: JInt' digit
@@ -442,91 +436,17 @@ jNumberToScientific (JNumber sign int mfrac mexp) =
     fracList      = mfrac ^? _Just . _Wrapped
     exponentShift = maybe 0 length fracList
 
-    coeff         = natToNeg (Just sign) (naturalFromDigits $ maybe intDigs (intDigs <>) fracList)
+    coeff         = natToNeg
+                      (Just sign)
+                      (D.digitsToNatural $ maybe intDigs (intDigs <>) fracList)
 
     expon         = fromMaybe 0 ( expval =<< mexp ) - fromIntegral exponentShift
 
     neg (Just True) = negate
     neg _           = id
 
-    expval (Exp _ msign digs) = natToNeg msign (naturalFromDigits digs)
+    expval (Exp _ msign digs) = natToNeg msign (D.digitsToNatural digs)
 
 jIntToDigits :: JInt -> NonEmpty Digit
 jIntToDigits JZero          = D.x0 NE.:| []
 jIntToDigits (JIntInt d ds) = d NE.:| ds
-
-_NaturalDigits :: Prism' (NonEmpty Digit) Natural
-_NaturalDigits = prism' naturalDigits naturalFromDigits
-
--- | NonEmpty Digits from a Natural number
---
--- >>> naturalDigits 0
--- 0 :| []
---
--- >>> naturalDigits 9
--- 9 :| []
---
--- >>> naturalDigits 393564
--- 3 :| [9,3,5,6,4]
---
--- >>> naturalDigits 9223372036854775807
--- 9 :| [2,2,3,3,7,2,0,3,6,8,5,4,7,7,5,8,0,7]
---
-naturalDigits :: Natural -> NonEmpty Digit
-naturalDigits n =
-  case Sci.toDecimalDigits $ fromIntegral n of
-    -- Sci.toDecimalDigits :: n -> ([n],n)
-    -- Sci.toDecimalDigits 0    = ([0],0)
-    -- Sci.toDecimalDigits (-0) = ([0],0)
-    -- Sci.toDecimalDigits (-1) = ([-1],1)
-    ([],   _  ) -> error "INCONCEIVABLE!"
-    (x:xs, eXP) -> g x :| (g <$> xs) <> t (x:xs) eXP
-
-  where
-    t allDigs eXP =
-      replicate (eXP - length allDigs) D.Digit0
-
-    -- EWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW!
-    -- But you can't reach this point unless you have a non-zero absolute integral value. So... I dunno.
-    g 0 = D.x0
-    g 1 = D.x1
-    g 2 = D.x2
-    g 3 = D.x3
-    g 4 = D.x4
-    g 5 = D.x5
-    g 6 = D.x6
-    g 7 = D.x7
-    g 8 = D.x8
-    g 9 = D.x9
-    g _ = error "ALSO INCONCEIVABLE!"
-
--- | Create a number from a list of digits
---
--- >>> naturalFromDigits (D.x3 :| [D.x4])
--- Just 34
---
--- >>> naturalFromDigits (D.Digit3 :| [D.Digit9,D.Digit3,D.Digit5,D.Digit6,D.Digit4])
--- Just 393564
---
--- >>> naturalFromDigits (D.x0 :| [])
--- Just 0
---
--- Int maxBound for Int64
--- >>> naturalFromDigits (D.x9 :| [D.x2,D.x2,D.x3,D.x3,D.x7,D.x2,D.x0,D.x3,D.x6,D.x8,D.x5,D.x4,D.x7,D.x7,D.x5,D.x8,D.x0,D.x7])
--- Just 9223372036854775807
---
--- Int maxBound + 1 for Int64
--- >>> naturalFromDigits (D.x9 :| [D.x2,D.x2,D.x3,D.x3,D.x7,D.x2,D.x0,D.x3,D.x6,D.x8,D.x5,D.x4,D.x7,D.x7,D.x5,D.x8,D.x0,D.x8])
--- Nothing
---
-naturalFromDigits :: NonEmpty Digit -> Maybe Natural
-naturalFromDigits = fmap fromIntegral . ifoldrM f 0 . NE.reverse
-  where
-    f :: Int -> Digit -> Int -> Maybe Int
-    f i d curr =
-      let
-        next = (D.integralDecimal # d) * (10 ^ i)
-      in
-        if curr > maxBound - next
-        then Nothing
-        else Just (curr + next)

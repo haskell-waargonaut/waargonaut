@@ -62,19 +62,16 @@ library
   ghc-options:         -Wall
 
   -- Other library packages from which modules are imported.
-  build-depends:       base >= 4.7 && <= 4.12
-                     , lens
-                     , mtl
-                     , text
-                     , bytestring
-                     , parsers
-                     , digit
-                     , separated
-                     , scientific
-                     , contravariant
-                     , zippers
-                     , distributive > 0.5 && <= 0.6
-                     , nats >= 1 && <1.2
+  build-depends:       base         >= 4.7 && <= 4.12
+                     , lens         >= 4.15 && <= 5
+                     , mtl          >= 2.2 && <= 3
+                     , text         >= 1.2 && < 1.3
+                     , bytestring   >= 0.10.8 && <= 0.11
+                     , parsers      >= 0.12 && <= 0.13
+                     , digit        >= 0.5.2 && <= 0.6
+                     , scientific   >= 0.3 && <= 0.4
+                     , distributive >= 0.5 && <= 0.6
+                     , nats         >= 1 && <1.2
 
   -- Directories containing source files.
   hs-source-dirs:      src
@@ -96,6 +93,7 @@ test-suite doctests
                      , template-haskell >= 2.8
                      , parsec           >= 3.1
                      , text             >= 1.2 && < 1.3
+                     , digit            >= 0.5.2 && <= 0.6
 
   ghc-options:         -Wall -threaded
 
@@ -119,13 +117,12 @@ test-suite waarg-tests
                      , tasty-expected-failure >= 0.11 && <= 0.12
                      , hedgehog               >= 0.5  && <= 0.6
                      , tasty-hedgehog         >= 0.1  && <= 0.2
-                     , lens
-                     , bytestring
+                     , lens                   >= 4.15 && <= 5
+                     , bytestring             >= 0.10.8 && <= 0.11
+                     , digit                  >= 0.5.2 && <= 0.6
+                     , text                   >= 1.2 && < 1.3
+                     , parsec                 >= 3.1
                      , waargonaut
-                     , digit  >= 0.5 && < 0.6
-                     , separated
-                     , text >= 1.2 && < 1.3
-                     , parsec >= 3.1
 
   ghc-options:         -Wall
 

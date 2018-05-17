@@ -5,7 +5,6 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
-{-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE OverloadedStrings      #-}
@@ -15,7 +14,6 @@ import           Prelude                     (Eq, Show)
 
 import           Control.Applicative         ((<$>), (<*), (<*>), (<|>))
 import           Control.Category            ((.))
-import           Control.Lens                (makeClassy, makeClassyPrisms)
 import           Control.Monad               (Monad)
 
 import           Data.Distributive           (distribute)
@@ -57,32 +55,23 @@ newtype JArray ws a =
   JArray (CommaSeparated ws a)
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
-data JsonAssoc digit ws a = JsonAssoc
-  { _jsonAssocKey             :: JString digit
-  , _jsonAssocKeyTrailingWS   :: ws
-  , _jsonAssocValPreceedingWS :: ws
-  , _jsonAssocVal             :: a
-  }
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-makeClassy ''JsonAssoc
-
-newtype JObject digit ws a =
-  JObject (CommaSeparated ws (JsonAssoc digit ws a))
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-
-data JTypes digit ws a
-  = JNull ws
-  | JBool Bool ws
-  | JNum JNumber ws
-  | JStr (JString digit) ws
-  | JArr (JArray ws a) ws
-  | JObj (JObject digit ws a) ws
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-makeClassyPrisms ''JTypes
-
-newtype Json
-  = Json (JTypes Digit WS Json)
-  deriving (Eq, Show)
+-- |
+--
+-- >>> testparse (parseJArray parseWhitespace simpleWaargonaut) "[null ]"
+-- Right (JArray (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = Json (JNull (WS [Space])), _elemTrailing = Nothing}}))))
+--
+-- >>> testparse (parseJArray parseWhitespace simpleWaargonaut) "[null,]"
+-- Right (JArray (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = Json (JNull (WS [])), _elemTrailing = Just (Comma,WS [])}}))))
+--
+parseJArray
+  :: ( Monad f
+     , CharParsing f
+     )
+  => f ws
+  -> f a
+  -> f (JArray ws a)
+parseJArray ws a = JArray <$>
+  parseCommaSeparated (char '[') (char ']') ws a
 
 jArrayBuilder
   :: (WS -> Builder)
@@ -90,6 +79,18 @@ jArrayBuilder
   -> Builder
 jArrayBuilder ws (JArray cs) =
   commaSeparatedBuilder '[' ']' ws (jsonBuilder ws) cs
+
+data JsonAssoc digit ws a = JsonAssoc
+  { _jsonAssocKey             :: JString digit
+  , _jsonAssocKeyTrailingWS   :: ws
+  , _jsonAssocValPreceedingWS :: ws
+  , _jsonAssocVal             :: a
+  }
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+
+newtype JObject digit ws a =
+  JObject (CommaSeparated ws (JsonAssoc digit ws a))
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 parseJsonAssoc
   :: ( Monad f
@@ -137,6 +138,19 @@ jObjectBuilder
 jObjectBuilder ws (JObject c) =
   commaSeparatedBuilder '{' '}' ws (jsonAssocBuilder ws) c
 
+data JTypes digit ws a
+  = JNull ws
+  | JBool Bool ws
+  | JNum JNumber ws
+  | JStr (JString digit) ws
+  | JArr (JArray ws a) ws
+  | JObj (JObject digit ws a) ws
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+
+newtype Json
+  = Json (JTypes Digit WS Json)
+  deriving (Eq, Show)
+
 jTypesBuilder
   :: (WS -> Builder)
   -> JTypes Digit WS Json
@@ -148,12 +162,14 @@ jTypesBuilder s (JStr js tws)   = jStringBuilder js                             
 jTypesBuilder s (JArr js tws)   = jArrayBuilder s js                            <> s tws
 jTypesBuilder s (JObj jobj tws) = jObjectBuilder s jobj                         <> s tws
 
+
 jsonBuilder
   :: (WS -> Builder)
   -> Json
   -> Builder
 jsonBuilder ws (Json jt) =
   jTypesBuilder ws jt
+
 -- |
 --
 -- >>> testparse (parseJNull (return ())) "null"
@@ -245,24 +261,6 @@ parseJStr
   -> f (JTypes Digit ws a)
 parseJStr ws =
   JStr <$> parseJString <*> ws
-
--- |
---
--- >>> testparse (parseJArray parseWhitespace simpleWaargonaut) "[null ]"
--- Right (JArray (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = Json (JNull (WS [Space])), _elemTrailing = Nothing}}))))
---
--- >>> testparse (parseJArray parseWhitespace simpleWaargonaut) "[null,]"
--- Right (JArray (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = Json (JNull (WS [])), _elemTrailing = Just (Comma,WS [])}}))))
---
-parseJArray
-  :: ( Monad f
-     , CharParsing f
-     )
-  => f ws
-  -> f a
-  -> f (JArray ws a)
-parseJArray ws a = JArray <$>
-  parseCommaSeparated (char '[') (char ']') ws a
 
 parseJArr
   :: ( Monad f

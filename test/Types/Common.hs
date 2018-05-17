@@ -5,13 +5,10 @@ module Types.Common
   , genHeXaDeCiMaLDigit
   , genHeXaDeCiMaLDigitNoZero
   , genNonEmptyDecimalDigit
-  , genNatural
   , genText
   , genWhitespace
   ) where
 
-
-import           Numeric.Natural             (Natural)
 
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Semigroup              ((<>))
@@ -82,9 +79,6 @@ genWhitespace = Gen.element
   , NewLine
   , CarriageReturn
   ]
-
-genNatural :: Gen Natural
-genNatural = fmap fromIntegral <$> Gen.filter (>= 0) $ Gen.int Range.constantBounded
 
 genText :: Gen Text
 genText = Gen.text ( Range.linear 0 100 ) Gen.unicodeAll

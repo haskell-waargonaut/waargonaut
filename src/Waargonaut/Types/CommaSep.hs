@@ -1,12 +1,19 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE TupleSections     #-}
---
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE FlexibleInstances #-}
-module Waargonaut.Types.CommaSep where
+{-# LANGUAGE DeriveFoldable            #-}
+{-# LANGUAGE DeriveFunctor             #-}
+{-# LANGUAGE DeriveTraversable         #-}
+{-# LANGUAGE TupleSections             #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE StandaloneDeriving        #-}
+module Waargonaut.Types.CommaSep
+  ( CommaSeparated (..)
+  , Elems (..)
+  , Elem (..)
+  , Comma (..)
+  , parseComma
+  , commaBuilder
+  , parseCommaSeparated
+  , commaSeparatedBuilder
+  ) where
 
 import           Control.Applicative     (liftA2)
 import           Control.Lens            (snoc)
@@ -18,7 +25,6 @@ import           Data.Traversable        (Traversable)
 import           Data.Foldable           (asum)
 
 import           Data.Functor            (Functor)
--- import           Data.Functor.Classes    (Eq1 (..), Show1 (..), eq1, showsPrec1)
 import           Data.Functor.Identity   (Identity (..))
 
 import           Data.ByteString.Builder (Builder)
@@ -42,18 +48,6 @@ deriving instance (Show ws, Show a) => Show (Elem Maybe ws a)
 deriving instance (Eq ws, Eq a) => Eq (Elem Identity ws a)
 deriving instance (Eq ws, Eq a) => Eq (Elem Maybe ws a)
 
--- instance (Show ws, Show1 f) => Show1 (Elem f ws) where
---   liftShowsPrec = liftShowsPrec
-
--- instance (Show a, Show ws, Show1 f) => Show (Elem f ws a) where
---   showsPrec = showsPrec1
-
--- instance (Eq ws, Eq1 f) => Eq1 (Elem f ws) where
---   liftEq = liftEq
-
--- instance (Eq a, Eq ws, Eq1 f) => Eq (Elem f ws a) where
---   (==) = eq1
-
 data CommaSeparated ws a
   = CommaSeparated ws (Maybe (Elems ws a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
@@ -64,8 +58,8 @@ data Elems ws a = Elems
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
-commaB :: Builder
-commaB = BB.charUtf8 ','
+commaBuilder :: Builder
+commaBuilder = BB.charUtf8 ','
 
 parseComma :: CharParsing f => f Comma
 parseComma = Comma <$ char ','
@@ -77,22 +71,13 @@ parseCommaTrailingMaybe
 parseCommaTrailingMaybe =
   C.optional . liftA2 (,) parseComma
 
-parseCommaTrailingIdentity
-  :: CharParsing f
-  => f ws
-  -> f (Identity (Comma, ws))
-parseCommaTrailingIdentity ws =
-  Identity <$> liftA2 (,) parseComma ws
-
 commaTrailingBuilder
-  :: ( Functor f
-     , Foldable f
-     )
+  :: Foldable f
   => (ws -> Builder)
   -> f (Comma, ws)
   -> Builder
 commaTrailingBuilder wsB =
-  foldMap ((commaB <>) . wsB . snd)
+  foldMap ((commaBuilder <>) . wsB . snd)
 
 commaSeparatedBuilder
   :: Char
@@ -109,32 +94,6 @@ commaSeparatedBuilder op fin wsB aB (CommaSeparated lws elems) =
 
     buildElems (Elems es elst) = foldMap elemBuilder es <> elemBuilder elst
 
-parseCommaSepOpTrailing
-  :: ( Monad f
-     , CharParsing f
-     )
-  => (e -> (Comma,ws) -> b)
-  -> (e -> Maybe (Comma, ws) -> c)
-  -> ([b] -> c -> d)
-  -> f ws
-  -> f e
-  -> [b]
-  -> (e, (Comma, ws))
-  -> f d
-parseCommaSepOpTrailing idElem mayElem outerCons fws fa = go
-  where
-    fin cels lj sp =
-      pure $ outerCons cels (mayElem lj sp)
-
-    go commaElems (lastJ, lastSep) = do
-      mJ <- C.optional fa
-      case mJ of
-        Nothing -> fin commaElems lastJ (Just lastSep)
-        Just j -> do
-          msep <- parseCommaTrailingMaybe fws
-          let commaElems' = snoc commaElems $ idElem lastJ lastSep
-          maybe (fin commaElems' j Nothing) (go commaElems' . (j,)) msep
-
 parseCommaSeparatedElems
   :: ( Monad f
      , CharParsing f
@@ -143,15 +102,23 @@ parseCommaSeparatedElems
   -> f a
   -> f (Elems ws a)
 parseCommaSeparatedElems ws a = do
-  let
-    idElem e = Elem e . Identity
-
   hd <- a
   sep <- parseCommaTrailingMaybe ws
-  maybe
-    (pure $ Elems [] (Elem hd sep))
-    (parseCommaSepOpTrailing idElem Elem Elems ws a [] . (hd,))
-    sep
+  maybe (pure $ Elems [] (Elem hd sep)) (go [] . (hd,)) sep
+  where
+    idElem e = Elem e . Identity
+
+    fin cels lj sp =
+      pure $ Elems cels (Elem lj sp)
+
+    go commaElems (lastJ, lastSep) = do
+      mJ <- C.optional a
+      case mJ of
+        Nothing -> fin commaElems lastJ (Just lastSep)
+        Just j -> do
+          msep <- parseCommaTrailingMaybe ws
+          let commaElems' = snoc commaElems $ idElem lastJ lastSep
+          maybe (fin commaElems' j Nothing) (go commaElems' . (j,)) msep
 
 parseCommaSeparated
   :: ( Monad f
