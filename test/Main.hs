@@ -8,33 +8,25 @@ import qualified Data.ByteString.Builder     as BB
 import qualified Data.ByteString.Char8       as BS8
 import qualified Data.ByteString.Lazy.Char8  as BSL8
 
-import Data.Semigroup ((<>))
+import           Data.Semigroup              ((<>))
 import           Data.Text                   (Text)
 import qualified Data.Text.Encoding          as Text
 
-import           Data.Digit                  (Digit)
-
 import           Hedgehog
-import           Text.Parsec                 (ParseError, Parsec)
-
-import qualified Hedgehog.Gen                as Gen
+import           Text.Parsec                 (ParseError)
 
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Test.Tasty.HUnit
 
-import           Waargonaut                  (Json, jsonBuilder, parseJsonBool,
-                                              parseJsonNull, simpleParseJson)
+import           Waargonaut                  (Json)
+import qualified Waargonaut                  as W
 
 import           Waargonaut.Types.JNumber    (naturalDigits, naturalFromDigits)
-import           Waargonaut.Types.Whitespace (WS, wsBuilder)
+import qualified Waargonaut.Types.Whitespace as WS
 
-import qualified Types.JsonDraft             as JD
-import qualified WaargDraft                  as WD
-
-import           Types.Common                (genNatural, genText)
-
-import           Types.Json
+import           Types.Common                (genNatural)
+import qualified Types.Json                  as J
 
 import qualified Utils
 
@@ -43,69 +35,37 @@ prop_natural_digits_roundtrip = property $ do
   n <- forAll genNatural
   naturalFromDigits (naturalDigits n) === Just n
 
-prop_parse_except
-  :: (Text -> Bool)
-  -> Parsec Text () a
-  -> Property
-prop_parse_except fi pa = property $ do
-  t <- forAll (Gen.filter fi genText)
-  Hedgehog.assert . isLeft . Utils.testparse pa $ t
-
-prop_parse_null_term_only :: Property
-prop_parse_null_term_only = prop_parse_except
-  (/= "null")
-  (parseJsonNull (return ()))
-
-prop_parse_bool_term_only :: Property
-prop_parse_bool_term_only = prop_parse_except
-  (\x -> x /= "true" && x /= "false")
-  (parseJsonBool (return ()))
-
 prop_gen_json_tripping :: Property
 prop_gen_json_tripping = withTests 1000 . property $ do
-  j <- forAll JD.genJson
-  tripping j enencode dedecode
-  where
-    enencode =
-      Text.decodeUtf8 .
-      BSL8.toStrict .
-      BB.toLazyByteString .
-      WD.jsonBuilder wsBuilder
-
-    dedecode = Utils.testparsetheneof WD.simpleWaargDraft
+  j <- forAll J.genJson
+  tripping j encodeText decode
 
 prop_gen_json_draft_print_parse_print_id :: Property
 prop_gen_json_draft_print_parse_print_id = withTests 5000 . property $ do
-  printedA <- forAll $ enencode <$> JD.genJson
-  Right printedA === (enencode <$> dedecode printedA)
-  where
-    enencode =
-      Text.decodeUtf8 .
-      BSL8.toStrict .
-      BB.toLazyByteString .
-      WD.jsonBuilder wsBuilder
+  printedA <- forAll $ encodeText <$> J.genJson
+  Right printedA === (encodeText <$> decode printedA)
 
-    dedecode = Utils.testparse WD.simpleWaargDraft
 
--- prop_gen_json_print_parse_print_id :: Property
--- prop_gen_json_print_parse_print_id = withTests 5000 . property $ do
---   printedA <- forAll $ encode <$> genJson
---   Right printedA === (encode <$> decode printedA)
+encodeText
+  :: Json
+  -> Text
+encodeText =
+  Text.decodeUtf8 .
+  encodeByteString
+
+encodeByteString
+  :: Json
+  -> ByteString
+encodeByteString =
+  BSL8.toStrict .
+  BB.toLazyByteString .
+  W.jsonBuilder WS.wsBuilder
 
 decode
   :: Text
-  -> Either ParseError (Json Digit WS)
+  -> Either ParseError Json
 decode =
-  Utils.testparse simpleParseJson
-
-encode
-  :: Json Digit WS
-  -> Text
-encode =
-  Text.decodeUtf8 .
-  BSL8.toStrict .
-  BB.toLazyByteString .
-  jsonBuilder wsBuilder
+  Utils.testparse W.simpleWaargonaut
 
 properties :: TestTree
 properties = testGroup "Property Tests"
@@ -114,30 +74,17 @@ properties = testGroup "Property Tests"
       prop_natural_digits_roundtrip
 
   , testProperty
-      "parseJsonNull 'null' parse only"
-      prop_parse_null_term_only
-
-  , testProperty
-      "parseJsonBool 'true'/'false' parse only"
-      prop_parse_bool_term_only
-
-  , testProperty
-      "Using WaargDraft Types: parse . print = id"
+      "Using Waargonaut Types: parse . print = id"
       prop_gen_json_tripping
 
   , testProperty
-      "Using WaargDraft Types: print . parse . print = print"
+      "Using Waargonaut Types: print . parse . print = print"
       prop_gen_json_draft_print_parse_print_id
 
-  -- , testProperty
-  --     "Generate AST -> print AST = (print . parse AST)"
-  --     prop_gen_json_print_parse_print_id
   ]
 
-
 parsePrint :: ByteString -> Either ParseError ByteString
-parsePrint o = BSL8.toStrict . BB.toLazyByteString . WD.jsonBuilder wsBuilder
-  <$> Utils.testparse WD.simpleWaargDraft (Text.decodeUtf8 o)
+parsePrint = fmap encodeByteString . decode . Text.decodeUtf8
 
 testFile :: FilePath -> Assertion
 testFile fp = do
@@ -149,32 +96,26 @@ testFileFailure fp = do
   s <- BS8.readFile fp
   assertBool (fp <> " should fail to parse!") (isLeft $ parsePrint s)
 
-testFile1 :: Assertion
-testFile1 = testFile "test/test1.json"
-
-testFile2 :: Assertion
-testFile2 = testFile "test/test2.json"
-
-testFile3 :: Assertion
-testFile3 = testFile "test/json-data/jp100.json"
-
-testFile4 :: Assertion
-testFile4 = testFile "test/json-data/twitter100.json"
-
-testFile5 :: Assertion
-testFile5 = testFile "test/test3.json"
-
 unitTests :: TestTree
-unitTests = testGroup "Unit Tests"
-  [ testCase "print . parse = id on Test File 1 test1.json" testFile1
-  , testCase "print . parse = id on Test File 2 test2.json" testFile2
-  , testCase "print . parse = id on Test File 3 test3.json" testFile3
-  , testCase "print . parse = id on Test File 4 twitter100.json" testFile4
-  , testCase "print . parse = id on Test File 5 jp100.json" testFile5
+unitTests = testGroup "Unit Tests (print . parse = id)"
+  [ testCase "test1.json" (testFile "test/test1.json")
+  , testCase "test2.json" (testFile "test/test2.json")
+  , testCase "test3.json" (testFile "test/test3.json")
+  , testCase "test5.json" (testFile "test/test5.json")
+  , testCase "test7.json" (testFile "test/test7.json")
+  , testCase "twitter100.json" (testFile "test/json-data/twitter100.json")
+  , testCase "jp100.json" (testFile "test/json-data/jp100.json")
+  ]
+
+regressionTests :: TestTree
+regressionTests = testGroup "Regression Tests - Failure to parse = Success"
+  [ testCase "[11 12 13] (test4.json)" (testFileFailure "test/test4.json")
+  , testCase "{\"foo\":3\"bar\":4} (test6.json)" (testFileFailure "test/test6.json")
   ]
 
 main :: IO ()
 main = defaultMain $ testGroup "Waargonaut All Tests"
   [ properties
   , unitTests
+  , regressionTests
   ]

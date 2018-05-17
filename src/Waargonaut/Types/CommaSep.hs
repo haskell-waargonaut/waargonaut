@@ -2,6 +2,10 @@
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE TupleSections     #-}
+--
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Waargonaut.Types.CommaSep where
 
 import           Control.Applicative     (liftA2)
@@ -14,7 +18,7 @@ import           Data.Traversable        (Traversable)
 import           Data.Foldable           (asum)
 
 import           Data.Functor            (Functor)
-import           Data.Functor.Classes    (Eq1 (..), Show1 (..), eq1, showsPrec1)
+-- import           Data.Functor.Classes    (Eq1 (..), Show1 (..), eq1, showsPrec1)
 import           Data.Functor.Identity   (Identity (..))
 
 import           Data.ByteString.Builder (Builder)
@@ -26,24 +30,29 @@ import qualified Text.Parser.Combinators as C
 data Comma = Comma
   deriving (Eq, Show)
 
-
 data Elem f ws a = Elem
   { _elemVal      :: a
   , _elemTrailing :: f (Comma, ws)
   }
   deriving (Functor, Foldable, Traversable)
 
-instance (Show ws, Show1 f) => Show1 (Elem f ws) where
-  liftShowsPrec = liftShowsPrec
+deriving instance (Show ws, Show a) => Show (Elem Identity ws a)
+deriving instance (Show ws, Show a) => Show (Elem Maybe ws a)
 
-instance (Show a, Show ws, Show1 f) => Show (Elem f ws a) where
-  showsPrec = showsPrec1
+deriving instance (Eq ws, Eq a) => Eq (Elem Identity ws a)
+deriving instance (Eq ws, Eq a) => Eq (Elem Maybe ws a)
 
-instance (Eq ws, Eq1 f) => Eq1 (Elem f ws) where
-  liftEq = liftEq
+-- instance (Show ws, Show1 f) => Show1 (Elem f ws) where
+--   liftShowsPrec = liftShowsPrec
 
-instance (Eq a, Eq ws, Eq1 f) => Eq (Elem f ws a) where
-  (==) = eq1
+-- instance (Show a, Show ws, Show1 f) => Show (Elem f ws a) where
+--   showsPrec = showsPrec1
+
+-- instance (Eq ws, Eq1 f) => Eq1 (Elem f ws) where
+--   liftEq = liftEq
+
+-- instance (Eq a, Eq ws, Eq1 f) => Eq (Elem f ws a) where
+--   (==) = eq1
 
 data CommaSeparated ws a
   = CommaSeparated ws (Maybe (Elems ws a))
@@ -84,6 +93,21 @@ commaTrailingBuilder
   -> Builder
 commaTrailingBuilder wsB =
   foldMap ((commaB <>) . wsB . snd)
+
+commaSeparatedBuilder
+  :: Char
+  -> Char
+  -> (ws -> Builder)
+  -> (a -> Builder)
+  -> CommaSeparated ws a
+  -> Builder
+commaSeparatedBuilder op fin wsB aB (CommaSeparated lws elems) =
+  BB.charUtf8 op <> wsB lws <> maybe mempty buildElems elems <> BB.charUtf8 fin
+  where
+    elemBuilder (Elem e eTrailing) =
+      aB e <> commaTrailingBuilder wsB eTrailing
+
+    buildElems (Elems es elst) = foldMap elemBuilder es <> elemBuilder elst
 
 parseCommaSepOpTrailing
   :: ( Monad f

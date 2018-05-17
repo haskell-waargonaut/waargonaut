@@ -52,7 +52,6 @@ tested-with:         GHC==8.2.2
 library
   -- Modules included in this executable, other than Main.
   exposed-modules:     Waargonaut
-                     , WaargDraft
                      , Waargonaut.Types.Whitespace
                      , Waargonaut.Types.CommaSep
                      , Waargonaut.Types.JChar
@@ -63,7 +62,7 @@ library
   ghc-options:         -Wall
 
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.7 && <4.11
+  build-depends:       base >= 4.7 && <= 4.12
                      , lens
                      , mtl
                      , text
@@ -89,24 +88,24 @@ test-suite doctests
   default-language:    Haskell2010
   hs-source-dirs:      test
 
-  build-depends:       base < 5 && >= 3
-                     , doctest >= 0.9.7
-                     , filepath >= 1.3
-                     , directory >= 1.1
-                     , template-haskell >= 2.8
-                     , parsec >= 3.1
+  build-depends:       base >= 4.7 && <= 4.12
                      , waargonaut
-                     , text >= 1.2 && < 1.3
+                     , doctest          >= 0.9.7
+                     , filepath         >= 1.3
+                     , directory        >= 1.1
+                     , template-haskell >= 2.8
+                     , parsec           >= 3.1
+                     , text             >= 1.2 && < 1.3
 
   ghc-options:         -Wall -threaded
 
 test-suite waarg-tests
    other-modules:     Types.Common
+                    , Types.CommaSep
                     , Types.JChar
                     , Types.JNumber
                     , Types.JString
                     , Types.Json
-                    , Types.JsonDraft
                     , Types.LeadingTrailing
                     , Utils
 
@@ -114,12 +113,12 @@ test-suite waarg-tests
   main-is:             Main.hs
   hs-source-dirs:      test
 
-  build-depends:       base                   >= 4.8  && < 4.11
-                     , tasty                  >= 0.11 && < 0.12
-                     , tasty-hunit            >= 0.9  && < 0.10
-                     , tasty-expected-failure >= 0.11 && < 0.12
-                     , hedgehog               >= 0.5  && < 0.6
-                     , tasty-hedgehog         >= 0.1  && < 0.2
+  build-depends:       base                   >= 4.7 && <= 4.12
+                     , tasty                  >= 0.11 && <= 0.12
+                     , tasty-hunit            >= 0.9  && <= 0.10
+                     , tasty-expected-failure >= 0.11 && <= 0.12
+                     , hedgehog               >= 0.5  && <= 0.6
+                     , tasty-hedgehog         >= 0.1  && <= 0.2
                      , lens
                      , bytestring
                      , waargonaut

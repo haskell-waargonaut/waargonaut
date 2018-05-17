@@ -1,15 +1,10 @@
+{-# LANGUAGE TupleSections #-}
 module Types.Json
   ( genJson
-  , genJsons
-  , genJObject
-  , genJAssoc
   ) where
-
-import           Control.Applicative         (liftA2)
 
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
-import qualified Hedgehog.Range              as Range
 
 import qualified Types.JNumber               as G
 import qualified Types.JString               as G
@@ -19,60 +14,48 @@ import           Data.Digit                  (Digit)
 
 import           Waargonaut.Types.Whitespace (WS)
 
-import           Waargonaut                  (JAssoc (..), JObject (..),
-                                              Json (..), Jsons (..))
+import           Waargonaut                  (JArray (..), JObject (..),
+                                              JTypes (..), Json (..),
+                                              JsonAssoc (..))
 
--- newtype Jsons digit s = Jsons
---   { _jsonsL :: [LeadingTrailing (Json digit s) s]
-genJsons :: Gen (Jsons Digit WS)
-genJsons = Jsons <$> Gen.recursive Gen.choice
-  [ Gen.constant []
-  ]
-  [ Gen.list (Range.linear 1 100) ( G.genLeadingTrailing genJson )
-  ]
+import           Types.CommaSep              (genCommaSeparated,
+                                              genEmptyCommaSeparated)
 
--- data JAssoc digit s = JAssoc
---   { _key   :: LeadingTrailing (JString digit) s
---   , _value :: LeadingTrailing (Json digit s) s
-genJAssoc :: Gen (JAssoc Digit WS)
+genJArray :: Gen (JArray WS Json)
+genJArray = JArray <$> genCommaSeparated G.genWS genJson
+
+genJAssoc :: Gen (JsonAssoc Digit WS Json)
 genJAssoc = Gen.recursive Gen.choice
   -- Non Recursive
-  (mk . G.genLeadingTrailing <$> genJsonNonRecursive)
+  (mk <$> genJsonNonRecursive)
   -- Recursive
-  [ mk $ G.genLeadingTrailing genJson
-  ]
+  [ mk genJson ]
   where
-    mk = liftA2 JAssoc (G.genLeadingTrailing G.genJString)
+    mk v = JsonAssoc
+      <$> G.genJString
+      <*> G.genWS
+      <*> G.genWS
+      <*> v
 
--- newtype JObject digit s = JObject
---   { _jobjectL :: [LeadingTrailing (JAssoc digit s) s]
-genJObject :: Gen (JObject Digit WS)
-genJObject = JObject <$> Gen.recursive Gen.choice
-  [ Gen.constant []
-  ]
-  [ Gen.list (Range.linear 1 100) ( G.genLeadingTrailing genJAssoc )
+genJObj :: Gen (JObject Digit WS Json)
+genJObj = JObject <$> genCommaSeparated G.genWS genJAssoc
+
+genJsonNonRecursive :: [Gen Json]
+genJsonNonRecursive = (fmap . fmap) Json
+  [ JNull <$> G.genWS
+  , JBool <$> Gen.bool     <*> G.genWS
+  , JNum  <$> G.genJNumber <*> G.genWS
+  , JStr  <$> G.genJString <*> G.genWS
+  , JArr  <$> (JArray      <$> genEmptyCommaSeparated G.genWS) <*> G.genWS
   ]
 
-genJsonNonRecursive :: [Gen (Json Digit WS)]
-genJsonNonRecursive =
-  [ JsonNull <$> G.genWS
-  , JsonBool <$> Gen.bool <*> G.genWS
-  , JsonNumber <$> G.genJNumber <*> G.genWS
-  , JsonString <$> G.genJString <*> G.genWS
-  ]
-
--- data Json digit s
---   = JsonNull s
---   | JsonBool Bool s
---   | JsonNumber JNumber s
---   | JsonString (JString digit) s
---   | JsonArray (Jsons digit s) s
---   | JsonObject (JObject digit s) s
-genJson :: Gen (Json Digit WS)
+genJson :: Gen Json
 genJson = Gen.recursive Gen.choice
   -- Non-recursive
   genJsonNonRecursive
   -- Recursive
-  [ JsonArray <$> genJsons <*> G.genWS
-  , JsonObject <$> genJObject <*> G.genWS
+  [ mk $ JArr <$> genJArray <*> G.genWS
+  , mk $ JObj <$> genJObj <*> G.genWS
   ]
+  where
+    mk = fmap Json

@@ -1,58 +1,50 @@
+{-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
 {-# LANGUAGE DeriveTraversable      #-}
 {-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
-{-# LANGUAGE OverloadedStrings      #-}
-{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE TypeFamilies           #-}
 --
-{-# LANGUAGE FunctionalDependencies #-}
---
+{-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE StandaloneDeriving     #-}
 module Waargonaut where
 
-import           Data.ByteString.Builder          (Builder)
-import qualified Data.ByteString.Builder          as BB
+import           Prelude                     (Eq, Show)
 
-import           Prelude                          (Eq, Ord, Show, (==))
+import           Control.Applicative         ((<$>), (<*), (<*>), (<|>))
+import           Control.Category            ((.))
+import           Control.Lens                (makeClassy, makeClassyPrisms)
+import           Control.Monad               (Monad)
 
-import           Control.Applicative              (Alternative ((<|>)), pure,
-                                                   (*>), (<$>), (<*), (<*>))
-import           Control.Category                 (id, (.))
-import           Control.Lens                     (Index, IxValue, Ixed (..),
-                                                   Lens', Prism', Rewrapped,
-                                                   Wrapped (..), iso, prism, to,
-                                                   (%%~), (^.), _1)
-import           Control.Monad                    (Monad)
+import           Data.Distributive           (distribute)
 
-import           Data.Bool                        (Bool (..))
-import           Data.Either                      (Either (..))
-import           Data.Foldable                    (Foldable (..), asum)
-import           Data.Function                    (($), (&))
-import           Data.Functor                     (Functor (..))
-import           Data.Semigroup                   (mconcat, (<>))
-import           Data.Tuple                       (uncurry)
+import           Data.ByteString.Builder     (Builder)
+import qualified Data.ByteString.Builder     as BB
 
-import           Data.Traversable                 (Traversable (..))
+import           Data.Bool                   (Bool (..))
 
-import           Text.Parser.Char                 (CharParsing, char, text)
-import           Text.Parser.Combinators          (sepBy)
+import           Data.Foldable               (Foldable (..), asum)
 
-import           Data.Digit                       (Decimal, Digit, HeXaDeCiMaL)
+import           Data.Functor                (Functor (..))
 
-import           Waargonaut.Types.JNumber         (HasJNumber (..), JNumber, jNumberBuilder,
-                                                   parseJNumber)
-import           Waargonaut.Types.JString         (HasJString (..), JString, jStringBuilder,
-                                                   parseJString)
+import           Data.Semigroup              ((<>))
 
-import           Waargonaut.Types.Whitespace      (WS, parseWhitespace)
+import           Data.Traversable            (Traversable (..))
 
-import           Waargonaut.Types.LeadingTrailing (LeadingTrailing (..), a,
-                                                   buildWrapped,
-                                                   leadingTrailingBuilder,
-                                                   parseLeadingTrailing)
+import           Text.Parser.Char            (CharParsing, char, text)
 
-import qualified WaargDraft as W
+import           Data.Digit                  (Digit, HeXaDeCiMaL)
+
+import           Waargonaut.Types.CommaSep   (CommaSeparated (..),
+                                              commaSeparatedBuilder,
+                                              parseCommaSeparated)
+import           Waargonaut.Types.JNumber
+import           Waargonaut.Types.JString
+import           Waargonaut.Types.Whitespace
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -63,445 +55,250 @@ import qualified WaargDraft as W
 -- >>> import Data.Digit (Digit)
 ----
 
--- | Associated values, HashMap that cares about leading/trailing @Whitespace@
-data JAssoc digit s = JAssoc
-  { _key   :: LeadingTrailing (JString digit) s
-  , _value :: LeadingTrailing (Json digit s) s
+newtype JArray ws a =
+  JArray (CommaSeparated ws a)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+
+data JsonAssoc digit ws a = JsonAssoc
+  { _jsonAssocKey             :: JString digit
+  , _jsonAssocKeyTrailingWS   :: ws
+  , _jsonAssocValPreceedingWS :: ws
+  , _jsonAssocVal             :: a
   }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+makeClassy ''JsonAssoc
 
-class HasJAssoc c digit s | c -> digit s where
-  jAssoc :: Lens' c (JAssoc digit s)
-  key :: Lens' c (LeadingTrailing (JString digit) s)
-  {-# INLINE key #-}
-  value :: Lens' c (LeadingTrailing (Json digit s) s)
-  {-# INLINE value #-}
+newtype JObject digit ws a =
+  JObject (CommaSeparated ws (JsonAssoc digit ws a))
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
-  key = jAssoc . key
-  value = jAssoc . value
+data JTypes digit ws a
+  = JNull ws
+  | JBool Bool ws
+  | JNum JNumber ws
+  | JStr (JString digit) ws
+  | JArr (JArray ws a) ws
+  | JObj (JObject digit ws a) ws
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+makeClassyPrisms ''JTypes
 
-instance HasJAssoc (JAssoc digit s) digit s where
-  jAssoc                 = id
+newtype Json
+  = Json (JTypes Digit WS Json)
+  deriving (Eq, Show)
 
-  key f (JAssoc x1 x2)   = fmap (`JAssoc` x2) (f x1)
-  {-# INLINE key #-}
+jArrayBuilder
+  :: (WS -> Builder)
+  -> JArray WS Json
+  -> Builder
+jArrayBuilder ws (JArray cs) =
+  commaSeparatedBuilder '[' ']' ws (jsonBuilder ws) cs
 
-  value f (JAssoc x1 x2) = fmap (JAssoc x1) (f x2)
-  {-# INLINE value #-}
-
-instance HasJAssoc (JObject digit s) digit s where
-  jAssoc = jObject . jAssoc
-
-instance Functor (JAssoc digit) where
-    fmap f (JAssoc k v) = JAssoc (fmap f k) ((\x -> x {_a = fmap f (_a x)}) . fmap f $ v)
-
-instance Foldable (JAssoc digit) where
-    foldMap f (JAssoc k v) = mconcat [foldMap f k, foldMap' v] where
-        foldMap' (LeadingTrailing l x r) = mconcat [f l, foldMap f x, f r]
-
-instance Traversable (JAssoc digit) where
-    traverse f (JAssoc k v) = JAssoc <$> traverse f k <*> traverse' v where
-        traverse' (LeadingTrailing l x r) =
-            LeadingTrailing
-                <$> f l
-                <*> traverse f x
-                <*> f r
-
--- | JSON Array
-newtype Jsons digit s = Jsons
-  { _jsonsL :: [LeadingTrailing (Json digit s) s]
-  } deriving (Eq, Ord, Show)
-
-class HasJsons c digit s | c -> digit s where
-  jsons :: Lens' c (Jsons digit s)
-  jsonsL :: Lens' c [LeadingTrailing (Json digit s) s]
-  {-# INLINE jsonsL #-}
-  jsonsL = jsons . jsonsL
-
-instance HasJsons (Jsons digit s) digit s where
-  {-# INLINE jsonsL #-}
-  jsons = id
-  jsonsL = iso (\(Jsons x) -> x) Jsons
-
-instance Jsons digit s ~ t => Rewrapped (Jsons digit s) t
-
-instance Wrapped (Jsons digit s) where
-  type Unwrapped (Jsons digit s) = [LeadingTrailing (Json digit s) s]
-  _Wrapped' = iso (\(Jsons x) -> x) Jsons
-
-instance Functor (Jsons digit) where
-    fmap f (Jsons ls) = Jsons (fmap ((\x -> x{_a = fmap f (_a x)}) . fmap f) ls)
-
-instance Foldable (Jsons digit) where
-    foldMap f (Jsons ls) = (foldMap . foldMap) f ls
-
-instance Traversable (Jsons digit) where
-    traverse f (Jsons ls) = Jsons <$> traverse traverse' ls
-      where
-        traverse' (LeadingTrailing l x r) =
-            LeadingTrailing
-                <$> f l
-                <*> traverse f x
-                <*> f r
-
--- | JSON Object
-newtype JObject digit s = JObject
-  { _jobjectL :: [LeadingTrailing (JAssoc digit s) s]
-  } deriving (Eq, Ord, Show)
-
-instance Functor (JObject digit) where
-    fmap f (JObject ls) = JObject (fmap fmap' ls)
-      where
-        fmap' (LeadingTrailing l x r) =
-            LeadingTrailing (f l) (fmap f x) (f r)
-
-instance Foldable (JObject digit) where
-    foldMap f (JObject ls) = (foldMap . foldMap) f ls
-
-instance Traversable (JObject digit) where
-    traverse f (JObject ls) = JObject <$> traverse traverse' ls
-      where
-        traverse' (LeadingTrailing l x r) =
-            LeadingTrailing
-                <$> f l
-                <*> traverse f x
-                <*> f r
-
-class HasJObject c digit s | c -> digit s where
-  jObject  :: Lens' c (JObject digit s)
-  jobjectL :: Lens' c [LeadingTrailing (JAssoc digit s) s]
-  {-# INLINE jobjectL #-}
-  jobjectL = jObject . jobjectL
-
-instance HasJObject (JObject digit s) digit s where
-  {-# INLINE jobjectL #-}
-  jObject  = id
-  jobjectL = iso (\ (JObject x) -> x) JObject
-
-instance JObject digit s ~ t => Rewrapped (JObject digit s) t
-instance Wrapped (JObject digit s) where
-  type Unwrapped (JObject digit s) = [LeadingTrailing (JAssoc digit s) s]
-  _Wrapped' = iso (\ (JObject x) -> x) JObject
-
--- | Base JSON data structure, conforms to: <https://tools.ietf.org/html/rfc7159 rfc7159>
---
--- Not entirely convinced this structure should contain information about the whitespace.
--- Consider this type with the 's' dropped and then wrapped with newtype that had the 'LeadingTrailing':
---
--- newtype JSON digit s = JSON
---   { _unJSON :: LeadingTrailing (Jsonthree years of being useful, then they ruined it. tisk tisk. unJ :: Wrap s (JBit digit s) digit s) s }
---
-
-data Json digit s
-  = JsonNull s
-  | JsonBool Bool s
-  | JsonNumber JNumber s
-  | JsonString (JString digit) s
-  | JsonArray (Jsons digit s) s
-  | JsonObject (JObject digit s) s
-  -- I don't think these are the instances that we want.
-  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
-
-class HasJson c digit s | c -> digit s where
-  json :: Lens' c (Json digit s)
-
-instance HasJson (Json digit s) digit s where
-  json = id
-
-instance HasJObject (Json digit s) digit s where
-  jObject = json . jObject
-
-instance HasJString (Json digit s) digit where
-  jString = json . jString
-
-instance HasJNumber (Json digit s) where
-  jNumber = json . jNumber
-
-instance HasJsons (Json digit s) digit s where
-  jsons = json . jsons
-
-class AsJson r digit s | r -> digit s where
-  _Json       :: Prism' r (Json digit s)
-  _JsonNull   :: Prism' r s
-  _JsonBool   :: Prism' r (Bool, s)
-  _JsonNumber :: Prism' r (JNumber, s)
-  _JsonString :: Prism' r (JString digit, s)
-  _JsonArray  :: Prism' r (Jsons digit s, s)
-  _JsonObject :: Prism' r (JObject digit s, s)
-
-  _JsonNull   = _Json . _JsonNull
-  _JsonBool   = _Json . _JsonBool
-  _JsonNumber = _Json . _JsonNumber
-  _JsonString = _Json . _JsonString
-  _JsonArray  = _Json . _JsonArray
-  _JsonObject = _Json . _JsonObject
-
-instance AsJson (Json digit s) digit s where
-  _Json = id
-  _JsonNull = prism JsonNull
-    (\ x -> case x of
-        JsonNull y1 -> Right y1
-        _           -> Left x
-    )
-
-  _JsonBool = prism (uncurry JsonBool)
-    (\ x -> case x of
-        JsonBool y1 y2 -> Right (y1, y2)
-        _              -> Left x
-    )
-
-  _JsonNumber = prism (uncurry JsonNumber)
-    (\ x -> case x of
-        JsonNumber y1 y2 -> Right (y1, y2)
-        _                -> Left x
-    )
-
-  _JsonString = prism (uncurry JsonString)
-    (\ x -> case x of
-        JsonString y1 y2 -> Right (y1, y2)
-        _                -> Left x
-    )
-
-  _JsonArray = prism (uncurry JsonArray)
-    (\ x -> case x of
-        JsonArray y1 y2 -> Right (y1, y2)
-        _               -> Left x
-    )
-
-  _JsonObject = prism (uncurry JsonObject)
-    (\ x -> case x of
-        JsonObject y1 y2 -> Right (y1, y2)
-        _                -> Left x
-    )
-
-type instance Index (Json digit s)   = JString digit
-type instance IxValue (Json digit s) = Json digit s
-
-instance Eq digit => Ixed (Json digit s) where
-  ix i f = _JsonObject . _1 . jobjectL . traverse . a %%~ \ja ->
-    if ja ^. key . a . to (== i)
-      then ja & value . a %%~ f
-      else pure ja
-
-parseJAssoc
+parseJsonAssoc
   :: ( Monad f
      , CharParsing f
      , HeXaDeCiMaL digit
      )
-  => f s
-  -> f (JAssoc digit s)
-parseJAssoc s = JAssoc
-  <$> parseLeadingTrailing s parseJString
-  <* char ':'
-  <*> parseLeadingTrailing s (parseJson s)
+  => f ws
+  -> f a
+  -> f (JsonAssoc digit ws a)
+parseJsonAssoc ws a = JsonAssoc
+  <$> parseJString <*> ws <* char ':' <*> ws <*> a
 
-jAssocBuilder
+jsonAssocBuilder
   :: HeXaDeCiMaL digit
-  => (s -> Builder)
-  -> JAssoc digit s
+  => (WS -> Builder)
+  -> JsonAssoc digit WS Json
   -> Builder
-jAssocBuilder sBuilder (JAssoc k v) =
-  leadingTrailingBuilder jStringBuilder sBuilder k <>
+jsonAssocBuilder sBuilder (JsonAssoc k ktws vpws v) =
+  jStringBuilder k <>
+  sBuilder ktws <>
   BB.charUtf8 ':' <>
-  leadingTrailingBuilder (jsonBuilder sBuilder) sBuilder v
-
-jsonsBuilder
-  :: HeXaDeCiMaL digit
-  => (s -> Builder)
-  -> Jsons digit s
-  -> Builder
-jsonsBuilder sBuilder (Jsons jl) =
-  buildWrapped '[' ']' sBuilder jsonBuilder jl
+  sBuilder vpws <>
+  jsonBuilder sBuilder v
 
 parseJObject
   :: ( Monad f
      , CharParsing f
      , HeXaDeCiMaL digit
      )
-  => f s
-  -> f (JObject digit s)
-parseJObject s =
-  JObject <$>
-    (
-      char '{' *>
-      sepBy (parseLeadingTrailing s (parseJAssoc s)) (char ',') <*
-      char '}'
-    )
+  => f ws
+  -> f a
+  -> f (JObject digit ws a)
+parseJObject ws a = JObject <$>
+  parseCommaSeparated (char '{') (char '}') ws (parseJsonAssoc ws a)
 
 jObjectBuilder
   :: HeXaDeCiMaL digit
-  => (s -> Builder)
-  -> JObject digit s
+  => (WS -> Builder)
+  -> JObject digit WS Json
   -> Builder
-jObjectBuilder sBuilder (JObject jL) =
-  buildWrapped '{' '}' sBuilder jAssocBuilder jL
+jObjectBuilder ws (JObject c) =
+  commaSeparatedBuilder '{' '}' ws (jsonAssocBuilder ws) c
+
+jTypesBuilder
+  :: (WS -> Builder)
+  -> JTypes Digit WS Json
+  -> BB.Builder
+jTypesBuilder s (JNull tws)     = BB.stringUtf8 "null"                          <> s tws
+jTypesBuilder s (JBool b tws)   = BB.stringUtf8 (if b then "true" else "false") <> s tws
+jTypesBuilder s (JNum jn tws)   = jNumberBuilder jn                             <> s tws
+jTypesBuilder s (JStr js tws)   = jStringBuilder js                             <> s tws
+jTypesBuilder s (JArr js tws)   = jArrayBuilder s js                            <> s tws
+jTypesBuilder s (JObj jobj tws) = jObjectBuilder s jobj                         <> s tws
 
 jsonBuilder
-  :: HeXaDeCiMaL digit
-  => (s -> Builder)
-  -> Json digit s
-  -> BB.Builder
-jsonBuilder s (JsonNull tws)        = BB.stringUtf8 "null"                          <> s tws
-jsonBuilder s (JsonBool b tws)      = BB.stringUtf8 (if b then "true" else "false") <> s tws
-jsonBuilder s (JsonNumber jn tws)   = jNumberBuilder jn                             <> s tws
-jsonBuilder s (JsonString js tws)   = jStringBuilder js                             <> s tws
-jsonBuilder s (JsonArray js tws)    = jsonsBuilder s js                             <> s tws
-jsonBuilder s (JsonObject jobj tws) = jObjectBuilder s jobj                         <> s tws
-
+  :: (WS -> Builder)
+  -> Json
+  -> Builder
+jsonBuilder ws (Json jt) =
+  jTypesBuilder ws jt
 -- |
 --
--- >>> testparse (parseJsonNull (return ())) "null"
--- Right (JsonNull ())
+-- >>> testparse (parseJNull (return ())) "null"
+-- Right (JNull ())
 --
--- >>> testparsetheneof (parseJsonNull (return ())) "null"
--- Right (JsonNull ())
+-- >>> testparsetheneof (parseJNull (return ())) "null"
+-- Right (JNull ())
 --
--- >>> testparsethennoteof (parseJsonNull (return ())) "nullx"
--- Right (JsonNull ())
+-- >>> testparsethennoteof (parseJNull (return ())) "nullx"
+-- Right (JNull ())
 --
-parseJsonNull
-  :: CharParsing f
-  => f s
-  -> f (Json digit s)
-parseJsonNull p =
-  JsonNull <$ text "null" <*> p
-
--- |
---
--- >>> testparse (parseJsonBool (return ())) "true"
--- Right (JsonBool True ())
---
--- >>> testparse (parseJsonBool (return ())) "false"
--- Right (JsonBool False ())
----
--- >>> testparsetheneof (parseJsonBool (return ())) "true"
--- Right (JsonBool True ())
---
--- >>> testparsetheneof (parseJsonBool (return ())) "false"
--- Right (JsonBool False ())
----
--- >>> testparsethennoteof (parseJsonBool (return ())) "truex"
--- Right (JsonBool True ())
---
--- >>> testparsethennoteof (parseJsonBool (return ())) "falsex"
--- Right (JsonBool False ())
---
-parseJsonBool
-  :: CharParsing f
-  => f s
-  -> f (Json digit s)
-parseJsonBool p =
-  let
-    b q t = JsonBool q <$ text t <*> p
-  in
-    b False "false" <|> b True "true"
-
-parseJsonNumber
-  :: ( Monad f
-     , CharParsing f
-     , Decimal digit
-     )
-  => f s
-  -> f (Json digit s)
-parseJsonNumber p =
-  JsonNumber <$> parseJNumber <*> p
-
--- |
---
--- >>> testparse (parseJsonString (return ())) "\"\""
--- Right (JsonString (JString []) ())
---
--- >>> testparse (parseJsonString (return ())) "\"abc\""
--- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
---
--- >> testparse (parseJsonString (return ())) "\"a\\rbc\""
--- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
---
--- >>> testparse (parseJsonString (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError (Json Digit ())
--- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
---
--- >>> testparsetheneof (parseJsonString (return ())) "\"\""
--- Right (JsonString (JString []) ())
---
--- >>> testparsetheneof (parseJsonString (return ())) "\"abc\""
--- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
---
--- >>> testparsethennoteof (parseJsonString (return ())) "\"a\"\\u"
--- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a')]) ())
---
--- >>> testparsethennoteof (parseJsonString (return ())) "\"a\"\t"
--- Right (JsonString (JString [UnescapedJChar (JCharUnescaped 'a')]) ())
-parseJsonString
+parseJNull
   :: ( CharParsing f
-     , HeXaDeCiMaL digit
      )
-  => f s
-  -> f (Json digit s)
-parseJsonString p =
-  JsonString <$> parseJString <*> p
+  => f ws
+  -> f (JTypes Digit ws a)
+parseJNull ws = JNull
+  <$ text "null"
+  <*> ws
 
 -- |
 --
--- >>> testparse (parseJsons parseWhitespace) "[null ]"
--- Right (Jsons {_jsonsL = [LeadingTrailing {_leading = WS [], _a = JsonNull (WS [Space]), _trailing = WS []}]})
+-- >>> testparse (parseJBool (return ())) "true"
+-- Right (JBool True ())
 --
-parseJsons
-  :: ( Monad f
-     , CharParsing f
-     , HeXaDeCiMaL digit
+-- >>> testparse (parseJBool (return ())) "false"
+-- Right (JBool False ())
+---
+-- >>> testparsetheneof (parseJBool (return ())) "true"
+-- Right (JBool True ())
+--
+-- >>> testparsetheneof (parseJBool (return ())) "false"
+-- Right (JBool False ())
+---
+-- >>> testparsethennoteof (parseJBool (return ())) "truex"
+-- Right (JBool True ())
+--
+-- >>> testparsethennoteof (parseJBool (return ())) "falsex"
+-- Right (JBool False ())
+--
+parseJBool
+  :: ( CharParsing f
      )
-  => f s
-  -> f (Jsons digit s)
-parseJsons s =
-  Jsons <$>
-    (
-      char '[' *>
-      sepBy (parseLeadingTrailing s (parseJson s)) (char ',') <*
-      char ']'
-    )
+  => f ws
+  -> f (JTypes Digit ws a)
+parseJBool ws =
+  let
+    b q t = JBool q <$ text t
+  in
+    (b False "false" <|> b True "true") <*> ws
 
-parseJsonArray
+parseJNum
   :: ( Monad f
      , CharParsing f
-     , HeXaDeCiMaL digit
      )
-  => f s
-  -> f (Json digit s)
-parseJsonArray p =
-  JsonArray <$> parseJsons p <*> p
+  => f ws
+  -> f (JTypes Digit ws a)
+parseJNum ws =
+  JNum <$> parseJNumber <*> ws
 
-parseJsonObject
-  :: ( Monad f
-     , CharParsing f
-     , HeXaDeCiMaL digit
-     )
-  => f s
-  -> f (Json digit s)
-parseJsonObject p =
-  JsonObject <$> parseJObject p <*> p
+-- |
+--
+-- >>> testparse (parseJStr (return ())) "\"\""
+-- Right (JStr (JString []) ())
+--
+-- >>> testparse (parseJStr (return ())) "\"abc\""
+-- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
+--
+-- >> testparse (parseJStr (return ())) "\"a\\rbc\""
+-- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
+--
+-- >>> testparse (parseJStr (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError (JTypes Digit () a)
+-- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
+--
+-- >>> testparsetheneof (parseJStr (return ())) "\"\""
+-- Right (JStr (JString []) ())
+--
+-- >>> testparsetheneof (parseJStr (return ())) "\"abc\""
+-- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
+--
+-- >>> testparsethennoteof (parseJStr (return ())) "\"a\"\\u"
+-- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a')]) ())
+--
+-- >>> testparsethennoteof (parseJStr (return ())) "\"a\"\t"
+-- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a')]) ())
+parseJStr
+  :: CharParsing f
+  => f ws
+  -> f (JTypes Digit ws a)
+parseJStr ws =
+  JStr <$> parseJString <*> ws
 
-parseJson
+-- |
+--
+-- >>> testparse (parseJArray parseWhitespace) "[null ]"
+-- Right (JArray (WS []) (Just (JsonArr {_jsonArrVals = [], _jsonArrValLast = JsonArrElem {_jsonArrElemVal = Json (JNull (WS [Space])), _jsonArrElemTrailing = Nothing}})))
+--
+-- >>> testparse (parseJArray parseWhitespace) "[null,]"
+-- Right (JArray (WS []) (Just (JsonArr {_jsonArrVals = [], _jsonArrValLast = JsonArrElem {_jsonArrElemVal = Json (JNull (WS [])), _jsonArrElemTrailing = Just (Comma,WS [])}})))
+--
+parseJArray
   :: ( Monad f
      , CharParsing f
-     , HeXaDeCiMaL digit
      )
-  => f s
-  -> f (Json digit s)
-parseJson =
-  asum . sequence
-    [
-      parseJsonNull
-    , parseJsonBool
-    , parseJsonNumber
-    , parseJsonString
-    , parseJsonArray
-    , parseJsonObject
+  => f ws
+  -> f (JArray ws Json)
+parseJArray ws = JArray <$>
+  parseCommaSeparated (char '[') (char ']') ws simpleWaargonaut
+
+parseJArr
+  :: ( Monad f
+     , CharParsing f
+     )
+  => f ws
+  -> f (JTypes Digit ws Json)
+parseJArr ws =
+  JArr <$> parseJArray ws <*> ws
+
+parseJObj
+  :: ( Monad f
+     , CharParsing f
+     )
+  => f ws
+  -> f (JTypes Digit ws Json)
+parseJObj ws =
+  JObj <$> parseJObject ws simpleWaargonaut <*> ws
+
+parseWaargonaut
+  :: ( Monad f
+     , CharParsing f
+     )
+  => f ws
+  -> f (JTypes Digit ws Json)
+parseWaargonaut =
+  asum . distribute
+    [ parseJNull
+    , parseJBool
+    , parseJNum
+    , parseJStr
+    , parseJArr
+    , parseJObj
     ]
 
-simpleParseJson
+simpleWaargonaut
   :: ( Monad f
      , CharParsing f
      )
-  => f (Json Digit WS)
-simpleParseJson =
-  parseJson parseWhitespace
+  => f Json
+simpleWaargonaut =
+  Json <$> parseWaargonaut parseWhitespace
