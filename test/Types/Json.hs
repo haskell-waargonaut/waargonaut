@@ -40,26 +40,32 @@ genJAssoc = Gen.recursive Gen.choice
 genJObj :: Gen (JObject Digit WS Json)
 genJObj = JObject <$> genCommaSeparated G.genWS genJAssoc
 
+toJson
+  :: (t -> WS -> JTypes Digit WS Json)
+  -> Gen t
+  -> Gen Json
+toJson c v =
+  (\v' -> Json . c v') <$> v <*> G.genWS
+
 genJsonNonRecursive :: [Gen Json]
-genJsonNonRecursive = (fmap . fmap) Json
-  [ JNull <$> G.genWS
-  , JBool <$> Gen.bool     <*> G.genWS
-  , JNum  <$> G.genJNumber <*> G.genWS
-  , JStr  <$> G.genJString <*> G.genWS
+genJsonNonRecursive =
+  [ toJson (const JNull) G.genWS
+  , toJson JBool Gen.bool
+  , toJson JNum G.genJNumber
+  , toJson JStr G.genJString
   , emptyCommaSep JArr JArray
   , emptyCommaSep JObj JObject
   ]
   where
-    emptyCommaSep oc c =
-      oc <$> (c <$> genEmptyCommaSeparated G.genWS) <*> G.genWS
+    emptyCommaSep oc c = Json <$> (
+      oc . c <$> genEmptyCommaSeparated G.genWS <*> G.genWS
+      )
 
 genJson :: Gen Json
 genJson = Gen.recursive Gen.choice
   -- Non-recursive
   genJsonNonRecursive
   -- Recursive
-  [ mk $ JArr <$> genJArray <*> G.genWS
-  , mk $ JObj <$> genJObj <*> G.genWS
+  [ toJson JArr genJArray
+  , toJson JObj genJObj
   ]
-  where
-    mk = fmap Json
