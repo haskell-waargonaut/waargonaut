@@ -48,24 +48,19 @@ decode
 decode =
   Utils.testparse W.simpleWaargonaut
 
-prop_gen_json_tripping :: Property
-prop_gen_json_tripping = withTests 5000 . property $
+prop_tripping :: Property
+prop_tripping = withTests 5000 . property $
   forAll J.genJson >>= (\j -> tripping j encodeText decode)
 
-prop_gen_json_draft_print_parse_print_id :: Property
-prop_gen_json_draft_print_parse_print_id = withTests 5000 . property $ do
+prop_print_parse_print_id :: Property
+prop_print_parse_print_id = withTests 5000 . property $ do
   printedA <- forAll $ encodeText <$> J.genJson
   Right printedA === (encodeText <$> decode printedA)
 
 properties :: TestTree
 properties = testGroup "Property Tests"
-  [ testProperty
-      "Using Waargonaut Types: parse . print = id"
-      prop_gen_json_tripping
-
-  , testProperty
-      "Using Waargonaut Types: print . parse . print = print"
-      prop_gen_json_draft_print_parse_print_id
+  [ testProperty "parse . print = id" prop_tripping
+  , testProperty "print . parse . print = print" prop_print_parse_print_id
   ]
 
 parsePrint :: ByteString -> Either ParseError ByteString
