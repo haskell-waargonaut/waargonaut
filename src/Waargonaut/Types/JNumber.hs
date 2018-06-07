@@ -27,8 +27,8 @@ import           Data.Either             (Either (..))
 import           Data.Function           (const, ($))
 import           Data.Functor            (fmap)
 import           Data.Maybe              (Maybe (..), fromMaybe, isJust, maybe)
-import           Data.Monoid             (mempty)
-import           Data.Semigroup          (mappend, (<>))
+import           Data.Monoid             (mempty, mappend)
+import           Data.Semigroup          ((<>))
 
 import           Data.List.NonEmpty      (NonEmpty, some1)
 import qualified Data.List.NonEmpty      as NE
