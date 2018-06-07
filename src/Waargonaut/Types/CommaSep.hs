@@ -1,9 +1,9 @@
-{-# LANGUAGE DeriveFoldable            #-}
-{-# LANGUAGE DeriveFunctor             #-}
-{-# LANGUAGE DeriveTraversable         #-}
-{-# LANGUAGE TupleSections             #-}
-{-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE StandaloneDeriving        #-}
+{-# LANGUAGE DeriveFoldable     #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE DeriveTraversable  #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TupleSections      #-}
 module Waargonaut.Types.CommaSep
   ( CommaSeparated (..)
   , Elems (..)

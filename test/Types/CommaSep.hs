@@ -1,6 +1,6 @@
 module Types.CommaSep where
 
-import Control.Applicative (liftA2)
+import           Control.Applicative       (liftA2)
 
 import           Hedgehog
 import qualified Hedgehog.Gen              as Gen
@@ -51,4 +51,3 @@ genCommaSeparated gWS gA = Gen.recursive Gen.choice
 
     genCommaIdElem = Elem <$> gA <*> genCommaIdentity gWS
     genCommaLastElem = Elem <$> gA <*> genCommaOp gWS
-

@@ -1,5 +1,6 @@
 { nixpkgs ? import <nixpkgs> {}
 , compiler ? "default"
+, bench ? false
 }:
 let
   inherit (nixpkgs) pkgs;
@@ -14,7 +15,12 @@ let
     };
   };
 
-  drv = modifiedHaskellPackages.callPackage ./waargonaut.nix {};
+  withBench = d:
+    if bench then pkgs.haskell.lib.doBenchmark d else d;
+
+  drv = withBench (
+    modifiedHaskellPackages.callPackage ./waargonaut.nix {}
+  );
 
 in
   if pkgs.lib.inNixShell then drv.env else drv

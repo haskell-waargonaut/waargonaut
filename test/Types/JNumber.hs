@@ -2,6 +2,9 @@ module Types.JNumber
   ( genJNumber
   ) where
 
+import           Control.Applicative      (liftA2)
+import           Control.Lens             (( # ))
+
 import           Hedgehog
 import qualified Hedgehog.Gen             as Gen
 
@@ -10,7 +13,7 @@ import           Types.Common             (genDecimalDigitNoZero,
                                            genNonEmptyDecimalDigit)
 
 import           Waargonaut.Types.JNumber (E (..), Exp (..), Frac (..), JInt,
-                                           JInt' (..), JNumber (..))
+                                           JNumber (..), _JIntInt, _JZero)
 
 genJNumber :: Gen JNumber
 genJNumber = JNumber
@@ -21,8 +24,8 @@ genJNumber = JNumber
 
 genJInt :: Gen JInt
 genJInt = Gen.choice
-  [ Gen.constant JZero
-  , JIntInt <$> genDecimalDigitNoZero <*> genDecimalDigits
+  [ Gen.constant (_JZero # ())
+  , (_JIntInt #) <$> liftA2 (,) genDecimalDigitNoZero genDecimalDigits
   ]
 
 genFrac :: Gen Frac

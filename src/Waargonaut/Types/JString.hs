@@ -1,10 +1,9 @@
 {-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
-{-# LANGUAGE TypeFamilies           #-}
---
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TypeFamilies           #-}
 module Waargonaut.Types.JString
   ( JString (..)
   , HasJString (..)
@@ -58,6 +57,7 @@ instance Wrapped (JString digit) where
   _Wrapped' = iso (\ (JString x) -> x) JString
 
 makeClassy ''JString
+
 -- |
 --
 -- >>> testparse parseJString "\"\""

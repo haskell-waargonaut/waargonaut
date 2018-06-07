@@ -1,12 +1,30 @@
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
-{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TypeFamilies          #-}
---
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE StandaloneDeriving    #-}
-module Waargonaut.Types.JNumber where
+module Waargonaut.Types.JNumber
+  ( JNumber (..)
+  , HasJNumber (..)
+
+  , E (..)
+  , AsE (..)
+
+  , Frac (..)
+
+  , Exp (..)
+  , HasExp (..)
+
+  , JInt
+  , _JZero
+  , _JIntInt
+
+  , jNumberBuilder
+  , parseJNumber
+
+  , jNumberToScientific
+  ) where
 
 import           Prelude                 (Bool (..), Eq, Int, Ord, Show,
                                           fromIntegral, maxBound, minBound,
@@ -27,8 +45,9 @@ import           Data.Either             (Either (..))
 import           Data.Function           (const, ($))
 import           Data.Functor            (fmap)
 import           Data.Maybe              (Maybe (..), fromMaybe, isJust, maybe)
-import           Data.Monoid             (mempty, mappend)
+import           Data.Monoid             (mappend, mempty)
 import           Data.Semigroup          ((<>))
+import           Data.Tuple              (uncurry)
 
 import           Data.List.NonEmpty      (NonEmpty, some1)
 import qualified Data.List.NonEmpty      as NE
@@ -56,15 +75,26 @@ import qualified Data.ByteString.Builder as BB
 -- >>> import Data.ByteString.Builder (toLazyByteString)
 -- >>> import Utils
 
-data JInt' digit where
-  JZero   :: JInt' digit
-  JIntInt :: D.DecimalNoZero digit => digit -> [Digit] -> JInt' digit
+data JInt' digit
+  = JZero
+  | JIntInt digit [Digit]
+  deriving (Eq, Ord, Show)
 
 type JInt = JInt' Digit
 
-deriving instance Show JInt
-deriving instance Eq JInt
-deriving instance Ord JInt
+_JZero :: Prism' JInt ()
+_JZero = prism (const JZero)
+  (\case
+      JZero -> Right ()
+      x -> Left x
+  )
+
+_JIntInt :: D.DecimalNoZero digit => Prism' (JInt' digit) (digit, [Digit])
+_JIntInt = prism (uncurry JIntInt)
+  (\case
+      JIntInt d ds -> Right (d,ds)
+      x -> Left x
+  )
 
 data E
   = EE
@@ -218,12 +248,6 @@ parseJInt =
     JZero <$ try (char '0')
   , JIntInt <$> D.parseDecimalNoZero <*> many D.parseDecimal
   ]
-
-jIntBuilder
-  :: JInt
-  -> Builder
-jIntBuilder JZero              = BB.int8Dec 0
-jIntBuilder (JIntInt dig digs) = digitsBuilder ( dig NE.:| digs )
 
 -- |
 --

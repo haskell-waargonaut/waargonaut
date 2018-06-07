@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
@@ -48,8 +47,15 @@ data Whitespace
   deriving (Eq, Ord, Show, Data)
 
 newtype WS = WS [Whitespace]
-  deriving (Eq, Show, Monoid, Semigroup, Data)
+  deriving (Eq, Show, Data)
 makeWrapped ''WS
+
+instance Monoid WS where
+  mempty = emptyWS
+  mappend (WS a) (WS b) = WS (a <> b)
+
+instance Semigroup WS where
+  (<>) = mappend
 
 emptyWS :: WS
 emptyWS = WS []
