@@ -1,16 +1,16 @@
-{ mkDerivation, base, bytestring, criterion, deepseq, digit
-, directory, distributive, doctest, filepath, hedgehog, lens, mtl
-, nats, parsec, parsers, scientific, semigroups, stdenv, tasty
+{ mkDerivation, base, bytestring, criterion, digit, directory
+, distributive, doctest, filepath, hedgehog, lens, mtl, nats
+, parsec, parsers, scientific, semigroups, stdenv, tasty
 , tasty-expected-failure, tasty-hedgehog, tasty-hunit
-, template-haskell, text
+, template-haskell, text, weigh
 }:
 mkDerivation {
   pname = "waargonaut";
   version = "0.1.0.0";
   src = ./.;
   libraryHaskellDepends = [
-    base bytestring deepseq digit distributive lens mtl nats parsers
-    scientific semigroups text
+    base bytestring digit distributive lens mtl nats parsers scientific
+    semigroups text
   ];
   testHaskellDepends = [
     base bytestring digit directory doctest filepath hedgehog lens
@@ -18,7 +18,7 @@ mkDerivation {
     template-haskell text
   ];
   benchmarkHaskellDepends = [
-    base criterion deepseq lens parsec text
+    base criterion lens parsec text weigh
   ];
   description = "JSON Mangling";
   license = stdenv.lib.licenses.bsd3;

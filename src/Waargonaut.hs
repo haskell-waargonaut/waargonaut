@@ -6,6 +6,8 @@
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TypeFamilies          #-}
+--
+{-# LANGUAGE BangPatterns #-}
 module Waargonaut where
 
 import           Prelude                     (Eq, Show)
@@ -80,9 +82,9 @@ jArrayBuilder ws (JArray cs) =
 
 data JsonAssoc digit ws a = JsonAssoc
   { _jsonAssocKey             :: JString digit
-  , _jsonAssocKeyTrailingWS   :: ws
-  , _jsonAssocValPreceedingWS :: ws
-  , _jsonAssocVal             :: a
+  , _jsonAssocKeyTrailingWS   :: !ws
+  , _jsonAssocValPreceedingWS :: !ws
+  , _jsonAssocVal             :: !a
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
