@@ -52,9 +52,12 @@ tested-with:         GHC==8.2.2
 library
   -- Modules included in this executable, other than Main.
   exposed-modules:     Waargonaut
+                     , Waargonaut.Types.Json
                      , Waargonaut.Types.Whitespace
                      , Waargonaut.Types.CommaSep
                      , Waargonaut.Types.JChar
+                     , Waargonaut.Types.JArray
+                     , Waargonaut.Types.JObject
                      , Waargonaut.Types.JString
                      , Waargonaut.Types.JNumber
 
@@ -95,7 +98,7 @@ test-suite doctests
                      , text             >= 1.2 && < 1.3
                      , digit            >= 0.5.2 && <= 0.6
 
-  ghc-options:         -Wall -threaded -f
+  ghc-options:         -Wall -threaded
 
 test-suite waarg-tests
    other-modules:     Types.Common
@@ -112,11 +115,11 @@ test-suite waarg-tests
   hs-source-dirs:      test
 
   build-depends:       base                   >= 4.7 && <= 4.12
-                     , tasty                  >= 0.11 && <= 0.12
-                     , tasty-hunit            >= 0.9  && <= 0.10
+                     , tasty                  >= 0.11 && <= 2
+                     , tasty-hunit            >= 0.10  && <= 0.11
                      , tasty-expected-failure >= 0.11 && <= 0.12
                      , hedgehog               >= 0.5  && <= 0.6
-                     , tasty-hedgehog         >= 0.1  && <= 0.2
+                     , tasty-hedgehog         >= 0.2  && <= 0.3
                      , lens                   >= 4.15 && <= 5
                      , bytestring             >= 0.10.8 && <= 0.11
                      , digit                  >= 0.5.2 && <= 0.6

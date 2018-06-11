@@ -15,5 +15,5 @@ simpleParse
   :: FilePath
   -> IO Bool
 simpleParse fp = isn't _Left
-  . parse W.simpleWaargonaut "Simple Test"
+  . parse W.parseWaargonaut "Simple Test"
   <$> TIO.readFile ("../test/json-data/" <> fp)

@@ -14,9 +14,10 @@ import           Data.Digit                  (Digit)
 
 import           Waargonaut.Types.Whitespace (WS)
 
-import           Waargonaut                  (JArray (..), JObject (..),
-                                              JTypes (..), Json (..),
-                                              JsonAssoc (..))
+import           Waargonaut.Types.JArray     (JArray (..))
+import           Waargonaut.Types.JObject    (JObject (..), JsonAssoc (..))
+
+import           Waargonaut                  (JTypes (..), Json (..))
 
 import           Types.CommaSep              (genCommaSeparated,
                                               genEmptyCommaSeparated)

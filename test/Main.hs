@@ -40,13 +40,13 @@ encodeByteString
 encodeByteString =
   BSL8.toStrict .
   BB.toLazyByteString .
-  W.jsonBuilder WS.wsBuilder
+  W.waargonautBuilder WS.wsBuilder
 
 decode
   :: Text
   -> Either ParseError Json
 decode =
-  Utils.testparse W.simpleWaargonaut
+  Utils.testparse W.parseWaargonaut
 
 prop_tripping :: Property
 prop_tripping = withTests 5000 . property $
