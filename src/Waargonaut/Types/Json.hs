@@ -1,42 +1,47 @@
-{-# LANGUAGE DeriveFoldable        #-}
-{-# LANGUAGE DeriveFunctor         #-}
-{-# LANGUAGE DeriveTraversable     #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoImplicitPrelude     #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE DeriveFoldable         #-}
+{-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE NoImplicitPrelude      #-}
+{-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE TypeFamilies           #-}
+--
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TemplateHaskell        #-}
 module Waargonaut.Types.Json
   ( JTypes (..)
   , Json (..)
   , waargonautBuilder
   , parseWaargonaut
+  --
+  , json
+  , AsJTypes (..)
   ) where
 
 import           Prelude                     (Eq, Show)
 
 import           Control.Applicative         ((<$>), (<*>), (<|>))
 import           Control.Category            ((.))
+import           Control.Lens                (Traversal', failing,
+                                              makeClassyPrisms, makeWrapped,
+                                              traverseOf, _1, _Wrapped)
 import           Control.Monad               (Monad)
+
+import           Data.Bool                   (Bool (..))
+import           Data.Foldable               (Foldable (..), asum)
+import           Data.Functor                (Functor (..))
+import           Data.Semigroup              ((<>))
+import           Data.Traversable            (Traversable (..))
 
 import           Data.Distributive           (distribute)
 
 import           Data.ByteString.Builder     (Builder)
 import qualified Data.ByteString.Builder     as BB
 
-import           Data.Bool                   (Bool (..))
-
-import           Data.Foldable               (Foldable (..), asum)
-
-import           Data.Functor                (Functor (..))
-
-import           Data.Semigroup              ((<>))
-
-import           Data.Traversable            (Traversable (..))
+import           Data.Digit                  (Digit)
 
 import           Text.Parser.Char            (CharParsing, text)
-
-import           Data.Digit                  (Digit)
 
 import           Waargonaut.Types.JArray     (JArray (..), jArrayBuilder,
                                               parseJArray)
@@ -46,7 +51,7 @@ import           Waargonaut.Types.JObject    (JObject, jObjectBuilder,
                                               parseJObject)
 import           Waargonaut.Types.JString    (JString, jStringBuilder,
                                               parseJString)
-import           Waargonaut.Types.Whitespace (WS, parseWhitespace)
+import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -66,9 +71,23 @@ data JTypes digit ws a
   | JObj (JObject digit ws a) ws
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+makeClassyPrisms ''JTypes
+
 newtype Json
   = Json (JTypes Digit WS Json)
   deriving (Eq, Show)
+
+makeWrapped ''Json
+
+instance AsJTypes Json Digit WS Json where
+  _JTypes = _Wrapped . _JTypes
+
+json :: Traversal' Json Json
+json = traverseOf
+  (_Wrapped . failing
+    (_JObj . _1 . traverse)
+    (_JArr . _1 . _Wrapped . traverse)
+  )
 
 jTypesBuilder
   :: (WS -> Builder)

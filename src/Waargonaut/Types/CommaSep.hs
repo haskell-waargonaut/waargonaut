@@ -1,30 +1,49 @@
-{-# LANGUAGE DeriveFoldable     #-}
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE DeriveTraversable  #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TupleSections      #-}
+{-# LANGUAGE DeriveFoldable         #-}
+{-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TupleSections          #-}
+--
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+--
+{-# LANGUAGE NoImplicitPrelude      #-}
+{-# LANGUAGE TemplateHaskell        #-}
 module Waargonaut.Types.CommaSep
   ( CommaSeparated (..)
+
   , Elems (..)
+  , HasElems (..)
+
   , Elem (..)
   , Comma (..)
   , parseComma
   , commaBuilder
   , parseCommaSeparated
   , commaSeparatedBuilder
+
+  , _CommaSeparated
   ) where
 
-import           Control.Applicative     (liftA2)
-import           Control.Lens            (snoc)
+import           Prelude                 (Eq, Show)
 
+import           Control.Applicative     (liftA2, pure, (*>), (<*), (<*>))
+import           Control.Category        ((.))
+import           Control.Lens            (Iso', Prism', iso, makeClassy, prism',
+                                          snoc)
+import           Control.Monad           (Monad)
+
+import           Data.Char               (Char)
+import           Data.Foldable           (Foldable, asum, foldMap)
+import           Data.Function           (const, ($))
+import           Data.Functor            (Functor, (<$), (<$>))
+import           Data.Maybe              (Maybe (..), maybe)
+import           Data.Monoid             (mempty)
 import           Data.Semigroup          ((<>))
-
 import           Data.Traversable        (Traversable)
+import           Data.Tuple              (snd, uncurry)
 
-import           Data.Foldable           (asum)
-
-import           Data.Functor            (Functor)
 import           Data.Functor.Identity   (Identity (..))
 
 import           Data.ByteString.Builder (Builder)
@@ -36,11 +55,16 @@ import qualified Text.Parser.Combinators as C
 data Comma = Comma
   deriving (Eq, Show)
 
+_Comma :: Prism' Comma ()
+_Comma = prism' (const Comma) (\Comma -> Just ())
+
 data Elem f ws a = Elem
   { _elemVal      :: a
   , _elemTrailing :: f (Comma, ws)
   }
   deriving (Functor, Foldable, Traversable)
+
+makeClassy ''Elem
 
 deriving instance (Show ws, Show a) => Show (Elem Identity ws a)
 deriving instance (Show ws, Show a) => Show (Elem Maybe ws a)
@@ -52,11 +76,16 @@ data CommaSeparated ws a
   = CommaSeparated ws (Maybe (Elems ws a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+_CommaSeparated :: Iso' (CommaSeparated ws a) (ws, Maybe (Elems ws a))
+_CommaSeparated = iso (\(CommaSeparated ws a) -> (ws,a)) (uncurry CommaSeparated)
+
 data Elems ws a = Elems
-  { _elems     :: [Elem Identity ws a]
-  , _elemsLast :: Elem Maybe ws a
+  { _elemsElems :: [Elem Identity ws a]
+  , _elemsLast  :: Elem Maybe ws a
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+makeClassy ''Elems
 
 commaBuilder :: Builder
 commaBuilder = BB.charUtf8 ','
@@ -86,8 +115,8 @@ commaSeparatedBuilder
   -> (a -> Builder)
   -> CommaSeparated ws a
   -> Builder
-commaSeparatedBuilder op fin wsB aB (CommaSeparated lws elems) =
-  BB.charUtf8 op <> wsB lws <> maybe mempty buildElems elems <> BB.charUtf8 fin
+commaSeparatedBuilder op fin wsB aB (CommaSeparated lws sepElems) =
+  BB.charUtf8 op <> wsB lws <> maybe mempty buildElems sepElems <> BB.charUtf8 fin
   where
     elemBuilder (Elem e eTrailing) =
       aB e <> commaTrailingBuilder wsB eTrailing

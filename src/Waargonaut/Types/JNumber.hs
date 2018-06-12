@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
@@ -17,6 +16,7 @@ module Waargonaut.Types.JNumber
   , HasExp (..)
 
   , JInt
+  , JInt' (..)
   , _JZero
   , _JIntInt
 

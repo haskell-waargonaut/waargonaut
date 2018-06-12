@@ -15,7 +15,7 @@ import           Data.Digit                  (Digit)
 import           Waargonaut.Types.Whitespace (WS)
 
 import           Waargonaut.Types.JArray     (JArray (..))
-import           Waargonaut.Types.JObject    (JObject (..), JsonAssoc (..))
+import           Waargonaut.Types.JObject    (JObject (..), JAssoc (..), JAssocKey (..))
 
 import           Waargonaut                  (JTypes (..), Json (..))
 
@@ -25,15 +25,15 @@ import           Types.CommaSep              (genCommaSeparated,
 genJArray :: Gen (JArray WS Json)
 genJArray = JArray <$> genCommaSeparated G.genWS genJson
 
-genJAssoc :: Gen (JsonAssoc Digit WS Json)
+genJAssoc :: Gen (JAssoc Digit WS Json)
 genJAssoc = Gen.recursive Gen.choice
   -- Non Recursive
   (mk <$> genJsonNonRecursive)
   -- Recursive
   [ mk genJson ]
   where
-    mk v = JsonAssoc
-      <$> G.genJString
+    mk v = JAssoc
+      <$> fmap JAssocKey G.genJString
       <*> G.genWS
       <*> G.genWS
       <*> v

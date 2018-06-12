@@ -1,7 +1,12 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE DeriveTraversable     #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+--
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 module Waargonaut.Types.JArray
   ( JArray (..)
   , parseJArray
@@ -10,6 +15,7 @@ module Waargonaut.Types.JArray
 
 import           Prelude                   (Eq, Show)
 
+import           Control.Lens              (makeWrapped)
 import           Control.Monad             (Monad)
 
 import           Data.Foldable             (Foldable)
@@ -23,7 +29,6 @@ import           Text.Parser.Char          (CharParsing, char)
 import           Waargonaut.Types.CommaSep (CommaSeparated,
                                             commaSeparatedBuilder,
                                             parseCommaSeparated)
-
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -39,6 +44,8 @@ import           Waargonaut.Types.CommaSep (CommaSeparated,
 newtype JArray ws a =
   JArray (CommaSeparated ws a)
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+makeWrapped ''JArray
 
 -- |
 --
