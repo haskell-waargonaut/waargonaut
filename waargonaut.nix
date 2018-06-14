@@ -2,7 +2,7 @@
 , distributive, doctest, filepath, hedgehog, lens, mtl, nats
 , parsec, parsers, scientific, semigroups, stdenv, tasty
 , tasty-expected-failure, tasty-hedgehog, tasty-hunit
-, template-haskell, text, weigh
+, template-haskell, text, weigh, vector
 , zippers, transformers, errors, containers
 }:
 mkDerivation {
@@ -11,7 +11,7 @@ mkDerivation {
   src = ./.;
   libraryHaskellDepends = [
     base bytestring digit distributive lens mtl nats parsers scientific
-    semigroups text zippers transformers errors containers
+    semigroups text zippers transformers errors containers vector
   ];
   testHaskellDepends = [
     base bytestring digit directory doctest filepath hedgehog lens

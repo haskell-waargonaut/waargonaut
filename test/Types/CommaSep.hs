@@ -8,6 +8,8 @@ import qualified Hedgehog.Range            as Range
 
 import           Data.Functor.Identity     (Identity (..))
 
+import qualified Data.Vector               as V
+
 import           Waargonaut.Types.CommaSep (Comma (..), CommaSeparated (..),
                                             Elem (..), Elems (..))
 
@@ -46,7 +48,7 @@ genCommaSeparated gWS gA = Gen.recursive Gen.choice
   ]
   where
     genCommaElems = Elems
-      <$> Gen.list (Range.linear 1 100) genCommaIdElem
+      <$> (V.fromList <$> Gen.list (Range.linear 1 100) genCommaIdElem)
       <*> genCommaLastElem
 
     genCommaIdElem = Elem <$> gA <*> genCommaIdentity gWS

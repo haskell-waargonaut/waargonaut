@@ -7,11 +7,9 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE TemplateHaskell        #-}
 module Waargonaut.Types.JObject
   ( JObject (..)
   , JAssoc (..)
-  , JAssocKey (..)
 
   , HasJAssoc (..)
   , HasJObject (..)
@@ -23,11 +21,12 @@ module Waargonaut.Types.JObject
 import           Prelude                   (Eq, Show)
 
 import           Control.Applicative       ((<*), (<*>))
-import           Control.Lens              (makeClassy)
+import           Control.Category          (id, (.))
+import           Control.Lens              (Lens')
 import           Control.Monad             (Monad)
 
 import           Data.Foldable             (Foldable)
-import           Data.Functor              (Functor, (<$>))
+import           Data.Functor              (Functor, fmap, (<$>))
 import           Data.Semigroup            ((<>))
 import           Data.Traversable          (Traversable)
 
@@ -54,22 +53,50 @@ import           Waargonaut.Types.JString
 -- >>> import Text.Parsec (ParseError)
 -- >>> import Data.Digit (Digit)
 ----
-newtype JAssocKey digit = JAssocKey
-  { unJAssocKey :: JString digit
-  }
-  deriving (Eq,Show)
 
 data JAssoc digit ws a = JAssoc
-  { _jsonAssocKey             :: JAssocKey digit
+  { _jsonAssocKey             :: JString digit
   , _jsonAssocKeyTrailingWS   :: ws
   , _jsonAssocValPreceedingWS :: ws
   , _jsonAssocVal             :: a
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+class HasJAssoc c digit ws a | c -> digit ws a where
+  jAssoc :: Lens' c (JAssoc digit ws a)
+  jsonAssocKey :: Lens' c (JString digit)
+  {-# INLINE jsonAssocKey #-}
+  jsonAssocKeyTrailingWS :: Lens' c ws
+  {-# INLINE jsonAssocKeyTrailingWS #-}
+  jsonAssocVal :: Lens' c a
+  {-# INLINE jsonAssocVal #-}
+  jsonAssocValPreceedingWS :: Lens' c ws
+  {-# INLINE jsonAssocValPreceedingWS #-}
+  jsonAssocKey             = jAssoc . jsonAssocKey
+  jsonAssocKeyTrailingWS   = jAssoc . jsonAssocKeyTrailingWS
+  jsonAssocVal             = jAssoc . jsonAssocVal
+  jsonAssocValPreceedingWS = jAssoc . jsonAssocValPreceedingWS
+
+instance HasJAssoc (JAssoc digit ws a) digit ws a where
+  jAssoc = id
+  jsonAssocKey f (JAssoc x1 x2 x3 x4)             = fmap (\y1 -> JAssoc y1 x2 x3 x4) (f x1)
+  {-# INLINE jsonAssocKey #-}
+  jsonAssocKeyTrailingWS f (JAssoc x1 x2 x3 x4)   = fmap (\y1 -> JAssoc x1 y1 x3 x4) (f x2)
+  {-# INLINE jsonAssocKeyTrailingWS #-}
+  jsonAssocVal f (JAssoc x1 x2 x3 x4)             = fmap (\y1 -> JAssoc x1 x2 x3 y1) (f x4)
+  {-# INLINE jsonAssocVal #-}
+  jsonAssocValPreceedingWS f (JAssoc x1 x2 x3 x4) = fmap (\y1 -> JAssoc x1 x2 y1 x4) (f x3)
+  {-# INLINE jsonAssocValPreceedingWS #-}
+
 newtype JObject digit ws a =
   JObject (CommaSeparated ws (JAssoc digit ws a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+class HasJObject c digit ws a | c -> digit ws a where
+  jObject :: Lens' c (JObject digit ws a)
+
+instance HasJObject (JObject digit ws a) digit ws a where
+  jObject = id
 
 parseJAssoc
   :: ( Monad f
@@ -80,7 +107,7 @@ parseJAssoc
   -> f a
   -> f (JAssoc digit ws a)
 parseJAssoc ws a = JAssoc
-  <$> (JAssocKey <$> parseJString) <*> ws <* char ':' <*> ws <*> a
+  <$> parseJString <*> ws <* char ':' <*> ws <*> a
 
 jAssocBuilder
   :: HeXaDeCiMaL digit
@@ -88,16 +115,16 @@ jAssocBuilder
   -> ((ws -> Builder) -> a -> Builder)
   -> JAssoc digit ws a
   -> Builder
-jAssocBuilder ws aBuilder (JAssoc (JAssocKey k) ktws vpws v) =
+jAssocBuilder ws aBuilder (JAssoc k ktws vpws v) =
   jStringBuilder k <> ws ktws <> BB.charUtf8 ':' <> ws vpws <> aBuilder ws v
 
 -- |
 --
 -- >>> testparse (parseJObject parseWhitespace parseWaargonaut) "{\"foo\":null }"
--- Right (JObject (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = JAssoc {_jsonAssocKey = JString [UnescapedJChar (JCharUnescaped 'f'),UnescapedJChar (JCharUnescaped 'o'),UnescapedJChar (JCharUnescaped 'o')], _jsonAssocKeyTrailingWS = WS [], _jsonAssocValPreceedingWS = WS [], _jsonAssocVal = Json (JNull (WS [Space]))}, _elemTrailing = Nothing}}))))
+-- Right (JObject (CommaSeparated (WS []) (Just (Elems {_elemsElems = [], _elemsLast = Elem {_elemVal = JAssoc {_jsonAssocKey = JString [UnescapedJChar (JCharUnescaped 'f'),UnescapedJChar (JCharUnescaped 'o'),UnescapedJChar (JCharUnescaped 'o')], _jsonAssocKeyTrailingWS = WS [], _jsonAssocValPreceedingWS = WS [], _jsonAssocVal = Json (JNull (WS [Space]))}, _elemTrailing = Nothing}}))))
 --
 -- >>> testparse (parseJObject parseWhitespace parseWaargonaut) "{\"foo\":null, }"
--- Right (JObject (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = JAssoc {_jsonAssocKey = JString [UnescapedJChar (JCharUnescaped 'f'),UnescapedJChar (JCharUnescaped 'o'),UnescapedJChar (JCharUnescaped 'o')], _jsonAssocKeyTrailingWS = WS [], _jsonAssocValPreceedingWS = WS [], _jsonAssocVal = Json (JNull (WS []))}, _elemTrailing = Just (Comma,WS [Space])}}))))
+-- Right (JObject (CommaSeparated (WS []) (Just (Elems {_elemsElems = [], _elemsLast = Elem {_elemVal = JAssoc {_jsonAssocKey = JString [UnescapedJChar (JCharUnescaped 'f'),UnescapedJChar (JCharUnescaped 'o'),UnescapedJChar (JCharUnescaped 'o')], _jsonAssocKeyTrailingWS = WS [], _jsonAssocValPreceedingWS = WS [], _jsonAssocVal = Json (JNull (WS []))}, _elemTrailing = Just (Comma,WS [Space])}}))))
 --
 parseJObject
   :: ( Monad f
@@ -118,6 +145,3 @@ jObjectBuilder
   -> Builder
 jObjectBuilder ws aBuilder (JObject c) =
   commaSeparatedBuilder '{' '}' ws (jAssocBuilder ws aBuilder) c
-
-makeClassy ''JAssoc
-makeClassy ''JObject

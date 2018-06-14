@@ -15,7 +15,7 @@ import           Data.Digit                  (Digit)
 import           Waargonaut.Types.Whitespace (WS)
 
 import           Waargonaut.Types.JArray     (JArray (..))
-import           Waargonaut.Types.JObject    (JObject (..), JAssoc (..), JAssocKey (..))
+import           Waargonaut.Types.JObject    (JObject (..), JAssoc (..))
 
 import           Waargonaut                  (JTypes (..), Json (..))
 
@@ -33,7 +33,7 @@ genJAssoc = Gen.recursive Gen.choice
   [ mk genJson ]
   where
     mk v = JAssoc
-      <$> fmap JAssocKey G.genJString
+      <$> G.genJString
       <*> G.genWS
       <*> G.genWS
       <*> v

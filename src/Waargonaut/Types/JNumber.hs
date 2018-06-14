@@ -86,7 +86,7 @@ _JZero :: Prism' JInt ()
 _JZero = prism (const JZero)
   (\case
       JZero -> Right ()
-      x -> Left x
+      x     -> Left x
   )
 
 _JIntInt :: D.DecimalNoZero digit => Prism' (JInt' digit) (digit, [Digit])

@@ -22,13 +22,14 @@ module Waargonaut.Types.Json
 import           Prelude                     (Eq, Show)
 
 import           Control.Applicative         ((<$>), (<*>), (<|>))
-import           Control.Category            ((.))
-import           Control.Lens                (Traversal', failing,
-                                              makeClassyPrisms, makeWrapped,
+import           Control.Category            (id, (.))
+import           Control.Lens                (Prism', Rewrapped, Traversal',
+                                              Wrapped (..), failing, iso, prism,
                                               traverseOf, _1, _Wrapped)
 import           Control.Monad               (Monad)
 
 import           Data.Bool                   (Bool (..))
+import           Data.Either                 (Either (..))
 import           Data.Foldable               (Foldable (..), asum)
 import           Data.Functor                (Functor (..))
 import           Data.Semigroup              ((<>))
@@ -71,23 +72,69 @@ data JTypes digit ws a
   | JObj (JObject digit ws a) ws
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
-makeClassyPrisms ''JTypes
+class AsJTypes r digit ws a | r -> digit ws a where
+  _JTypes :: Prism' r (JTypes digit ws a)
+  _JNull :: Prism' r ws
+  _JBool :: Prism' r (Bool, ws)
+  _JNum :: Prism' r (JNumber, ws)
+  _JStr :: Prism' r (JString digit, ws)
+  _JArr :: Prism' r (JArray ws a, ws)
+  _JObj :: Prism' r (JObject digit ws a, ws)
+
+  _JNull = _JTypes . _JNull
+  _JBool = _JTypes . _JBool
+  _JNum = _JTypes . _JNum
+  _JStr = _JTypes . _JStr
+  _JArr = _JTypes . _JArr
+  _JObj = _JTypes . _JObj
+
+instance AsJTypes (JTypes digit ws a) digit ws a where
+ _JTypes = id
+ _JNull = (prism (\ws -> JNull ws))
+       (\ x -> case x of
+               JNull ws -> Right ws
+               _        -> Left x
+       )
+ _JBool = (prism (\ (j, ws) -> (JBool j) ws))
+       (\ x -> case x of
+               JBool j ws -> Right (j, ws)
+               _          -> Left x
+       )
+ _JNum = (prism (\ (j, ws) -> (JNum j) ws))
+       (\ x -> case x of
+               JNum j ws -> Right (j, ws)
+               _         -> Left x
+       )
+ _JStr = (prism (\ (j, ws) -> (JStr j) ws))
+       (\ x -> case x of
+               JStr j ws -> Right (j, ws)
+               _         -> Left x
+       )
+ _JArr = (prism (\ (j, ws) -> (JArr j) ws))
+       (\ x -> case x of
+               JArr j ws -> Right (j, ws)
+               _         -> Left x
+       )
+ _JObj = (prism (\ (j, ws) -> (JObj j) ws))
+       (\ x -> case x of
+               JObj j ws -> Right (j, ws)
+               _         -> Left x
+       )
 
 newtype Json
   = Json (JTypes Digit WS Json)
   deriving (Eq, Show)
 
-makeWrapped ''Json
+instance Json ~ t => Rewrapped Json t
+instance Wrapped Json where
+  type Unwrapped Json = JTypes Digit WS Json
+  _Wrapped' = iso (\(Json x) -> x) Json
 
 instance AsJTypes Json Digit WS Json where
   _JTypes = _Wrapped . _JTypes
 
 json :: Traversal' Json Json
-json = traverseOf
-  (_Wrapped . failing
-    (_JObj . _1 . traverse)
-    (_JArr . _1 . _Wrapped . traverse)
-  )
+json = traverseOf (_Wrapped . failing (_JObj . _1 . traverse) (_JArr . _1 . _Wrapped . traverse))
 
 jTypesBuilder
   :: (WS -> Builder)

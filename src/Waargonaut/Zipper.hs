@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeOperators              #-}
@@ -8,22 +7,22 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
 module Waargonaut.Zipper where
 
 import           Control.Lens                  (Bazaar', Indexed, LensLike',
-                                                makeWrapped, modifying, over,
-                                                snoc, view, _Left, _Wrapped)
+                                                over,
+                                                snoc, view, _Left)
 import           Control.Lens.Internal.Indexed (Indexing)
 
-import Control.Monad ((<=<))
+import           Control.Monad                 ((<=<))
 
 import           Control.Monad.Except          (ExceptT, MonadError, runExceptT,
                                                 throwError)
-import           Control.Monad.Reader          (MonadReader, ReaderT,
-                                                runReaderT,ask)
-import           Control.Monad.State           (MonadState, State, runState)
+import           Control.Monad.Reader          (MonadReader, ReaderT, ask,
+                                                runReaderT)
+import           Control.Monad.State           (MonadState, State, modify,
+                                                runState)
 
 import           Control.Error.Util
 
@@ -31,13 +30,15 @@ import           Data.Sequence                 (Seq)
 
 import           Data.Functor.Identity         (Identity (..))
 
+import           Data.Scientific               (toBoundedInteger)
 import           Data.Text                     (Text)
-import Data.Scientific (toBoundedInteger)
+
+import qualified Data.Vector                   as V
 
 import           Waargonaut.Types
 import           Waargonaut.Types.CommaSep
-import           Waargonaut.Types.JNumber
-import           Waargonaut.Types.JObject
+-- import           Waargonaut.Types.JNumber
+-- import           Waargonaut.Types.JObject
 
 import           Control.Zipper
 
@@ -53,7 +54,7 @@ jboolTrue = Json (JBool True emptyWS)
 obj :: Json
 obj = Json (JObj (JObject cs) emptyWS)
   where
-    js = JAssocKey $ JString
+    js = JString $ V.fromList
       [ UnescapedJChar (JCharUnescaped 'a')
       , UnescapedJChar (JCharUnescaped 'b')
       , UnescapedJChar (JCharUnescaped 'c')
@@ -61,12 +62,11 @@ obj = Json (JObj (JObject cs) emptyWS)
 
     cs = CommaSeparated emptyWS (
       Just (
-          Elems [Elem (JAssoc js emptyWS emptyWS jboolFalse) (Identity (Comma, WS []))] (
-              Elem (JAssoc js emptyWS emptyWS jboolTrue) Nothing
-              )
+          Elems
+            (V.singleton (Elem (JAssoc js emptyWS emptyWS jboolFalse) (Identity (Comma, WS mempty))))
+            (Elem (JAssoc js emptyWS emptyWS jboolTrue) Nothing)
           )
       )
-
 
 data Dir
   = Lft
@@ -86,8 +86,6 @@ data DecodeError
 newtype CursorHistory =
   CursorHistory (Seq Dir)
   deriving Show
-makeWrapped ''CursorHistory
-
 
 type JCursor h a =
   h :>> a
@@ -112,7 +110,7 @@ moveAndKeepHistory
   -> DecodeResult (JCursor h s)
 moveAndKeepHistory dir mCurs = do
   a <- either throwError pure . note (FailedToMove dir) $ mCurs
-  modifying _Wrapped (`snoc` dir)
+  modify (\(CursorHistory ch) -> CursorHistory $ snoc ch dir)
   pure a
 
 newCursor
@@ -124,7 +122,7 @@ into
   :: Text
   -> JCursorMove s a
   -> JCursor h s
-  -> DecodeResult (JCursor h s :>> a)
+  -> DecodeResult (JCursor (JCursor h s) a)
 into tgt l =
   moveAndKeepHistory (Into tgt) . withins l
 

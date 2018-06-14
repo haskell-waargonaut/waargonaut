@@ -2,7 +2,6 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
-{-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TypeFamilies           #-}
 module Waargonaut.Types.JString
   ( JString (..)
@@ -15,8 +14,8 @@ module Waargonaut.Types.JString
 import           Prelude                 (Eq, Ord, Show)
 
 import           Control.Applicative     ((*>), (<*))
-import           Control.Lens            (Rewrapped, Wrapped (..), iso,
-                                          makeClassy)
+import           Control.Category        (id, (.))
+import           Control.Lens            (Lens', Rewrapped, Wrapped (..), iso)
 
 import           Data.Digit              (HeXaDeCiMaL)
 import           Data.Foldable           (foldMap)
@@ -24,6 +23,9 @@ import           Data.Functor            ((<$>))
 import           Data.Semigroup          ((<>))
 import           Data.Text               (Text)
 import qualified Data.Text               as Text
+
+import           Data.Vector             (Vector)
+import qualified Data.Vector             as V
 
 import           Text.Parser.Char        (CharParsing, char)
 import           Text.Parser.Combinators (many)
@@ -40,6 +42,7 @@ import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar,
 -- >>> import Data.Function (($))
 -- >>> import Data.Either(Either (..), isLeft)
 -- >>> import Data.Digit (Digit(..))
+-- >>> import qualified Data.Vector as V
 -- >>> import Text.Parsec(ParseError)
 -- >>> import Utils
 -- >>> import Waargonaut.Types.Whitespace
@@ -47,16 +50,20 @@ import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar,
 
 ----
 newtype JString digit =
-  JString [JChar digit]
+  JString (Vector (JChar digit))
   deriving (Eq, Ord, Show)
 
 instance JString digit ~ t => Rewrapped (JString digit) t
 
 instance Wrapped (JString digit) where
-  type Unwrapped (JString digit) = [JChar digit]
+  type Unwrapped (JString digit) = Vector (JChar digit)
   _Wrapped' = iso (\ (JString x) -> x) JString
 
-makeClassy ''JString
+class HasJString c digit | c -> digit where
+  jString :: Lens' c (JString digit)
+
+instance HasJString (JString digit) digit where
+  jString = id
 
 -- |
 --
@@ -84,33 +91,33 @@ parseJString ::
   (CharParsing f, HeXaDeCiMaL digit) =>
   f ( JString digit )
 parseJString =
-  char '"' *> (JString <$> many parseJChar) <* char '"'
+  char '"' *> (JString . V.fromList <$> many parseJChar) <* char '"'
 
 -- | Convert a 'JString' to a strict 'Text'
 --
--- >>> jStringToText (JString [EscapedJChar (WhiteSpace HorizontalTab), UnescapedJChar (JCharUnescaped '1'), EscapedJChar (Hex (HexDigit4 Digit1 Digit2 Digit3 Digit4)), UnescapedJChar (JCharUnescaped '2')])
+-- >>> jStringToText (JString $ V.fromList [EscapedJChar (WhiteSpace HorizontalTab), UnescapedJChar (JCharUnescaped '1'), EscapedJChar (Hex (HexDigit4 Digit1 Digit2 Digit3 Digit4)), UnescapedJChar (JCharUnescaped '2')])
 -- "\t1\4660\&2"
 jStringToText :: HeXaDeCiMaL digit => JString digit -> Text
-jStringToText (JString jcs) = Text.pack (jCharToChar <$> jcs)
+jStringToText (JString jcs) = foldMap (Text.singleton . jCharToChar) jcs
 
 -- | jStringBuilder
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString []) :: JString Digit)
+-- >>> BB.toLazyByteString $ jStringBuilder ((JString V.empty) :: JString Digit)
 -- "\"\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString Digit)
+-- >>> BB.toLazyByteString $ jStringBuilder ((JString $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString Digit)
 -- "\"abc\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString Digit)
+-- >>> BB.toLazyByteString $ jStringBuilder ((JString $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString Digit)
 -- "\"a\\rbc\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 Digita Digitb Digit1 Digit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) :: JString Digit)
+-- >>> BB.toLazyByteString $ jStringBuilder ((JString $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 Digita Digitb Digit1 Digit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) :: JString Digit)
 -- "\"a\\rbc\\uab12\\ndef\\\"\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString [UnescapedJChar (JCharUnescaped 'a')]) :: JString Digit)
+-- >>> BB.toLazyByteString $ jStringBuilder ((JString $ V.singleton (UnescapedJChar (JCharUnescaped 'a'))) :: JString Digit)
 -- "\"a\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder (JString [EscapedJChar ReverseSolidus] :: JString Digit)
+-- >>> BB.toLazyByteString $ jStringBuilder (JString $ V.singleton (EscapedJChar ReverseSolidus) :: JString Digit)
 -- "\"\\\\\""
 --
 jStringBuilder

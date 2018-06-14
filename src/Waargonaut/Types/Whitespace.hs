@@ -1,17 +1,20 @@
-{-# LANGUAGE DeriveDataTypeable         #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 module Waargonaut.Types.Whitespace where
 
 import           Control.Applicative     (liftA2)
-import           Control.Lens            (makeWrapped)
+import           Control.Lens            (Rewrapped, Wrapped (..), iso)
 
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as BB
 
 import           Data.Data               (Data)
+
+import           Data.Vector             (Vector)
+import qualified Data.Vector             as V
 
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 
@@ -46,9 +49,13 @@ data Whitespace
   | CarriageReturn
   deriving (Eq, Ord, Show, Data)
 
-newtype WS = WS [Whitespace]
+newtype WS = WS (Vector Whitespace)
   deriving (Eq, Show, Data)
-makeWrapped ''WS
+
+instance WS ~ t => Rewrapped WS t
+instance Wrapped WS where
+  type Unwrapped WS = Vector Whitespace
+  _Wrapped' = (iso (\(WS x) -> x)) WS
 
 instance Monoid WS where
   mempty = emptyWS
@@ -58,7 +65,7 @@ instance Semigroup WS where
   (<>) = mappend
 
 emptyWS :: WS
-emptyWS = WS []
+emptyWS = WS mempty
 
 oneWhitespace
   :: CharParsing f
@@ -100,7 +107,7 @@ parseWhitespace
   :: CharParsing f
   => f WS
 parseWhitespace =
-  WS <$> many oneWhitespace
+  WS . V.fromList <$> many oneWhitespace
 
 parseSomeWhitespace
   :: CharParsing f

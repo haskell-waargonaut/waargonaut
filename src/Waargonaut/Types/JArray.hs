@@ -15,7 +15,7 @@ module Waargonaut.Types.JArray
 
 import           Prelude                   (Eq, Show)
 
-import           Control.Lens              (makeWrapped)
+import           Control.Lens              (Rewrapped, Wrapped (..), iso)
 import           Control.Monad             (Monad)
 
 import           Data.Foldable             (Foldable)
@@ -45,15 +45,18 @@ newtype JArray ws a =
   JArray (CommaSeparated ws a)
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
-makeWrapped ''JArray
+instance JArray ws a ~ t => Rewrapped (JArray ws a) t
+instance Wrapped (JArray ws a) where
+  type Unwrapped (JArray ws a) = CommaSeparated ws a
+  _Wrapped' = iso (\(JArray x) -> x) JArray
 
 -- |
 --
 -- >>> testparse (parseJArray parseWhitespace parseWaargonaut) "[null ]"
--- Right (JArray (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = Json (JNull (WS [Space])), _elemTrailing = Nothing}}))))
+-- Right (JArray (CommaSeparated (WS []) (Just (Elems {_elemsElems = [], _elemsLast = Elem {_elemVal = Json (JNull (WS [Space])), _elemTrailing = Nothing}}))))
 --
 -- >>> testparse (parseJArray parseWhitespace parseWaargonaut) "[null,]"
--- Right (JArray (CommaSeparated (WS []) (Just (Elems {_elems = [], _elemsLast = Elem {_elemVal = Json (JNull (WS [])), _elemTrailing = Just (Comma,WS [])}}))))
+-- Right (JArray (CommaSeparated (WS []) (Just (Elems {_elemsElems = [], _elemsLast = Elem {_elemVal = Json (JNull (WS [])), _elemTrailing = Just (Comma,WS [])}}))))
 --
 parseJArray
   :: ( Monad f
