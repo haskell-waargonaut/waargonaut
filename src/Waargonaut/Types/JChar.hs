@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveFoldable         #-}
+{-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE DeriveTraversable      #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
@@ -37,11 +40,13 @@ import           Control.Monad               ((>>=))
 
 import           Data.Char                   (chr)
 import           Data.Either                 (Either (..))
-import           Data.Maybe                  (Maybe (..))
-
-import           Data.Foldable               (any, asum, foldMap, foldl)
+import           Data.Foldable               (Foldable, any, asum, foldMap,
+                                              foldl)
 import           Data.Function               (const, ($))
+import           Data.Functor                (Functor)
+import           Data.Maybe                  (Maybe (..))
 import           Data.Semigroup              ((<>))
+import           Data.Traversable            (Traversable)
 
 import           Data.Digit                  (HeXaDeCiMaL)
 import qualified Data.Digit                  as D
@@ -69,7 +74,7 @@ import           Text.Parser.Combinators     (try)
 
 data HexDigit4 d =
   HexDigit4 d d d d
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Functor, Foldable, Traversable)
 
 class HasHexDigit4 c d | c -> d where
   hexDigit4 :: Lens' c (HexDigit4 d)
@@ -122,7 +127,7 @@ data JCharEscaped digit
   | Backspace
   | WhiteSpace Whitespace
   | Hex ( HexDigit4 digit )
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 class HasJCharEscaped c digit | c -> digit where
   jCharEscaped :: Lens' c (JCharEscaped digit)
@@ -182,7 +187,7 @@ instance AsJCharEscaped (JCharEscaped digit) digit where
 data JChar digit
   = EscapedJChar ( JCharEscaped digit )
   | UnescapedJChar JCharUnescaped
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 class HasJChar c digit | c -> digit where
   jChar :: Lens' c (JChar digit)

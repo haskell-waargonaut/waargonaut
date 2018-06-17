@@ -1,17 +1,16 @@
-{-# LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 module Waargonaut.Types.Whitespace where
 
 import           Control.Applicative     (liftA2)
-import           Control.Lens            (Rewrapped, Wrapped (..), iso)
+import           Control.Lens            (AsEmpty (..), Cons (..), Rewrapped,
+                                          Wrapped (..), isn't, iso, mapped,
+                                          nearly, over, prism', to, uncons,
+                                          (^.), _2, _Wrapped)
 
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as BB
-
-import           Data.Data               (Data)
 
 import           Data.Vector             (Vector)
 import qualified Data.Vector             as V
@@ -47,25 +46,35 @@ data Whitespace
   | LineFeed
   | NewLine
   | CarriageReturn
-  deriving (Eq, Ord, Show, Data)
+  deriving (Eq, Ord, Show)
 
 newtype WS = WS (Vector Whitespace)
-  deriving (Eq, Show, Data)
+  deriving (Eq, Show)
+
+instance Cons WS WS Whitespace Whitespace where
+  _Cons = prism'
+    (\(w,ws) -> over _Wrapped (V.cons w) ws)
+    (\(WS ws) -> over (mapped . _2) WS (uncons ws))
+  {-# INLINE _Cons #-}
+
+instance AsEmpty WS where
+  _Empty = nearly mempty (^. _Wrapped . to (isn't _Empty))
+  {-# INLINE _Empty #-}
 
 instance WS ~ t => Rewrapped WS t
 instance Wrapped WS where
   type Unwrapped WS = Vector Whitespace
-  _Wrapped' = (iso (\(WS x) -> x)) WS
+  _Wrapped' = iso (\(WS x) -> x) WS
+  {-# INLINE _Wrapped' #-}
 
 instance Monoid WS where
-  mempty = emptyWS
+  mempty = WS V.empty
+  {-# INLINE mempty #-}
   mappend (WS a) (WS b) = WS (a <> b)
+  {-# INLINE mappend #-}
 
 instance Semigroup WS where
   (<>) = mappend
-
-emptyWS :: WS
-emptyWS = WS mempty
 
 oneWhitespace
   :: CharParsing f
@@ -142,7 +151,6 @@ whitespaceBuilder NewLine        = BB.charUtf8 '\n'
 -- | Reconstitute the given whitespace into its original form.
 wsBuilder :: WS -> Builder
 wsBuilder (WS ws) = foldMap whitespaceBuilder ws
-
 {-# INLINE wsBuilder #-}
 
 -- | Remove any whitespace. Minification for free, yay!

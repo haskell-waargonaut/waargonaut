@@ -45,14 +45,14 @@ import           Control.Zipper
 
 -- false
 jboolFalse :: Json
-jboolFalse = Json (JBool False emptyWS)
+jboolFalse = Json (JBool False mempty)
 
 jboolTrue :: Json
-jboolTrue = Json (JBool True emptyWS)
+jboolTrue = Json (JBool True mempty)
 
 -- {"abc":false}
 obj :: Json
-obj = Json (JObj (JObject cs) emptyWS)
+obj = Json (JObj (JObject cs) mempty)
   where
     js = JString $ V.fromList
       [ UnescapedJChar (JCharUnescaped 'a')
@@ -60,11 +60,11 @@ obj = Json (JObj (JObject cs) emptyWS)
       , UnescapedJChar (JCharUnescaped 'c')
       ]
 
-    cs = CommaSeparated emptyWS (
+    cs = CommaSeparated mempty (
       Just (
           Elems
-            (V.singleton (Elem (JAssoc js emptyWS emptyWS jboolFalse) (Identity (Comma, WS mempty))))
-            (Elem (JAssoc js emptyWS emptyWS jboolTrue) Nothing)
+            (V.singleton (Elem (JAssoc js mempty mempty jboolFalse) (Identity (Comma, WS mempty))))
+            (Elem (JAssoc js mempty mempty jboolTrue) Nothing)
           )
       )
 

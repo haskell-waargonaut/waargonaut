@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveFoldable         #-}
+{-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE DeriveTraversable      #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
@@ -18,11 +21,12 @@ import           Control.Category        (id, (.))
 import           Control.Lens            (Lens', Rewrapped, Wrapped (..), iso)
 
 import           Data.Digit              (HeXaDeCiMaL)
-import           Data.Foldable           (foldMap)
-import           Data.Functor            ((<$>))
+import           Data.Foldable           (Foldable, foldMap)
+import           Data.Functor            (Functor, (<$>))
 import           Data.Semigroup          ((<>))
 import           Data.Text               (Text)
 import qualified Data.Text               as Text
+import           Data.Traversable        (Traversable)
 
 import           Data.Vector             (Vector)
 import qualified Data.Vector             as V
@@ -51,7 +55,7 @@ import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar,
 ----
 newtype JString digit =
   JString (Vector (JChar digit))
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance JString digit ~ t => Rewrapped (JString digit) t
 
