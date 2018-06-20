@@ -9,7 +9,11 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 --
 {-# LANGUAGE NoImplicitPrelude      #-}
-{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TypeFamilies           #-}
+--
+{-# LANGUAGE FlexibleContexts       #-}
 module Waargonaut.Types.CommaSep
   ( CommaSeparated (..)
 
@@ -17,6 +21,8 @@ module Waargonaut.Types.CommaSep
   , HasElems (..)
 
   , Elem (..)
+  , HasElem (..)
+
   , Comma (..)
   , parseComma
   , commaBuilder
@@ -24,18 +30,24 @@ module Waargonaut.Types.CommaSep
   , commaSeparatedBuilder
 
   , _CommaSeparated
+  , toList
   ) where
 
-import           Prelude                 (Eq, Show)
+import           Prelude                 (Eq, Int, Show, otherwise, (&&), (<=),
+                                          (==))
 
 import           Control.Applicative     (liftA2, pure, (*>), (<*), (<*>))
 import           Control.Category        (id, (.))
-import           Control.Lens            (Iso, Iso', Lens', iso, snoc)
+
+import           Control.Lens            (Index, Iso, Iso', IxValue, Ixed (..),
+                                          Lens', iso, snoc, to, traverse, (%%~),
+                                          (^.), (^..), _2)
+
 import           Control.Monad           (Monad)
 
 import           Data.Char               (Char)
-import           Data.Foldable           (Foldable, asum, foldMap)
-import           Data.Function           (const, ($))
+import           Data.Foldable           (Foldable, asum, foldMap, length)
+import           Data.Function           (const, ($), (&))
 import           Data.Functor            (Functor, fmap, (<$), (<$>))
 import           Data.Maybe              (Maybe (..), maybe)
 import           Data.Monoid             (mempty)
@@ -44,6 +56,7 @@ import           Data.Traversable        (Traversable)
 import           Data.Tuple              (snd, uncurry)
 
 import           Data.Vector             (Vector)
+import qualified Data.Vector             as V
 
 import           Data.Functor.Identity   (Identity (..))
 
@@ -99,6 +112,12 @@ deriving instance (Show ws, Show a) => Show (Elem Maybe ws a)
 deriving instance (Eq ws, Eq a) => Eq (Elem Identity ws a)
 deriving instance (Eq ws, Eq a) => Eq (Elem Maybe ws a)
 
+data Elems ws a = Elems
+  { _elemsElems :: Vector (Elem Identity ws a)
+  , _elemsLast  :: Elem Maybe ws a
+  }
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+
 data CommaSeparated ws a
   = CommaSeparated ws (Maybe (Elems ws a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
@@ -106,11 +125,19 @@ data CommaSeparated ws a
 _CommaSeparated :: Iso (CommaSeparated ws a) (CommaSeparated ws' b) (ws, Maybe (Elems ws a)) (ws', Maybe (Elems ws' b))
 _CommaSeparated = iso (\(CommaSeparated ws a) -> (ws,a)) (uncurry CommaSeparated)
 
-data Elems ws a = Elems
-  { _elemsElems :: Vector (Elem Identity ws a)
-  , _elemsLast  :: Elem Maybe ws a
-  }
-  deriving (Eq, Show, Functor, Foldable, Traversable)
+type instance IxValue (CommaSeparated ws a) = a
+type instance Index (CommaSeparated ws a) = Int
+
+instance Ixed (CommaSeparated ws a) where
+
+  ix _ _ c@(CommaSeparated _ Nothing) = pure c
+
+  ix i f c@(CommaSeparated w (Just es))
+    | i == 0 && es ^. elemsElems . to V.null =
+      CommaSeparated w . Just <$> (es & elemsLast . traverse %%~ f)
+    | i <= es ^. elemsElems . to length =
+      CommaSeparated w . Just <$> (es & elemsElems . ix i . traverse %%~ f)
+    | otherwise = pure c
 
 class HasElems c ws a | c -> ws a where
   elems :: Lens' c (Elems ws a)
@@ -124,8 +151,15 @@ instance HasElems (Elems ws a) ws a where
   {-# INLINE elemsElems #-}
   {-# INLINE elemsLast #-}
   elems = id
-  elemsElems f (Elems x1 x2) = (fmap (\ y1 -> (Elems y1) x2)) (f x1)
-  elemsLast f (Elems x1 x2) = (fmap (\ y1 -> (Elems x1) y1)) (f x2)
+  elemsElems f (Elems x1 x2) = fmap (`Elems` x2) (f x1)
+  elemsLast f (Elems x1 x2) = fmap (Elems x1) (f x2)
+
+toList :: CommaSeparated ws a -> [a]
+toList = maybe [] g . (^. _CommaSeparated . _2)
+  where
+    g e = snoc
+      (e ^.. elemsElems . traverse . elemVal)
+      (e ^. elemsLast . elemVal)
 
 commaBuilder :: Builder
 commaBuilder = BB.charUtf8 ','
@@ -160,7 +194,7 @@ commaTrailingBuilder wsB =
   foldMap ((commaBuilder <>) . wsB . snd)
 
 commaSeparatedBuilder
-  :: Char
+  :: forall ws a. Char
   -> Char
   -> (ws -> Builder)
   -> (a -> Builder)
@@ -169,10 +203,14 @@ commaSeparatedBuilder
 commaSeparatedBuilder op fin wsB aB (CommaSeparated lws sepElems) =
   BB.charUtf8 op <> wsB lws <> maybe mempty buildElems sepElems <> BB.charUtf8 fin
   where
+    elemBuilder
+      :: Foldable f
+      => Elem f ws a -> Builder
     elemBuilder (Elem e eTrailing) =
       aB e <> commaTrailingBuilder wsB eTrailing
 
-    buildElems (Elems es elst) = foldMap elemBuilder es <> elemBuilder elst
+    buildElems (Elems es elst) =
+      foldMap elemBuilder es <> elemBuilder elst
 
 -- |
 --

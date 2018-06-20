@@ -8,51 +8,52 @@
 {-# LANGUAGE TypeFamilies           #-}
 --
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE TemplateHaskell        #-}
 module Waargonaut.Types.Json
   ( JTypes (..)
   , Json (..)
   , waargonautBuilder
   , parseWaargonaut
   --
+  , parseJStr
+  , parseJBool
+
   , json
   , AsJTypes (..)
   ) where
 
-import           Prelude                     (Eq, Show)
+import           Prelude                                (Eq, Show)
 
-import           Control.Applicative         ((<$>), (<*>), (<|>))
-import           Control.Category            (id, (.))
-import           Control.Lens                (Prism', Rewrapped, Traversal',
-                                              Wrapped (..), failing, iso, prism,
-                                              traverseOf, _1, _Wrapped)
-import           Control.Monad               (Monad)
+import           Control.Applicative                    ((<$>), (<*>), (<|>))
+import           Control.Category                       (id, (.))
+import           Control.Lens                           (Prism', Rewrapped,
+                                                         Traversal',
+                                                         Wrapped (..), failing,
+                                                         iso, prism, traverseOf,
+                                                         _1, _Wrapped)
+import           Control.Monad                          (Monad)
 
-import           Data.Bool                   (Bool (..))
-import           Data.Either                 (Either (..))
-import           Data.Foldable               (Foldable (..), asum)
-import           Data.Functor                (Functor (..))
-import           Data.Semigroup              ((<>))
-import           Data.Traversable            (Traversable (..))
+import           Data.Bool                              (Bool (..))
+import           Data.Distributive                      (distribute)
+import           Data.Either                            (Either (..))
+import           Data.Foldable                          (Foldable (..), asum)
+import           Data.Functor                           (Functor (..))
+import           Data.Semigroup                         ((<>))
+import           Data.Traversable                       (Traversable (..))
+import           Data.Tuple                             (uncurry)
 
-import           Data.Distributive           (distribute)
+import           Data.ByteString.Builder                (Builder)
+import qualified Data.ByteString.Builder                as BB
 
-import           Data.ByteString.Builder     (Builder)
-import qualified Data.ByteString.Builder     as BB
+import           Data.Digit                             (Digit)
 
-import           Data.Digit                  (Digit)
 
-import           Text.Parser.Char            (CharParsing, text)
+import           Text.Parser.Char                       (CharParsing, text)
 
-import           Waargonaut.Types.JArray     (JArray (..), jArrayBuilder,
-                                              parseJArray)
-import           Waargonaut.Types.JNumber    (JNumber, jNumberBuilder,
-                                              parseJNumber)
-import           Waargonaut.Types.JObject    (JObject, jObjectBuilder,
-                                              parseJObject)
-import           Waargonaut.Types.JString    (JString, jStringBuilder,
-                                              parseJString)
-import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
+import           Waargonaut.Types.JArray                (JArray (..), jArrayBuilder, parseJArray)
+import           Waargonaut.Types.JNumber               (JNumber, jNumberBuilder, parseJNumber)
+import           Waargonaut.Types.JObject               (JObject, jObjectBuilder, parseJObject)
+import           Waargonaut.Types.JString               (JString, jStringBuilder, parseJString)
+import           Waargonaut.Types.Whitespace            (WS (..), parseWhitespace)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -74,48 +75,48 @@ data JTypes digit ws a
 
 class AsJTypes r digit ws a | r -> digit ws a where
   _JTypes :: Prism' r (JTypes digit ws a)
-  _JNull :: Prism' r ws
-  _JBool :: Prism' r (Bool, ws)
-  _JNum :: Prism' r (JNumber, ws)
-  _JStr :: Prism' r (JString digit, ws)
-  _JArr :: Prism' r (JArray ws a, ws)
-  _JObj :: Prism' r (JObject digit ws a, ws)
+  _JNull  :: Prism' r ws
+  _JBool  :: Prism' r (Bool, ws)
+  _JNum   :: Prism' r (JNumber, ws)
+  _JStr   :: Prism' r (JString digit, ws)
+  _JArr   :: Prism' r (JArray ws a, ws)
+  _JObj   :: Prism' r (JObject digit ws a, ws)
 
   _JNull = _JTypes . _JNull
   _JBool = _JTypes . _JBool
-  _JNum = _JTypes . _JNum
-  _JStr = _JTypes . _JStr
-  _JArr = _JTypes . _JArr
-  _JObj = _JTypes . _JObj
+  _JNum  = _JTypes . _JNum
+  _JStr  = _JTypes . _JStr
+  _JArr  = _JTypes . _JArr
+  _JObj  = _JTypes . _JObj
 
 instance AsJTypes (JTypes digit ws a) digit ws a where
  _JTypes = id
- _JNull = (prism (\ws -> JNull ws))
+ _JNull = prism JNull
        (\ x -> case x of
                JNull ws -> Right ws
                _        -> Left x
        )
- _JBool = (prism (\ (j, ws) -> (JBool j) ws))
+ _JBool = prism (uncurry JBool)
        (\ x -> case x of
                JBool j ws -> Right (j, ws)
                _          -> Left x
        )
- _JNum = (prism (\ (j, ws) -> (JNum j) ws))
+ _JNum = prism (uncurry JNum)
        (\ x -> case x of
                JNum j ws -> Right (j, ws)
                _         -> Left x
        )
- _JStr = (prism (\ (j, ws) -> (JStr j) ws))
+ _JStr = prism (uncurry JStr)
        (\ x -> case x of
                JStr j ws -> Right (j, ws)
                _         -> Left x
        )
- _JArr = (prism (\ (j, ws) -> (JArr j) ws))
+ _JArr = prism (uncurry JArr)
        (\ x -> case x of
                JArr j ws -> Right (j, ws)
                _         -> Left x
        )
- _JObj = (prism (\ (j, ws) -> (JObj j) ws))
+ _JObj = prism (uncurry JObj)
        (\ x -> case x of
                JObj j ws -> Right (j, ws)
                _         -> Left x

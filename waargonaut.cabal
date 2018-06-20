@@ -62,7 +62,7 @@ library
                      , Waargonaut.Types.JString
                      , Waargonaut.Types.JNumber
 
-  ghc-options:         -Wall -ddump-splices
+  ghc-options:         -Wall
 
   -- Other library packages from which modules are imported.
   build-depends:       base         >= 4.7 && <= 4.12
@@ -81,6 +81,14 @@ library
                      , errors
                      , containers
                      , vector
+                     , contravariant
+
+                     , hw-json >= 0.6
+                     , hw-prim
+                     , hw-balancedparens
+                     , hw-rankselect
+                     , hw-bits
+                     
 
   -- Directories containing source files.
   hs-source-dirs:      src

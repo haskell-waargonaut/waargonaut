@@ -368,6 +368,12 @@ expBuilder (Exp e sign digs) =
 
 -- |
 --
+-- >>> testparsethen parseJNumber "600x"
+-- Right (JNumber {_minus = False, _numberint = JIntInt 6 [0,0], _frac = Nothing, _expn = Nothing},'x')
+--
+-- >>> testparsethen parseJNumber "800x"
+-- Right (JNumber {_minus = False, _numberint = JIntInt 8 [0,0], _frac = Nothing, _expn = Nothing},'x')
+--
 -- >>> testparsethen parseJNumber "3x"
 -- Right (JNumber {_minus = False, _numberint = JIntInt 3 [], _frac = Nothing, _expn = Nothing},'x')
 --

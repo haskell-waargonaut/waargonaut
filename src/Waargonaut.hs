@@ -1,4 +1,5 @@
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
 module Waargonaut
   ( Json (..)
   , JTypes (..)
@@ -6,5 +7,6 @@ module Waargonaut
   , waargonautBuilder
   ) where
 
-import           Waargonaut.Types.Json (JTypes (..), Json (..), parseWaargonaut,
-                                        waargonautBuilder)
+import           Waargonaut.Types.Json                 (JTypes (..), Json (..),
+                                                        parseWaargonaut,
+                                                        waargonautBuilder)
