@@ -30,6 +30,7 @@ import           Control.Category                       ((.))
 import           Control.Monad                          (Monad (..), (<=<),
                                                          (>=>))
 
+import Control.Monad.Reader (MonadReader, ReaderT (..), runReaderT)
 import           Control.Monad.Except                   (ExceptT, MonadError,
                                                          liftEither, runExceptT,
                                                          throwError)
@@ -46,7 +47,7 @@ import           Data.Maybe                             (Maybe)
 import           Data.Monoid                            (mempty)
 import           Data.Sequence                          (Seq)
 
-import           Data.Function                          (const, flip, ($), (&))
+import           Data.Function                          (flip, ($), (&))
 import           Data.Functor                           (Functor, fmap, (<$),
                                                          (<$>))
 import           Data.Functor.Identity                  (Identity (..),
@@ -123,23 +124,47 @@ runDecoderResultT =
   . runDecodeResult
 
 newtype Decoder f a = Decoder
-  { runDecoder :: JCurs -> DecodeResultT f a
+  { unDecoder :: ReaderT JCurs (DecodeResultT f) a
   }
-  deriving Functor
+  deriving ( Functor
+           , Applicative
+           , Monad
+           , MonadReader JCurs
+           )
 
-instance Monad f => Applicative (Decoder f) where
-  pure      = Decoder . const . pure
-  {-# INLINE pure #-}
-  fab <*> a = Decoder $ \c -> runDecoder fab c <*> runDecoder a c
-  {-# INLINE (<*>) #-}
+withCursor
+  :: Monad f
+  => (JCurs -> DecodeResultT f a)
+  -> Decoder f a
+withCursor =
+  Decoder . ReaderT
 
-instance Monad f => Monad (Decoder f) where
-  return     = pure
-  {-# INLINE return #-}
-  a >>= aDfb = Decoder $ \c -> do
-    a' <- runDecoder a c
-    runDecoder (aDfb a') c
-  {-# INLINE (>>=) #-}
+runDecoder
+  :: Monad f
+  => Decoder f a
+  -> JCurs
+  -> DecodeResultT f a
+runDecoder d =
+  runReaderT (unDecoder d)
+
+-- newtype Decoder f a = Decoder
+--   { runDecoder :: JCurs -> DecodeResultT f a
+--   }
+--   deriving Functor
+
+-- instance Monad f => Applicative (Decoder f) where
+--   pure      = Decoder . const . pure
+--   {-# INLINE pure #-}
+--   fab <*> a = Decoder $ \c -> runDecoder fab c <*> runDecoder a c
+--   {-# INLINE (<*>) #-}
+
+-- instance Monad f => Monad (Decoder f) where
+--   return     = pure
+--   {-# INLINE return #-}
+--   a >>= aDfb = Decoder $ \c -> do
+--     a' <- runDecoder a c
+--     runDecoder (aDfb a') c
+--   {-# INLINE (>>=) #-}
 
 mkCursor :: ByteString -> JCurs
 mkCursor = JCurs . fromByteString
@@ -213,7 +238,8 @@ int
   => (ByteString -> Either DecodeError JNumber)
   -> JCurs
   -> DecodeResultT f Int
-int p = jsonAtCursor p >=> liftEither . jtoint
+int p =
+  jsonAtCursor p >=> liftEither . jtoint
 
 text
   :: ( HeXaDeCiMaL digit
@@ -222,7 +248,8 @@ text
   => (ByteString -> Either DecodeError (JString digit))
   -> JCurs
   -> DecodeResultT f Text
-text p c = jStringToText <$> jsonAtCursor p c
+text p c =
+  jStringToText <$> jsonAtCursor p c
 
 array
   :: Monad f
@@ -277,25 +304,31 @@ parray = parsur (parseJArray parseWhitespace parseWaargonaut) "JArray"
 pjnum :: Json -> Either DecodeError Int
 pjnum = (jtoint <=< note (ConversionFailure "Expected JNumber")) . preview (_JNum . _1)
 
-atKey :: Monad f => Text -> JCurs -> (JCurs -> DecodeResultT f a) -> DecodeResultT f a
-atKey k c f = moveToValAtKey pJStr k c >>= f
+valAtKey :: Monad f => Text -> (JCurs -> DecodeResultT f a) -> JCurs -> DecodeResultT f a
+valAtKey k f c = moveToValAtKey pJStr k c >>= f
+
+intoObjAtKey :: Monad f => Text -> JCurs -> DecodeResultT f JCurs
+intoObjAtKey k c = moveToValAtKey pJStr k c >>= moveJCurs firstChild
+
+down
+  :: Monad f
+  => JCurs
+  -> DecodeResultT f JCurs
+down =
+  moveJCurs firstChild
 
 imageDecoder :: Monad f => Decoder f Image
-imageDecoder = Decoder $ \curs -> do
-  -- We're at the root of our object, move into it
-  imgObj <- moveJCurs firstChild curs
-    -- At the Key of "Image"
-    >>= moveJCurs nextSibling
-    -- Moves to the first Key in the "Image" object
-    >>= moveJCurs firstChild
+imageDecoder = withCursor $ \curs -> do
+  -- We're at the root of our object, move into it and move to the value at the "Image" key
+  c <- down curs >>= intoObjAtKey "Image"
 
   -- We need individual values off of our object,
   Image
-    <$> atKey "Width" imgObj (int pint)
-    <*> atKey "Height" imgObj (int pint)
-    <*> atKey "Title" imgObj (text pJStr)
-    <*> atKey "Animated" imgObj (boolean poolean)
-    <*> atKey "IDs" imgObj (array parray pjnum)
+    <$> valAtKey "Width" (int pint) c
+    <*> valAtKey "Height" (int pint) c
+    <*> valAtKey "Title" (text pJStr) c
+    <*> valAtKey "Animated" (boolean poolean) c
+    <*> valAtKey "IDs" (array parray pjnum) c
 
 -- |
 -- A filthy test implementation of my filthy decoders and their respective
