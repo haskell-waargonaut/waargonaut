@@ -25,10 +25,10 @@ import           Prelude                                (Bool, Eq, IO, Int,
                                                          Show, fromIntegral,
                                                          print, (==))
 
-import           Control.Applicative                    (Applicative, pure)
+import           Control.Applicative                    (Applicative (..))
 import           Control.Category                       ((.))
-import           Control.Monad                          (Monad, (<=<), (=<<),
-                                                         (>=>), (>>=))
+import           Control.Monad                          (Monad (..), (<=<), (=<<),
+                                                         (>=>))
 
 import           Control.Monad.Except                   (ExceptT, MonadError,
                                                          runExceptT, throwError)
@@ -44,7 +44,7 @@ import           Data.Maybe                             (Maybe)
 import           Data.Monoid                            (mempty)
 import           Data.Sequence                          (Seq)
 
-import           Data.Function                          (flip, ($), (&))
+import           Data.Function                          (flip, ($), (&),const)
 import           Data.Functor                           (Functor, fmap, (<$),
                                                          (<$>))
 import           Data.Functor.Identity                  (runIdentity)
@@ -110,18 +110,28 @@ newtype DecodeResultT f a = DecodeResultT
            , MonadError DecodeError
            )
 
-newtype Decoder f a = Decoder (JCurs -> DecodeResultT f a)
-  deriving Functor
-
-runDecoder
+runDecoderResultT
   :: Monad f
   => DecodeResultT f a
   -> f (Either (DecodeError, CursorHistory) a)
-runDecoder =
+runDecoderResultT =
   fmap (\(e, hist) -> over _Left (,hist) e)
   . flip runStateT (CursorHistory mempty)
   . runExceptT
   . runDecodeResult
+
+newtype Decoder f a = Decoder
+  { runDecoder :: JCurs -> DecodeResultT f a
+  }
+  deriving Functor
+
+instance Monad f => Applicative (Decoder f) where
+  pure      = Decoder . const . pure
+  fab <*> a = Decoder $ \c -> runDecoder fab c <*> runDecoder a c
+
+instance Monad f => Monad (Decoder f) where
+  return     = pure
+  a >>= aDfb = Decoder $ \c -> runDecoder a c >>= flip runDecoder c . aDfb
 
 mkCursor :: ByteString -> JCurs
 mkCursor = JCurs . fromByteString
@@ -146,10 +156,10 @@ jsonAtCursor
   -> DecodeResultT f a
 jsonAtCursor p jc = do
   let
-    c = jc ^. _Wrapped
-    rnk = c ^. cursorRankL
-    lead = fromIntegral $ Pos.toCount (JC.jsonCursorPos c)
-    cursorTxt = BS8.drop lead (JC.cursorText c)
+    c         = jc ^. _Wrapped
+    rnk       = c ^. cursorRankL
+    leading   = fromIntegral $ Pos.toCount (JC.jsonCursorPos c)
+    cursorTxt = BS8.drop leading (JC.cursorText c)
 
   if JC.balancedParens c .?. Pos.lastPositionOf rnk
     then handleErr (p cursorTxt)
@@ -186,11 +196,11 @@ back
   :: Monad f
   => JCurs
   -> DecodeResultT f (Maybe JCurs)
-back c = do
+back c =
   -- See if we can pull off the last rank we were at.
-  mSnocced <- gets (^? _Wrapped . _Snoc)
-  -- If we can then set the state to be snocced list and the current rank to be the previous last of the history.
-  traverse (\(ps, p) -> (c & _Wrapped . cursorRankL .~ p) <$ (_Wrapped .= ps)) mSnocced
+  gets (^? _Wrapped . _Snoc) >>=
+  -- If we can then, set the state to be the snocced list and the current rank to be the previous rank.
+  traverse (\(ps, p) -> (c & _Wrapped . cursorRankL .~ p) <$ (_Wrapped .= ps))
 
 jtoint :: JNumber -> Either DecodeError Int
 jtoint = note (ConversionFailure "Number out of bounds!") . (toBoundedInteger <=< jNumberToScientific)
@@ -218,8 +228,7 @@ array
   -> JCurs
   -> DecodeResultT f [a]
 array arrP elemP c = jsonAtCursor arrP c >>= handleErr
-  . traverse elemP
-  . view (_Wrapped . to toList)
+  . traverse elemP . view (_Wrapped . to toList)
 
 boolean
   :: Monad f
@@ -262,7 +271,7 @@ pJStr = parsur parseJString "JString"
 decodeTest1Json :: IO ()
 decodeTest1Json = do
   cur <- mkCursor <$> BS8.readFile "test/json-data/test1.json"
-  print . runIdentity . runDecoder $ mkImage cur
+  print . runIdentity . runDecoderResultT $ mkImage cur
   where
     atKey = moveToValAtKey pJStr
     int' = int (parsur parseJNumber "JNumber")
