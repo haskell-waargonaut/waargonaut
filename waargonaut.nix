@@ -3,7 +3,7 @@
 , parsec, parsers, scientific, semigroups, stdenv, tasty
 , tasty-expected-failure, tasty-hedgehog, tasty-hunit
 , template-haskell, text, weigh, vector
-, zippers, transformers, errors, containers, contravariant
+, zippers, transformers, errors, containers, hoist-error
 , hw-json, hw-prim, hw-balancedparens, hw-rankselect, hw-bits
 }:
 mkDerivation {
@@ -12,7 +12,7 @@ mkDerivation {
   src = ./.;
   libraryHaskellDepends = [
     base bytestring digit distributive lens mtl nats parsers scientific
-    semigroups text zippers transformers errors containers vector contravariant
+    semigroups text zippers transformers errors containers vector hoist-error
     hw-json hw-prim hw-balancedparens hw-rankselect hw-bits
   ];
   testHaskellDepends = [

@@ -27,27 +27,30 @@ import           Prelude                                (Bool, Eq, IO, Int,
 
 import           Control.Applicative                    (Applicative (..))
 import           Control.Category                       ((.))
-import           Control.Monad                          (Monad (..), (<=<), (=<<),
+import           Control.Monad                          (Monad (..), (<=<),
                                                          (>=>))
 
 import           Control.Monad.Except                   (ExceptT, MonadError,
-                                                         runExceptT, throwError)
+                                                         liftEither, runExceptT,
+                                                         throwError)
 import           Control.Monad.State                    (MonadState, StateT,
                                                          gets, runStateT)
 
 import           Control.Error.Util                     (note)
+import           Control.Monad.Error.Hoist              ((<?>))
 
 import           GHC.Word                               (Word64)
 
-import           Data.Either                            (Either (..), either)
+import           Data.Either                            (Either (..))
 import           Data.Maybe                             (Maybe)
 import           Data.Monoid                            (mempty)
 import           Data.Sequence                          (Seq)
 
-import           Data.Function                          (flip, ($), (&),const)
+import           Data.Function                          (const, flip, ($), (&))
 import           Data.Functor                           (Functor, fmap, (<$),
                                                          (<$>))
-import           Data.Functor.Identity                  (runIdentity)
+import           Data.Functor.Identity                  (Identity (..),
+                                                         runIdentity)
 import           Data.Traversable                       (traverse)
 
 import           Data.Scientific                        (toBoundedInteger)
@@ -87,8 +90,7 @@ data DecodeError
   | ParseFailed Text
   deriving (Show, Eq)
 
-newtype CursorHistory =
-  CursorHistory (Seq Count)
+newtype CursorHistory = CursorHistory (Seq Count)
   deriving (Eq, Show)
 makeWrapped ''CursorHistory
 
@@ -127,11 +129,17 @@ newtype Decoder f a = Decoder
 
 instance Monad f => Applicative (Decoder f) where
   pure      = Decoder . const . pure
+  {-# INLINE pure #-}
   fab <*> a = Decoder $ \c -> runDecoder fab c <*> runDecoder a c
+  {-# INLINE (<*>) #-}
 
 instance Monad f => Monad (Decoder f) where
   return     = pure
-  a >>= aDfb = Decoder $ \c -> runDecoder a c >>= flip runDecoder c . aDfb
+  {-# INLINE return #-}
+  a >>= aDfb = Decoder $ \c -> do
+    a' <- runDecoder a c
+    runDecoder (aDfb a') c
+  {-# INLINE (>>=) #-}
 
 mkCursor :: ByteString -> JCurs
 mkCursor = JCurs . fromByteString
@@ -139,14 +147,6 @@ mkCursor = JCurs . fromByteString
 cursorRankL :: Lens' (JsonCursor s i p) Count
 cursorRankL = lens JC.cursorRank (\c r -> c { cursorRank = r })
 {-# INLINE cursorRankL #-}
-
-handleErr
-  :: MonadError e m
-  => Either e a
-  -> m a
-handleErr =
-  either throwError pure
-{-# INLINE handleErr #-}
 
 jsonAtCursor
   :: ( Monad f
@@ -162,8 +162,9 @@ jsonAtCursor p jc = do
     cursorTxt = BS8.drop leading (JC.cursorText c)
 
   if JC.balancedParens c .?. Pos.lastPositionOf rnk
-    then handleErr (p cursorTxt)
+    then liftEither (p cursorTxt)
     else throwError (InputOutOfBounds rnk)
+
 
 moveJCurs
   :: Monad f
@@ -171,7 +172,7 @@ moveJCurs
   -> JCurs
   -> DecodeResultT f JCurs
 moveJCurs mv c = do
-  c' <- handleErr . note FailedToMove $ traverseOf _Wrapped mv c
+  c' <- traverseOf _Wrapped mv c <?> FailedToMove
   c' <$ modifying _Wrapped (`snoc` c' ^. _Wrapped . cursorRankL)
 
 moveToValAtKey
@@ -182,15 +183,17 @@ moveToValAtKey
   -> Text
   -> JCurs
   -> DecodeResultT f JCurs
-moveToValAtKey p k c = do
+moveToValAtKey p k c =
   -- Tease out the key
-  k' <- jsonAtCursor (fmap jStringToText . p) c
+  jsonAtCursor (fmap jStringToText . p) c >>= \k' ->
   -- Are we at the key we want to be at ?
   if k' == k
     -- Move into the THING at the key
     then moveJCurs nextSibling c
     -- Jump to the next key index, the adjacent sibling is opening of the value of the current key
-    else moveJCurs nextSibling c >>= moveJCurs nextSibling >>= moveToValAtKey p k
+    else moveJCurs nextSibling c
+         >>= moveJCurs nextSibling
+         >>= moveToValAtKey p k
 
 back
   :: Monad f
@@ -203,14 +206,14 @@ back c =
   traverse (\(ps, p) -> (c & _Wrapped . cursorRankL .~ p) <$ (_Wrapped .= ps))
 
 jtoint :: JNumber -> Either DecodeError Int
-jtoint = note (ConversionFailure "Number out of bounds!") . (toBoundedInteger <=< jNumberToScientific)
+jtoint jn = (jNumberToScientific jn >>= toBoundedInteger) <?> ConversionFailure "Number out of bounds!"
 
 int
   :: Monad f
   => (ByteString -> Either DecodeError JNumber)
   -> JCurs
   -> DecodeResultT f Int
-int p = jsonAtCursor p >=> handleErr . jtoint
+int p = jsonAtCursor p >=> liftEither . jtoint
 
 text
   :: ( HeXaDeCiMaL digit
@@ -227,17 +230,16 @@ array
   -> (Json -> Either DecodeError a)
   -> JCurs
   -> DecodeResultT f [a]
-array arrP elemP c = jsonAtCursor arrP c >>= handleErr
-  . traverse elemP . view (_Wrapped . to toList)
+array arrP elemP c = jsonAtCursor arrP c >>=
+  liftEither . traverse elemP . view (_Wrapped . to toList)
 
 boolean
   :: Monad f
   => (ByteString -> Either DecodeError Json)
   -> JCurs
   -> DecodeResultT f Bool
-boolean p c = jsonAtCursor p c >>= handleErr
-  . note (ConversionFailure "Expected Boolean")
-  . preview (_JBool . _1)
+boolean p c = jsonAtCursor p c >>= \j ->
+  j ^? _JBool . _1 <?> ConversionFailure "Expected Boolean"
 
 data Image = Image
   { _imageW        :: Int
@@ -254,14 +256,46 @@ parsur
   -> Text
   -> ByteString
   -> Either DecodeError a
-parsur p t =
-  note (ParseFailed t)
+parsur p t = note (ParseFailed t)
+  -- readP will give us EVERYTHING that the parser allows, this is wild.
   . preview (_last . _1)
   . RP.readP_to_S p
   . BS8.unpack
 
 pJStr :: ByteString -> Either DecodeError (JString Digit)
 pJStr = parsur parseJString "JString"
+
+pint :: ByteString -> Either DecodeError JNumber
+pint = parsur parseJNumber "JNumber"
+
+poolean :: ByteString -> Either DecodeError Json
+poolean = parsur (Json <$> parseJBool parseWhitespace) "JBool"
+
+parray :: ByteString -> Either DecodeError (JArray WS Json)
+parray = parsur (parseJArray parseWhitespace parseWaargonaut) "JArray"
+
+pjnum :: Json -> Either DecodeError Int
+pjnum = (jtoint <=< note (ConversionFailure "Expected JNumber")) . preview (_JNum . _1)
+
+atKey :: Monad f => Text -> JCurs -> (JCurs -> DecodeResultT f a) -> DecodeResultT f a
+atKey k c f = moveToValAtKey pJStr k c >>= f
+
+imageDecoder :: Monad f => Decoder f Image
+imageDecoder = Decoder $ \curs -> do
+  -- We're at the root of our object, move into it
+  imgObj <- moveJCurs firstChild curs
+    -- At the Key of "Image"
+    >>= moveJCurs nextSibling
+    -- Moves to the first Key in the "Image" object
+    >>= moveJCurs firstChild
+
+  -- We need individual values off of our object,
+  Image
+    <$> atKey "Width" imgObj (int pint)
+    <*> atKey "Height" imgObj (int pint)
+    <*> atKey "Title" imgObj (text pJStr)
+    <*> atKey "Animated" imgObj (boolean poolean)
+    <*> atKey "IDs" imgObj (array parray pjnum)
 
 -- |
 -- A filthy test implementation of my filthy decoders and their respective
@@ -271,34 +305,7 @@ pJStr = parsur parseJString "JString"
 decodeTest1Json :: IO ()
 decodeTest1Json = do
   cur <- mkCursor <$> BS8.readFile "test/json-data/test1.json"
-  print . runIdentity . runDecoderResultT $ mkImage cur
-  where
-    atKey = moveToValAtKey pJStr
-    int' = int (parsur parseJNumber "JNumber")
-
-    boolean' = boolean
-      (parsur (Json <$> parseJBool parseWhitespace) "JBool")
-
-    arr' = parsur (parseJArray parseWhitespace parseWaargonaut) "JArray"
-
-    jnum = (jtoint <=< note (ConversionFailure "Expected JNumber")) . preview (_JNum . _1)
-
-    mkImage curs = do
-      -- We're at the root of our object, move into it
-      imgObj <- moveJCurs firstChild curs
-        -- At the Key of "Image"
-        >>= moveJCurs nextSibling
-        -- Moves to the first Key in the "Image" object
-        >>= moveJCurs firstChild
-
-      -- We need individual values off of our object,
-      wVal <- int'            =<< atKey "Width" imgObj
-      hVal <- int'            =<< atKey "Height" imgObj
-      tVal <- text pJStr      =<< atKey "Title" imgObj
-      aVal <- boolean'        =<< atKey "Animated" imgObj
-      iVal <- array arr' jnum =<< atKey "IDs" imgObj
-
-      pure $ Image wVal hVal tVal aVal iVal
+  print . runIdentity . runDecoderResultT $ runDecoder imageDecoder cur
 
 -- jboolFalse :: Json
 -- jboolFalse = Json (JBool False mempty)
