@@ -83,7 +83,7 @@ instance HasJAssoc (JAssoc digit ws a) digit ws a where
   {-# INLINE jsonAssocKey #-}
   jsonAssocKeyTrailingWS f (JAssoc x1 x2 x3 x4)   = fmap (\y1 -> JAssoc x1 y1 x3 x4) (f x2)
   {-# INLINE jsonAssocKeyTrailingWS #-}
-  jsonAssocVal f (JAssoc x1 x2 x3 x4)             = fmap (\y1 -> JAssoc x1 x2 x3 y1) (f x4)
+  jsonAssocVal f (JAssoc x1 x2 x3 x4)             = fmap (JAssoc x1 x2 x3) (f x4)
   {-# INLINE jsonAssocVal #-}
   jsonAssocValPreceedingWS f (JAssoc x1 x2 x3 x4) = fmap (\y1 -> JAssoc x1 x2 y1 x4) (f x3)
   {-# INLINE jsonAssocValPreceedingWS #-}

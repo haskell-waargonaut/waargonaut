@@ -103,8 +103,8 @@ instance HasElem (Elem f ws a) f ws a where
  {-# INLINE elemTrailing #-}
  {-# INLINE elemVal #-}
  elem = id
- elemTrailing f (Elem x1 x2) = (\x2' -> Elem x1 x2') <$> f x2
- elemVal f (Elem x1 x2) = (\x1' -> Elem x1' x2) <$> f x1
+ elemTrailing f (Elem x1 x2) = Elem x1 <$> f x2
+ elemVal f (Elem x1 x2) = (`Elem` x2) <$> f x1
 
 deriving instance (Show ws, Show a) => Show (Elem Identity ws a)
 deriving instance (Show ws, Show a) => Show (Elem Maybe ws a)

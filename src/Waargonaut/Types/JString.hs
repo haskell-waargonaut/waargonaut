@@ -36,8 +36,7 @@ import           Text.Parser.Combinators (many)
 
 import qualified Data.ByteString.Builder as BB
 
-import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar,
-                                          parseJChar)
+import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar, parseJChar)
 
 -- $setup
 -- >>> :set -XOverloadedStrings

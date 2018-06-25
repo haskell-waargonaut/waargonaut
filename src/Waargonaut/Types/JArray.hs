@@ -5,7 +5,6 @@
 --
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
 module Waargonaut.Types.JArray
   ( JArray (..)
@@ -26,9 +25,7 @@ import           Data.ByteString.Builder   (Builder)
 
 import           Text.Parser.Char          (CharParsing, char)
 
-import           Waargonaut.Types.CommaSep (CommaSeparated,
-                                            commaSeparatedBuilder,
-                                            parseCommaSeparated)
+import           Waargonaut.Types.CommaSep (CommaSeparated, commaSeparatedBuilder, parseCommaSeparated)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
