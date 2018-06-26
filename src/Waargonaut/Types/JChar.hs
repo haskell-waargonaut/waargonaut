@@ -320,12 +320,6 @@ parseJCharEscaped =
 
 -- |
 --
--- >>> testparse parseJChar "a"
--- Right (UnescapedJChar (JCharUnescaped 'a'))
---
--- >>> testparse parseJChar "\\a"
--- Right (EscapedJChar (JCharUnescaped 'a'))
---
 -- >>> testparse parseJChar "\\u1234" :: Either ParseError (JChar Digit)
 -- Right (EscapedJChar (Hex 1234))
 --
