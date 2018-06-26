@@ -27,7 +27,7 @@ import           Prelude                                (Bool, Eq, IO, Int,
                                                          Show, fromIntegral,
                                                          print, (==), (<), abs)
 
-import           Control.Applicative                    (Applicative (..))
+import           Control.Applicative                    (Applicative (..), liftA2)
 import           Control.Category                       ((.))
 import           Control.Monad                          (Monad (..), (<=<),
                                                          (>=>))
