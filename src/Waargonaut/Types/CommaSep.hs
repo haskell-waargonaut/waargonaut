@@ -31,6 +31,11 @@ module Waargonaut.Types.CommaSep
 
   , _CommaSeparated
   , toList
+  --
+  , consCommaSep
+  , unconsCommaSep
+  , consVal
+  , unconsVal
   ) where
 
 import           Prelude                 (Eq, Int, Show, otherwise, (&&), (<=),
@@ -40,8 +45,9 @@ import           Control.Applicative     (liftA2, pure, (*>), (<*), (<*>))
 import           Control.Category        (id, (.))
 
 import           Control.Lens            (Index, Iso, Iso', IxValue, Ixed (..),
-                                          Lens', iso, snoc, to, traverse, (%%~),
-                                          (^.), (^..), _2)
+                                          Lens', cons, iso, mapped, over, snoc,
+                                          to, traverse, (%%~), (%~), (.~), (^.),
+                                          (^..), (^?), _1, _2, _Cons)
 
 import           Control.Monad           (Monad)
 
@@ -50,7 +56,7 @@ import           Data.Foldable           (Foldable, asum, foldMap, length)
 import           Data.Function           (const, ($), (&))
 import           Data.Functor            (Functor, fmap, (<$), (<$>))
 import           Data.Maybe              (Maybe (..), maybe)
-import           Data.Monoid             (mempty)
+import           Data.Monoid             (Monoid, mempty)
 import           Data.Semigroup          ((<>))
 import           Data.Traversable        (Traversable)
 import           Data.Tuple              (snd, uncurry)
@@ -124,9 +130,37 @@ data CommaSeparated ws a
 
 _CommaSeparated :: Iso (CommaSeparated ws a) (CommaSeparated ws' b) (ws, Maybe (Elems ws a)) (ws', Maybe (Elems ws' b))
 _CommaSeparated = iso (\(CommaSeparated ws a) -> (ws,a)) (uncurry CommaSeparated)
+{-# INLINE _CommaSeparated #-}
+
+consElems :: Monoid ws => ((Comma,ws), a) -> Elems ws a -> Elems ws a
+consElems (ews,a) e = e & elemsElems %~ cons (Elem a (Identity ews))
+{-# INLINE consElems #-}
+
+unconsElems :: Monoid ws => Elems ws a -> ((Maybe (Comma,ws), a), Maybe (Elems ws a))
+unconsElems e = maybe (e', Nothing) (\(em, ems) -> (idT em, Just $ e & elemsElems .~ ems)) es'
+  where
+    es'   = e ^? elemsElems . _Cons
+    e'    = (e ^. elemsLast . elemTrailing, e ^. elemsLast . elemVal)
+    idT x = (x ^. elemTrailing . to (Just . runIdentity), x ^. elemVal)
+{-# INLINE unconsElems #-}
+
+consCommaSep :: Monoid ws => ((Comma,ws),a) -> CommaSeparated ws a -> CommaSeparated ws a
+consCommaSep (ews,a) = over (_CommaSeparated . _2) (pure . maybe new (consElems (ews,a)))
+  where new = Elems mempty (Elem a (Just ews))
+{-# INLINE consCommaSep #-}
+
+unconsCommaSep :: Monoid ws => CommaSeparated ws a -> Maybe ((Maybe (Comma,ws), a), CommaSeparated ws a)
+unconsCommaSep (CommaSeparated ws es) = over _2 (CommaSeparated ws) . unconsElems <$> es
+{-# INLINE unconsCommaSep #-}
+
+consVal :: Monoid ws => a -> CommaSeparated ws a -> CommaSeparated ws a
+consVal a = consCommaSep ((Comma,mempty), a)
+
+unconsVal :: Monoid ws => CommaSeparated ws a -> Maybe (a, CommaSeparated ws a)
+unconsVal = over (mapped . _1) (^. _2) . unconsCommaSep
 
 type instance IxValue (CommaSeparated ws a) = a
-type instance Index (CommaSeparated ws a) = Int
+type instance Index (CommaSeparated ws a)   = Int
 
 instance Ixed (CommaSeparated ws a) where
 
@@ -160,12 +194,15 @@ toList = maybe [] g . (^. _CommaSeparated . _2)
     g e = snoc
       (e ^.. elemsElems . traverse . elemVal)
       (e ^. elemsLast . elemVal)
+{-# INLINE toList #-}
 
 commaBuilder :: Builder
 commaBuilder = BB.charUtf8 ','
+{-# INLINE commaBuilder #-}
 
 parseComma :: CharParsing f => f Comma
 parseComma = Comma <$ char ','
+{-# INLINE parseComma #-}
 
 -- |
 --

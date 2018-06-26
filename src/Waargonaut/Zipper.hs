@@ -18,14 +18,14 @@ import qualified GHC.Exts                               as E
 
 import           Control.Lens                           (Lens', lens,
                                                          makeWrapped, modifying,
-                                                         preview, snoc, to,
-                                                         traverseOf, view, (.=),
+                                                         preview, snoc, to, re,
+                                                         traverseOf, view, (.=), (#), (^..),
                                                          (.~), (^.), (^?), _1,
                                                          _2, _Snoc, _Wrapped,
                                                          _last)
 import           Prelude                                (Bool, Eq, IO, Int,
                                                          Show, fromIntegral,
-                                                         print, (==))
+                                                         print, (==), (<), abs)
 
 import           Control.Applicative                    (Applicative (..))
 import           Control.Category                       ((.))
@@ -46,15 +46,16 @@ import           Control.Monad.Error.Hoist              ((<?>))
 
 import           GHC.Word                               (Word64)
 
+import Data.List.NonEmpty (NonEmpty (..))
 import           Data.Bifunctor                         (first)
 import           Data.Either                            (Either (..))
-import           Data.Foldable                          (fold)
+import           Data.Foldable                          (Foldable,fold,foldr)
 import           Data.Function                          (flip, ($), (&))
 import           Data.Functor                           (Functor, fmap, (<$),
                                                          (<$>))
 import           Data.Functor.Identity                  (Identity (..),
                                                          runIdentity)
-import           Data.Maybe                             (Maybe, maybe)
+import           Data.Maybe                             (Maybe (..), maybe)
 import           Data.Monoid                            (mempty)
 import           Data.Sequence                          (Seq, (|>))
 import           Data.Traversable                       (traverse)
@@ -70,6 +71,7 @@ import           Data.Vector.Storable                   (Vector)
 import qualified Data.Vector                            as V
 
 import           Data.Digit                             (Digit, HeXaDeCiMaL)
+import qualified Data.Digit as D
 
 import           Text.ParserCombinators.ReadP           (ReadP)
 import qualified Text.ParserCombinators.ReadP           as RP
@@ -144,6 +146,26 @@ newtype Decoder f a = Decoder
            , Monad
            , MonadReader JCurs
            )
+
+newtype Encoder a = Encoder
+  { unEncoder :: a -> Json
+  }
+
+encodeA
+  :: (a -> Json)
+  -> Encoder a
+encodeA =
+  Encoder
+
+encodeInt :: Encoder Int
+encodeInt = encodeA $ \i -> _JNum # (JNumber (i < 0) (mkjInt $ abs i) Nothing Nothing, mempty)
+  where
+    mkjInt :: Int -> JInt
+    mkjInt 0 = JZero
+    mkjInt n = (\(h :| t) -> JIntInt h t) $ D._NaturalDigits # fromIntegral n
+
+encodeBool :: Encoder Bool
+encodeBool = encodeA ((_JBool #) . (,mempty))
 
 withCursor
   :: Monad f
@@ -400,9 +422,9 @@ intoObjAtKey k =
 
 imageDecoder :: Monad f => Decoder f Image
 imageDecoder = withCursor $ \curs -> do
-  -- We're at the root of our object, move into it and move to the value at the "Image" key
+  -- We're at the root of our object, move into it and move to the value at the
+  -- "Image" key
   c <- down curs >>= intoObjAtKey "Image"
-
   -- We need individual values off of our object,
   Image
     <$> valAtKey "Width" (int pint) c

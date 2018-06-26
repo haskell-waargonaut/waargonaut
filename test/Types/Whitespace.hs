@@ -1,5 +1,6 @@
 module Types.Whitespace
   ( genWS
+  , genEmptyWS
   ) where
 
 import           Hedgehog
@@ -14,3 +15,6 @@ import           Waargonaut.Types.Whitespace      (WS (..))
 
 genWS :: Gen WS
 genWS = WS . V.fromList <$> Gen.list (Range.linear 0 30) genWhitespace
+
+genEmptyWS :: Gen WS
+genEmptyWS = Gen.constant mempty

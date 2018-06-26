@@ -20,7 +20,6 @@ import           Control.Applicative     ((*>), (<*))
 import           Control.Category        (id, (.))
 import           Control.Lens            (Lens', Rewrapped, Wrapped (..), iso)
 
-import           Data.Digit              (HeXaDeCiMaL)
 import           Data.Foldable           (Foldable, foldMap)
 import           Data.Functor            (Functor, (<$>))
 import           Data.Semigroup          ((<>))
@@ -31,12 +30,15 @@ import           Data.Traversable        (Traversable)
 import           Data.Vector             (Vector)
 import qualified Data.Vector             as V
 
+import           Data.Digit              (HeXaDeCiMaL)
+
 import           Text.Parser.Char        (CharParsing, char)
 import           Text.Parser.Combinators (many)
 
 import qualified Data.ByteString.Builder as BB
 
-import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar, parseJChar)
+import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToChar,
+                                          parseJChar)
 
 -- $setup
 -- >>> :set -XOverloadedStrings

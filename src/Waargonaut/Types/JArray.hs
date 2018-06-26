@@ -10,22 +10,28 @@ module Waargonaut.Types.JArray
   ( JArray (..)
   , parseJArray
   , jArrayBuilder
+  , emptyJArray
   )where
 
 import           Prelude                   (Eq, Show)
 
-import           Control.Lens              (Rewrapped, Wrapped (..), iso)
+import           Control.Lens              (Rewrapped, Wrapped (..), iso, ( # ))
 import           Control.Monad             (Monad)
 
+import Data.Maybe (Maybe (Nothing))
 import           Data.Foldable             (Foldable)
 import           Data.Functor              (Functor, (<$>))
+import           Data.Monoid               (Monoid, mempty)
 import           Data.Traversable          (Traversable)
 
 import           Data.ByteString.Builder   (Builder)
 
 import           Text.Parser.Char          (CharParsing, char)
 
-import           Waargonaut.Types.CommaSep (CommaSeparated, commaSeparatedBuilder, parseCommaSeparated)
+import           Waargonaut.Types.CommaSep (CommaSeparated,
+                                            commaSeparatedBuilder,
+                                            parseCommaSeparated,
+                                            _CommaSeparated)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -46,6 +52,12 @@ instance JArray ws a ~ t => Rewrapped (JArray ws a) t
 instance Wrapped (JArray ws a) where
   type Unwrapped (JArray ws a) = CommaSeparated ws a
   _Wrapped' = iso (\(JArray x) -> x) JArray
+
+emptyJArray
+  :: Monoid ws
+  => JArray ws a
+emptyJArray =
+  JArray (_CommaSeparated # (mempty, Nothing))
 
 -- |
 --
