@@ -4,9 +4,11 @@ module Types.Common
   , genDecimalDigitNoZero
   , genHeXaDeCiMaLDigit
   , genHeXaDeCiMaLDigitNoZero
+  , genHexadecimalDigitLower
   , genNonEmptyDecimalDigit
   , genText
   , genWhitespace
+  , hexadecimalDigitLower
   ) where
 
 
@@ -26,6 +28,9 @@ import           Waargonaut.Types.Whitespace (Whitespace (..))
 genDecimalDigit :: Gen Digit
 genDecimalDigit = Gen.element decimalDigit
 
+genHexadecimalDigitLower :: Gen Digit
+genHexadecimalDigitLower = Gen.element hexadecimalDigitLower
+
 genHeXaDeCiMaLDigit :: Gen Digit
 genHeXaDeCiMaLDigit = Gen.element hExAdEcImAlDigit
 
@@ -43,15 +48,21 @@ decimalDigit =
   , D.Digit9
   ]
 
-hExAdEcImAlDigit :: [Digit]
-hExAdEcImAlDigit = decimalDigit <>
+hexadecimalDigitLower :: [Digit]
+hexadecimalDigitLower =
   [ D.Digita
   , D.Digitb
   , D.Digitc
   , D.Digitd
   , D.Digite
   , D.Digitf
-  , D.DigitA
+  ]
+
+hExAdEcImAlDigit :: [Digit]
+hExAdEcImAlDigit =
+  decimalDigit <>
+  hexadecimalDigitLower <>
+  [ D.DigitA
   , D.DigitB
   , D.DigitC
   , D.DigitD

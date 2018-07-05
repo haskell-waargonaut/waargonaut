@@ -68,9 +68,9 @@ data JTypes digit ws a
   = JNull ws
   | JBool Bool ws
   | JNum JNumber ws
-  | JStr (JString digit) ws
+  | JStr JString ws
   | JArr (JArray ws a) ws
-  | JObj (JObject digit ws a) ws
+  | JObj (JObject ws a) ws
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 class AsJTypes r digit ws a | r -> digit ws a where
@@ -78,9 +78,9 @@ class AsJTypes r digit ws a | r -> digit ws a where
   _JNull  :: Prism' r ws
   _JBool  :: Prism' r (Bool, ws)
   _JNum   :: Prism' r (JNumber, ws)
-  _JStr   :: Prism' r (JString digit, ws)
+  _JStr   :: Prism' r (JString, ws)
   _JArr   :: Prism' r (JArray ws a, ws)
-  _JObj   :: Prism' r (JObject digit ws a, ws)
+  _JObj   :: Prism' r (JObject ws a, ws)
 
   _JNull = _JTypes . _JNull
   _JBool = _JTypes . _JBool
@@ -211,28 +211,28 @@ parseJNum ws =
 -- |
 --
 -- >>> testparse (parseJStr (return ())) "\"\""
--- Right (JStr (JString []) ())
+-- Right (JStr (JString' []) ())
 --
 -- >>> testparse (parseJStr (return ())) "\"abc\""
--- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
+-- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
 --
 -- >> testparse (parseJStr (return ())) "\"a\\rbc\""
--- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
+-- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
 --
 -- >>> testparse (parseJStr (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError (JTypes Digit () a)
--- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
+-- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
 --
 -- >>> testparsetheneof (parseJStr (return ())) "\"\""
--- Right (JStr (JString []) ())
+-- Right (JStr (JString' []) ())
 --
 -- >>> testparsetheneof (parseJStr (return ())) "\"abc\""
--- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
+-- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
 --
 -- >>> testparsethennoteof (parseJStr (return ())) "\"a\"\\u"
--- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a')]) ())
+-- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a')]) ())
 --
 -- >>> testparsethennoteof (parseJStr (return ())) "\"a\"\t"
--- Right (JStr (JString [UnescapedJChar (JCharUnescaped 'a')]) ())
+-- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a')]) ())
 parseJStr
   :: CharParsing f
   => f ws

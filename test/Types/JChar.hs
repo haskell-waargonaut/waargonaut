@@ -1,12 +1,14 @@
 module Types.JChar
   ( genJChar
+  , genHex4
+  , genHex4Lower
   ) where
 
 import           Hedgehog
 import qualified Hedgehog.Gen           as Gen
 
 import           Control.Lens           (preview)
-import           Types.Common           (genHeXaDeCiMaLDigit, genWhitespace)
+import           Types.Common           (genHeXaDeCiMaLDigit, genHexadecimalDigitLower, genWhitespace)
 
 import           Data.Digit             (Digit)
 
@@ -42,3 +44,10 @@ genHex4 = HexDigit4
   <*> genHeXaDeCiMaLDigit
   <*> genHeXaDeCiMaLDigit
   <*> genHeXaDeCiMaLDigit
+
+genHex4Lower :: Gen (HexDigit4 Digit)
+genHex4Lower = HexDigit4
+  <$> genHexadecimalDigitLower
+  <*> genHexadecimalDigitLower
+  <*> genHexadecimalDigitLower
+  <*> genHexadecimalDigitLower

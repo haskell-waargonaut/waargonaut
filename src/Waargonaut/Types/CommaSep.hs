@@ -31,6 +31,7 @@ module Waargonaut.Types.CommaSep
 
   , _CommaSeparated
   , toList
+  , fromList
   --
   , consCommaSep
   , unconsCommaSep
@@ -41,23 +42,26 @@ module Waargonaut.Types.CommaSep
 import           Prelude                 (Eq, Int, Show, otherwise, (&&), (<=),
                                           (==))
 
-import           Control.Applicative     (liftA2, pure, (*>), (<*), (<*>))
+import           Control.Applicative     (Applicative (..), liftA2, pure, (*>),
+                                          (<*), (<*>))
 import           Control.Category        (id, (.))
 
 import           Control.Lens            (Index, Iso, Iso', IxValue, Ixed (..),
                                           Lens', cons, iso, mapped, over, snoc,
-                                          to, traverse, (%%~), (%~), (.~), (^.),
-                                          (^..), (^?), _1, _2, _Cons)
+                                          to, traverse, unsnoc, (%%~), (%~),
+                                          (.~), (^.), (^..), (^?), _1, _2,
+                                          _Cons)
 
 import           Control.Monad           (Monad)
 
 import           Data.Char               (Char)
-import           Data.Foldable           (Foldable, asum, foldMap, length)
+import           Data.Foldable           (Foldable, asum, foldMap, foldr,
+                                          length)
 import           Data.Function           (const, ($), (&))
 import           Data.Functor            (Functor, fmap, (<$), (<$>))
-import           Data.Maybe              (Maybe (..), maybe)
-import           Data.Monoid             (Monoid, mempty)
-import           Data.Semigroup          ((<>))
+import           Data.Maybe              (Maybe (..), fromMaybe, maybe)
+import           Data.Monoid             (Monoid (..), mempty)
+import           Data.Semigroup          (Semigroup (..), (<>))
 import           Data.Traversable        (Traversable)
 import           Data.Tuple              (snd, uncurry)
 
@@ -71,6 +75,8 @@ import qualified Data.ByteString.Builder as BB
 
 import           Text.Parser.Char        (CharParsing, char)
 import qualified Text.Parser.Combinators as C
+
+import           Data.Witherable         (Filterable (..), Witherable (..))
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -96,6 +102,11 @@ data Elem f ws a = Elem
   }
   deriving (Functor, Foldable, Traversable)
 
+instance (Monoid ws, Applicative f) => Applicative (Elem f ws) where
+  pure a = Elem a (pure (Comma, mempty))
+  -- Should I try to combine the trailing or just disregard one? Unsure if this is a lawful instance.
+  (Elem atob _) <*> (Elem a t') = Elem (atob a) t'
+
 class HasElem c f ws a | c -> f ws a where
   elem :: Lens' c (Elem f ws a)
   elemTrailing :: Lens' c (f (Comma, ws))
@@ -118,15 +129,50 @@ deriving instance (Show ws, Show a) => Show (Elem Maybe ws a)
 deriving instance (Eq ws, Eq a) => Eq (Elem Identity ws a)
 deriving instance (Eq ws, Eq a) => Eq (Elem Maybe ws a)
 
+flipGInLast
+  :: Monoid ws
+  => Elem Identity ws a
+  -> Elem Maybe ws a
+flipGInLast (Elem a t) =
+  Elem a (Just $ runIdentity t)
+
+flipFInLast
+  :: Monoid ws
+  => Elem Maybe ws a
+  -> Elem Identity ws a
+flipFInLast (Elem a t) =
+  Elem a (Identity $ fromMaybe (Comma, mempty) t)
+
 data Elems ws a = Elems
   { _elemsElems :: Vector (Elem Identity ws a)
   , _elemsLast  :: Elem Maybe ws a
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+instance Monoid ws => Applicative (Elems ws) where
+  pure a = Elems mempty (pure a)
+  Elems atobs atob <*> Elems as a = Elems (liftA2 (<*>) atobs as) (atob <*> a)
+
+instance Monoid ws => Semigroup (Elems ws a) where
+  (<>) (Elems as alast) (Elems bs blast) = Elems (snoc as (flipFInLast alast) <> bs) blast
+
 data CommaSeparated ws a
   = CommaSeparated ws (Maybe (Elems ws a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+instance (Monoid ws, Semigroup ws) => Monoid (CommaSeparated ws a) where
+  mempty = CommaSeparated mempty Nothing
+  mappend (CommaSeparated wsA a) (CommaSeparated wsB b) = CommaSeparated (wsA <> wsB) (a <> b)
+
+instance Monoid ws => Filterable (CommaSeparated ws) where
+  mapMaybe _ (CommaSeparated ws Nothing)              = CommaSeparated ws Nothing
+  mapMaybe f (CommaSeparated ws (Just (Elems es el))) = CommaSeparated ws newElems
+    where
+      newElems = case traverse f el of
+        Nothing -> (\(v,l) -> Elems v (flipGInLast l)) <$> unsnoc (mapMaybe (traverse f) es)
+        Just l' -> Just $ Elems (mapMaybe (traverse f) es) l'
+
+instance Monoid ws => Witherable (CommaSeparated ws) where
 
 _CommaSeparated :: Iso (CommaSeparated ws a) (CommaSeparated ws' b) (ws, Maybe (Elems ws a)) (ws', Maybe (Elems ws' b))
 _CommaSeparated = iso (\(CommaSeparated ws a) -> (ws,a)) (uncurry CommaSeparated)
@@ -146,7 +192,7 @@ unconsElems e = maybe (e', Nothing) (\(em, ems) -> (idT em, Just $ e & elemsElem
 
 consCommaSep :: Monoid ws => ((Comma,ws),a) -> CommaSeparated ws a -> CommaSeparated ws a
 consCommaSep (ews,a) = over (_CommaSeparated . _2) (pure . maybe new (consElems (ews,a)))
-  where new = Elems mempty (Elem a (Just ews))
+  where new = Elems mempty (Elem a Nothing)
 {-# INLINE consCommaSep #-}
 
 unconsCommaSep :: Monoid ws => CommaSeparated ws a -> Maybe ((Maybe (Comma,ws), a), CommaSeparated ws a)
@@ -181,6 +227,7 @@ class HasElems c ws a | c -> ws a where
   {-# INLINE elemsLast #-}
   elemsElems = elems . elemsElems
   elemsLast = elems . elemsLast
+
 instance HasElems (Elems ws a) ws a where
   {-# INLINE elemsElems #-}
   {-# INLINE elemsLast #-}
@@ -188,12 +235,12 @@ instance HasElems (Elems ws a) ws a where
   elemsElems f (Elems x1 x2) = fmap (`Elems` x2) (f x1)
   elemsLast f (Elems x1 x2) = fmap (Elems x1) (f x2)
 
+fromList :: (Monoid ws, Semigroup ws) => [a] -> CommaSeparated ws a
+fromList = foldr consVal mempty
+
 toList :: CommaSeparated ws a -> [a]
-toList = maybe [] g . (^. _CommaSeparated . _2)
-  where
-    g e = snoc
-      (e ^.. elemsElems . traverse . elemVal)
-      (e ^. elemsLast . elemVal)
+toList = maybe [] g . (^. _CommaSeparated . _2) where
+  g e = snoc (e ^.. elemsElems . traverse . elemVal) (e ^. elemsLast . elemVal)
 {-# INLINE toList #-}
 
 commaBuilder :: Builder

@@ -18,9 +18,9 @@ import           Prelude                   (Eq, Show)
 import           Control.Lens              (Rewrapped, Wrapped (..), iso, ( # ))
 import           Control.Monad             (Monad)
 
-import Data.Maybe (Maybe (Nothing))
 import           Data.Foldable             (Foldable)
 import           Data.Functor              (Functor, (<$>))
+import           Data.Maybe                (Maybe (Nothing))
 import           Data.Monoid               (Monoid, mempty)
 import           Data.Traversable          (Traversable)
 

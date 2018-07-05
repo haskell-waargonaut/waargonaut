@@ -14,82 +14,101 @@
 {-# LANGUAGE TypeFamilies               #-}
 module Waargonaut.Zipper where
 
-import qualified GHC.Exts                               as E
+import qualified GHC.Exts                                  as E
 
-import           Control.Lens                           (Lens', lens,
-                                                         makeWrapped, modifying,
-                                                         preview, snoc, to, re,
-                                                         traverseOf, view, (.=), (#), (^..),
-                                                         (.~), (^.), (^?), _1,
-                                                         _2, _Snoc, _Wrapped,
-                                                         _last)
-import           Prelude                                (Bool, Eq, IO, Int,
-                                                         Show, fromIntegral,
-                                                         print, (==), (<), abs)
+import           Control.Lens                              (At, Index, IxValue,
+                                                            Lens', at, lens,
+                                                            makeWrapped,
+                                                            modifying, preview,
+                                                            snoc, to,
+                                                            traverseOf, view,
+                                                            ( # ), (.~), (?~),
+                                                            (^.), (^?), _1,
+                                                            _Wrapped, _last)
 
-import           Control.Applicative                    (Applicative (..), liftA2)
-import           Control.Category                       ((.))
-import           Control.Monad                          (Monad (..), (<=<),
-                                                         (>=>))
+import           Prelude                                   (Bool, Eq, IO, Int,
+                                                            Show, abs,
+                                                            fromIntegral, (-),
+                                                            (<), (==))
 
-import           Control.Monad.Except                   (ExceptT, MonadError,
-                                                         liftEither, runExceptT,
-                                                         throwError)
-import           Control.Monad.Reader                   (MonadReader,
-                                                         ReaderT (..),
-                                                         runReaderT)
-import           Control.Monad.State                    (MonadState, StateT,
-                                                         gets, runStateT)
+import           Control.Applicative                       (Applicative (..))
+import           Control.Category                          ((.))
+import           Control.Monad                             (Monad (..), (<=<),
+                                                            (>=>))
 
-import           Control.Error.Util                     (note)
-import           Control.Monad.Error.Hoist              ((<?>))
+import           Control.Monad.Except                      (ExceptT, MonadError,
+                                                            catchError,
+                                                            liftEither,
+                                                            runExceptT,
+                                                            throwError)
+import           Control.Monad.Reader                      (MonadReader,
+                                                            ReaderT (..),
+                                                            runReaderT)
+import           Control.Monad.State                       (MonadState, StateT,
+                                                            runStateT)
 
-import           GHC.Word                               (Word64)
+import           Control.Error.Util                        (note)
+import           Control.Monad.Error.Hoist                 ((<?>))
 
-import Data.List.NonEmpty (NonEmpty (..))
-import           Data.Bifunctor                         (first)
-import           Data.Either                            (Either (..))
-import           Data.Foldable                          (Foldable,fold,foldr)
-import           Data.Function                          (flip, ($), (&))
-import           Data.Functor                           (Functor, fmap, (<$),
-                                                         (<$>))
-import           Data.Functor.Identity                  (Identity (..),
-                                                         runIdentity)
-import           Data.Maybe                             (Maybe (..), maybe)
-import           Data.Monoid                            (mempty)
-import           Data.Sequence                          (Seq, (|>))
-import           Data.Traversable                       (traverse)
+import           GHC.Word                                  (Word64)
 
-import           Data.Scientific                        (toBoundedInteger)
-import           Data.Text                              (Text)
+import           Data.Bifunctor                            (first)
+import           Data.Either                               (Either (..))
+import           Data.Foldable                             (Foldable, fold,
+                                                            foldl, foldr)
+import           Data.Function                             (const, flip, ($),
+                                                            (&))
+import           Data.Functor                              (Functor, fmap, (<$),
+                                                            (<$>))
+import           Data.Functor.Identity                     (Identity (..),
+                                                            runIdentity)
 
-import           Data.ByteString.Char8                  (ByteString)
-import qualified Data.ByteString.Char8                  as BS8
+import           Data.Functor.Contravariant                (Contravariant (..))
 
-import           Data.Vector.Storable                   (Vector)
+import           Data.List                                 (replicate)
+import           Data.List.NonEmpty                        (NonEmpty (..))
+import           Data.Maybe                                (Maybe (..), maybe)
+import           Data.Monoid                               (Monoid, mempty)
+import Data.Semigroup (Semigroup)
+import           Data.Sequence                             (Seq, (|>))
+import           Data.Traversable                          (Traversable, traverse)
 
-import qualified Data.Vector                            as V
+import           Data.Map                                  (Map)
+import qualified Data.Map                                  as Map
 
-import           Data.Digit                             (Digit, HeXaDeCiMaL)
-import qualified Data.Digit as D
+import           Data.Scientific                           (toBoundedInteger)
+import           Data.Text                                 (Text)
 
-import           Text.ParserCombinators.ReadP           (ReadP)
-import qualified Text.ParserCombinators.ReadP           as RP
+import           Data.ByteString.Char8                     (ByteString)
+import qualified Data.ByteString.Char8                     as BS8
+
+import qualified Data.Digit                                as D
+import qualified Data.Vector as V
+import           Data.Vector.Storable                      (Vector)
+import           Numeric.Natural                           (Natural)
+
+import           Text.ParserCombinators.ReadP              (ReadP)
+import qualified Text.ParserCombinators.ReadP              as RP
 
 import           Waargonaut.Types
 import           Waargonaut.Types.CommaSep
 
-import           HaskellWorks.Data.Positioning          (Count)
-import qualified HaskellWorks.Data.Positioning          as Pos
+import           HaskellWorks.Data.Positioning             (Count)
+import qualified HaskellWorks.Data.Positioning             as Pos
 
-import           HaskellWorks.Data.BalancedParens       (SimpleBalancedParens)
-import           HaskellWorks.Data.Bits                 ((.?.))
-import           HaskellWorks.Data.FromByteString       (fromByteString)
-import           HaskellWorks.Data.RankSelect.Poppy512  (Poppy512)
-import           HaskellWorks.Data.TreeCursor           (TreeCursor (..))
+import           HaskellWorks.Data.BalancedParens          (SimpleBalancedParens)
+import qualified HaskellWorks.Data.BalancedParens.FindOpen as BP
 
-import           HaskellWorks.Data.Json.Succinct.Cursor (JsonCursor (..))
-import qualified HaskellWorks.Data.Json.Succinct.Cursor as JC
+import           HaskellWorks.Data.Bits                    ((.?.))
+import           HaskellWorks.Data.FromByteString          (fromByteString)
+import           HaskellWorks.Data.RankSelect.Poppy512     (Poppy512)
+import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
+
+import           HaskellWorks.Data.Json.Succinct.Cursor    (JsonCursor (..))
+import qualified HaskellWorks.Data.Json.Succinct.Cursor    as JC
+
+import           Control.Zipper                            ((:>>))
+import qualified Control.Zipper                            as Z
 
 data DecodeError
   = ConversionFailure Text
@@ -100,13 +119,15 @@ data DecodeError
   | ParseFailed Text
   deriving (Show, Eq)
 
-data CursorMove
-  = FirstChild
-  | NextSibling
-  | Parent
+data Mv
+  = U
+  | D
+  | DAt Text
+  | L Natural
+  | R Natural
   deriving (Show, Eq)
 
-newtype CursorHistory = CursorHistory (Seq (CursorMove, Count))
+newtype CursorHistory = CursorHistory (Seq (Mv, Count))
   deriving (Eq, Show)
 makeWrapped ''CursorHistory
 
@@ -147,26 +168,6 @@ newtype Decoder f a = Decoder
            , MonadReader JCurs
            )
 
-newtype Encoder a = Encoder
-  { unEncoder :: a -> Json
-  }
-
-encodeA
-  :: (a -> Json)
-  -> Encoder a
-encodeA =
-  Encoder
-
-encodeInt :: Encoder Int
-encodeInt = encodeA $ \i -> _JNum # (JNumber (i < 0) (mkjInt $ abs i) Nothing Nothing, mempty)
-  where
-    mkjInt :: Int -> JInt
-    mkjInt 0 = JZero
-    mkjInt n = (\(h :| t) -> JIntInt h t) $ D._NaturalDigits # fromIntegral n
-
-encodeBool :: Encoder Bool
-encodeBool = encodeA ((_JBool #) . (,mempty))
-
 withCursor
   :: Monad f
   => (JCurs -> DecodeResultT f DecodeError a)
@@ -189,6 +190,77 @@ cursorRankL :: Lens' (JsonCursor s i p) Count
 cursorRankL = lens JC.cursorRank (\c r -> c { cursorRank = r })
 {-# INLINE cursorRankL #-}
 
+manyMoves :: Monad m => Natural -> (b -> m b) -> b -> m b
+manyMoves i g = foldl (>=>) pure (replicate (fromIntegral i) g)
+
+moveCursBasic
+  :: Monad f
+  => (SuccinctCursor -> Maybe SuccinctCursor)
+  -> Mv
+  -> JCurs
+  -> DecodeResultT f DecodeError JCurs
+moveCursBasic f m c =
+  traverseOf _Wrapped f c <?> FailedToMove >>= recordRank m
+
+down
+  :: Monad f
+  => JCurs
+  -> DecodeResultT f DecodeError JCurs
+down =
+  moveCursBasic firstChild D
+
+up
+  :: Monad f
+  => JCurs
+  -> DecodeResultT f DecodeError JCurs
+up =
+  moveCursBasic parent U
+
+moveRightN
+  :: Monad f
+  => Natural
+  -> JCurs
+  -> DecodeResultT f DecodeError JCurs
+moveRightN i =
+  moveCursBasic (manyMoves i nextSibling) (R i)
+
+moveRight1
+  :: Monad f
+  => JCurs
+  -> DecodeResultT f DecodeError JCurs
+moveRight1 =
+  moveRightN 1
+
+moveLeft1
+  :: Monad f
+  => JCurs
+  -> DecodeResultT f DecodeError JCurs
+moveLeft1 jc =
+  let
+    c = jc ^. _Wrapped
+    rnk = c ^. cursorRankL
+
+    setRank r = jc & _Wrapped . cursorRankL .~ r
+
+    prev = rnk - 1
+  in
+    setRank <$> BP.findOpen (JC.balancedParens c) prev <?> InputOutOfBounds prev
+
+moveLeftN
+  :: Monad f
+  => Natural
+  -> JCurs
+  -> DecodeResultT f DecodeError JCurs
+moveLeftN i =
+  manyMoves i moveLeft1
+
+try
+  :: Monad f
+  => DecodeResultT f e a
+  -> DecodeResultT f e (Maybe a)
+try mv =
+  catchError (pure <$> mv) (const (pure Nothing))
+
 jsonAtCursor
   :: ( Monad f
      )
@@ -206,69 +278,42 @@ jsonAtCursor p jc = do
     then liftEither (p cursorTxt)
     else throwError (InputOutOfBounds rnk)
 
-moveFn :: CursorMove -> (SuccinctCursor -> Maybe SuccinctCursor)
-moveFn FirstChild  = firstChild
-moveFn NextSibling = nextSibling
-moveFn Parent      = parent
-
 recordRank
   :: ( MonadState CursorHistory f
      , Monad f
      )
-  => CursorMove
+  => Mv
   -> JCurs
   -> f JCurs
 recordRank mv c =
   c <$ modifying _Wrapped (`snoc` (mv, c ^. _Wrapped . cursorRankL))
 
-tryMoveJCurs
-  :: Monad f
-  => CursorMove
-  -> JCurs
-  -> DecodeResultT f e (Maybe JCurs)
-tryMoveJCurs mv =
-  traverse (recordRank mv) . traverseOf _Wrapped (moveFn mv)
-
-moveJCurs
-  :: Monad f
-  => CursorMove
-  -> JCurs
-  -> DecodeResultT f DecodeError JCurs
-moveJCurs mv c =
-  traverseOf _Wrapped (moveFn mv) c <?> FailedToMove >>= recordRank mv
+bytestringToText
+  :: (ByteString -> Either DecodeError JString)
+  -> ByteString
+  -> Either DecodeError Text
+bytestringToText p =
+  p >=> note (ConversionFailure "Invalid Text (UTF8 Value)") . (^? _JStringText)
 
 moveToValAtKey
-  :: ( Monad f
-     , HeXaDeCiMaL digit
-     )
-  => (ByteString -> Either DecodeError (JString digit))
+  :: Monad f
+  => (ByteString -> Either DecodeError JString)
   -> Text
   -> JCurs
   -> DecodeResultT f DecodeError JCurs
 moveToValAtKey p k c =
   -- Tease out the key
-  jsonAtCursor (fmap jStringToText . p) c >>= \k' ->
+  text p c >>= \k' ->
   -- Are we at the key we want to be at ?
   if k' == k
     -- Move into the THING at the key
-    then moveJCurs NextSibling c
+    then moveRight1 c
     -- Jump to the next key index, the adjacent sibling is opening of the value of the current key
-    else moveJCurs NextSibling c
-         >>= moveJCurs NextSibling
-         >>= moveToValAtKey p k
-
-back
-  :: Monad f
-  => JCurs
-  -> DecodeResultT f e (Maybe JCurs)
-back c =
-  -- See if we can pull off the last rank we were at.
-  gets (^? _Wrapped . _Snoc) >>=
-  -- If we can then, set the state to be the snocced list and the current rank to be the previous rank.
-  traverse (\(ps, p) -> (c & _Wrapped . cursorRankL .~ (p ^. _2)) <$ (_Wrapped .= ps))
+    else moveRightN 2 c >>= moveToValAtKey p k
 
 jtoint :: JNumber -> Either DecodeError Int
-jtoint jn = (jNumberToScientific jn >>= toBoundedInteger) <?> ConversionFailure "Number out of bounds!"
+jtoint jn = (jNumberToScientific jn >>= toBoundedInteger)
+  <?> ConversionFailure "JNumber out of bounds!"
 
 int
   :: Monad f
@@ -279,39 +324,16 @@ int p =
   jsonAtCursor p >=> liftEither . jtoint
 
 text
-  :: ( HeXaDeCiMaL digit
-     , Monad f
-     )
-  => (ByteString -> Either DecodeError (JString digit))
+  :: Monad f
+  => (ByteString -> Either DecodeError JString)
   -> JCurs
   -> DecodeResultT f DecodeError Text
-text p c =
-  jStringToText <$> jsonAtCursor p c
+text p =
+  jsonAtCursor (bytestringToText p)
 
 -- |
 -- Cursor walk version using `nextSibling`
 --
-arrayWithUnfoldr
-  :: Monad f
-  => (ByteString -> Either DecodeError a)
-  -> JCurs
-  -> DecodeResultT f DecodeError [a]
-arrayWithUnfoldr elemP c = do
-  let
-    tryElemP = traverse (jsonAtCursor elemP)
-
-    liftAA2 = liftA2 . liftA2
-    moosh h = V.toList . V.cons h
-
-    f c' = do
-      e <- tryMoveJCurs NextSibling c'
-      j <- tryElemP e
-      pure $ liftA2 (,) j e
-
-  -- unfoldrM edition, not sure if better. Seems pretty wooly and a bit silly.
-  tryMoveJCurs FirstChild c >>= \hc ->
-    fold <$> liftAA2 moosh (tryElemP hc) (traverse (V.unfoldrM f) hc)
-
 arrayWithSeq
   :: Monad f
   => (ByteString -> Either DecodeError a)
@@ -319,14 +341,13 @@ arrayWithSeq
   -> DecodeResultT f DecodeError [a]
 arrayWithSeq elemP c = do
   let
-    -- Sean <3 Seq.
+    -- <3 Seq.
     consumeElems acc curs = do
       acc' <- (acc |>) <$> jsonAtCursor elemP curs
-      tryMoveJCurs NextSibling curs
-        >>= maybe (pure acc') (consumeElems acc')
+      try (moveRight1 curs) >>= maybe (pure acc') (consumeElems acc')
 
   -- Try to move to the first element of the array
-  tryMoveJCurs FirstChild c >>=
+  try (down c) >>=
     -- Gather the rest of the elements if there are any.
     fmap (E.toList . fold) . traverse (consumeElems mempty)
 
@@ -373,7 +394,7 @@ parsur p t = note (ParseFailed t)
 
 pJStr
   :: ByteString
-  -> Either DecodeError (JString Digit)
+  -> Either DecodeError JString
 pJStr = parsur parseJString "JString"
 
 pint
@@ -396,13 +417,6 @@ pjnum
   -> Either DecodeError Int
 pjnum = (jtoint <=< note (ConversionFailure "Expected JNumber")) . preview (_JNum . _1)
 
-down
-  :: Monad f
-  => JCurs
-  -> DecodeResultT f DecodeError JCurs
-down =
-  moveJCurs FirstChild
-
 valAtKey
   :: Monad f
   => Text
@@ -420,29 +434,248 @@ intoObjAtKey
 intoObjAtKey k =
   moveToValAtKey pJStr k >=> down
 
+wutDecoder :: Monad f => Decoder f [Int]
+wutDecoder = withCursor $ \curs -> do
+  -- Move into the array
+  x <- down curs
+  -- Decode first
+  a <- int pint x
+  -- Step to the right
+  x' <- moveRightN 1 x
+  -- Decode that one
+  b <- int pint x'
+  -- Jump to the left
+  x'' <- moveLeft1 x'
+  -- Decode that one again
+  c <- int pint x''
+  -- Step back to the right again
+  x''' <- moveRightN 1 x''
+  -- Decode that one
+  d <- int pint x'''
+  -- Shake it all out
+  pure [a,b,c,d]
+
+fooDecoder :: Monad f => Decoder f [Int]
+fooDecoder = withCursor $ \curs -> do
+  -- Move into array
+  x <- down curs
+  -- Decode '1'
+  a <- int pint x
+  -- Step right twice
+  x' <- moveRightN 2 x
+  -- Decode '3'
+  b <- int pint x'
+  -- Step left once
+  x'' <- moveLeftN 1 x'
+  -- Decode '2'
+  c <- int pint x''
+  -- Step right once
+  x''' <- moveRightN 1 x''
+  -- Decode '3'
+  d <- int pint x'''
+  -- Step left twice
+  x'''' <- moveLeftN 2 x'''
+  -- Decode '1'
+  e <- int pint x''''
+  -- Expecting [1,3,2,3,1]
+  pure [a,b,c,d,e]
+
 imageDecoder :: Monad f => Decoder f Image
 imageDecoder = withCursor $ \curs -> do
-  -- We're at the root of our object, move into it and move to the value at the
-  -- "Image" key
+  -- We're at the root of our object, move into it and move to the value at the "Image" key
   c <- down curs >>= intoObjAtKey "Image"
   -- We need individual values off of our object,
   Image
-    <$> valAtKey "Width" (int pint) c
-    <*> valAtKey "Height" (int pint) c
-    <*> valAtKey "Title" (text pJStr) c
+    <$> valAtKey "Width"    (int pint) c
+    <*> valAtKey "Height"   (int pint) c
+    <*> valAtKey "Title"    (text pJStr) c
     <*> valAtKey "Animated" (boolean poolean) c
-    -- <*> valAtKey "IDs" (array parray pjnum) c
-    <*> valAtKey "IDs" (arrayWithUnfoldr (pint >=> jtoint)) c
+    <*> valAtKey "IDs"      (array parray pjnum) c
+
+pureDecode
+  :: Decoder Identity a
+  -> ByteString
+  -> Either (DecodeError, CursorHistory) a
+pureDecode dec = runIdentity
+  . runDecoderResultT
+  . runDecoder dec
+  . mkCursor
 
 -- |
 -- A filthy test implementation of my filthy decoders and their respective
 -- filthy parsers being wired in for the purposes of decoding from a JSON
 -- bytestring into an actual Haskell type.
 --
-decodeTest1Json :: IO ()
-decodeTest1Json = do
-  cur <- mkCursor <$> BS8.readFile "test/json-data/test1.json"
-  print . runIdentity . runDecoderResultT $ runDecoder imageDecoder cur
+decodeTest1Json :: IO (Either (DecodeError, CursorHistory) Image)
+decodeTest1Json = pureDecode imageDecoder <$> BS8.readFile "test/json-data/test1.json"
+
+decodeTest2Json :: Either (DecodeError, CursorHistory) [Int]
+decodeTest2Json = pureDecode wutDecoder "[23,44]"
+
+decodeTest3Json :: Either (DecodeError, CursorHistory) [Int]
+decodeTest3Json = pureDecode fooDecoder "[1,2,3,4]"
+
+-- Encoder testing
+newtype Encoder' f a = Encoder'
+  { runEncoder :: a -> f Json
+  }
+
+instance Contravariant (Encoder' f) where
+  contramap f (Encoder' g) = Encoder' (g . f)
+
+type Encoder a = Encoder' Identity a
+
+encodeA
+  :: (a -> Json)
+  -> Encoder a
+encodeA f =
+  Encoder' (Identity . f)
+
+encodeInt
+  :: Encoder Int
+encodeInt = encodeA $ \i ->
+  _JNum # (JNumber (i < 0) (mkjInt $ abs i) Nothing Nothing, mempty)
+  where
+    mkjInt :: Int -> JInt
+    mkjInt 0 = JZero
+    mkjInt n = (\(h :| t) -> JIntInt h t) $ D._NaturalDigits # fromIntegral n
+
+encodeBool
+  :: Encoder Bool
+encodeBool =
+  encodeA ((_JBool #) . (,mempty))
+
+encodeWithInner
+  :: ( Applicative f
+     , Traversable t
+     )
+  => (t Json -> Json)
+  -> Encoder' f a
+  -> Encoder' f (t a)
+encodeWithInner f g =
+  Encoder' $ fmap f . traverse (runEncoder g)
+
+encodeArray
+  :: ( Applicative f
+     , Traversable t
+     )
+  => Encoder' f a
+  -> Encoder' f (t a)
+encodeArray = encodeWithInner
+  (\xs -> _JArr # (_Wrapped # foldr consVal mempty xs, mempty))
+
+encodeMapToObj
+  :: Applicative f
+  => Encoder' f a
+  -> (k -> Text)
+  -> Encoder' f (Map k a)
+encodeMapToObj encodeVal kToText =
+  let
+    mapToCS = Map.foldrWithKey (\k v -> at (kToText k) ?~ v) emptyMapLike
+  in
+    encodeWithInner (\xs -> _JObj # (fromMapLikeObj $ mapToCS xs, mempty)) encodeVal
+
+encodeText
+  :: Encoder Text
+encodeText = encodeA $ \t ->
+  _JStr # (_JStringText # t, mempty)
+
+atKey
+  :: ( At t
+     , IxValue t ~ Json
+     )
+  => Encoder a
+  -> Index t
+  -> a
+  -> t
+  -> t
+atKey enc k v =
+  at k ?~ runIdentity (runEncoder enc v)
+
+intAt
+  :: Text
+  -> Int
+  -> MapLikeObj WS Json
+  -> MapLikeObj WS Json
+intAt = atKey encodeInt
+
+textAt
+  :: Text
+  -> Text
+  -> MapLikeObj WS Json
+  -> MapLikeObj WS Json
+textAt = atKey encodeText
+
+boolAt
+  :: Text
+  -> Bool
+  -> MapLikeObj WS Json
+  -> MapLikeObj WS Json
+boolAt = atKey encodeBool
+
+arrayAt
+  :: ( At t
+     , Traversable f
+     , Foldable f
+     , IxValue t ~ Json
+     )
+  => Encoder a
+  -> Index t
+  -> f a
+  -> t
+  -> t
+arrayAt enc =
+  atKey (encodeArray enc)
+
+encodeAsMapLike
+  :: ( AsJTypes Json D.Digit ws a
+     , Semigroup ws
+     , Monoid ws
+     )
+  => (i -> MapLikeObj ws a -> MapLikeObj ws a)
+  -> Encoder i
+encodeAsMapLike f =
+  encodeA $ \a -> _JObj # (fromMapLikeObj $ f a emptyMapLike, mempty)
+
+encodeImage :: Encoder Image
+encodeImage = encodeAsMapLike $ \img ->
+  intAt "Width" (_imageW img) .
+  intAt "Height" (_imageH img) .
+  textAt "Title" (_imageTitle img) .
+  boolAt "Animated" (_imageAnimated img) .
+  arrayAt encodeInt "IDs" (_imageIDs img)
+
+-- kv :: (At s, IxValue s ~ Json) => Encoder a -> Index s -> a -> h :>> s -> h :>> s
+-- kv enc k v z = z & Z.downward (at k) & Z.focus ?~ runEncoder enc v & Z.upward
+
+-- intAt :: Text -> Int -> h :>> MapLikeObj WS Json -> h :>> MapLikeObj WS Json
+-- intAt = kv encodeInt
+
+-- textAt :: Text -> Text -> h :>> MapLikeObj WS Json -> h :>> MapLikeObj WS Json
+-- textAt = kv encodeText
+
+-- boolAt :: Text -> Bool -> h :>> MapLikeObj WS Json -> h :>> MapLikeObj WS Json
+-- boolAt = kv encodeBool
+
+-- arrayAt :: (At s, Foldable f, IxValue s ~ Json) => Encoder a -> Index s -> f a -> h :>> s -> h :>> s
+-- arrayAt enc = kv (encodeArray enc)
+
+-- obj :: (Z.Zipped h a ~ MapLikeObj WS Json, Z.Zipping h a) => Zipper h i a -> Json
+-- obj o = _JObj # (fromMapLikeObj $ Z.rezip o, mempty)
+
+-- encodeImageZip :: Image -> Z.Top :>> MapLikeObj WS Json
+-- encodeImageZip i = mapLikeObj
+--   & intAt "Width" (_imageW i)
+--   & intAt "Height" (_imageH i)
+--   & textAt "Title" (_imageTitle i)
+--   & boolAt "Animated" (_imageAnimated i)
+--   & arrayAt encodeInt "IDs" (_imageIDs i)
+
+-- encodeSomething :: Image -> [Int] -> Json
+-- encodeSomething i xs = mapLikeObj
+--   & Z.downward (at "image") & Z.focus ?~ obj (encodeImageZip i) & Z.upward
+--   & Z.downward (at "ints") & Z.focus ?~ runEncoder (encodeArray encodeInt) xs
+--   & obj
 
 -- jboolFalse :: Json
 -- jboolFalse = Json (JBool False mempty)
@@ -475,9 +708,6 @@ decodeTest1Json = do
 --   | Into Text
 --   | IntoIdx Int
 --   deriving (Show, Eq)
-
--- type JCursor h a =
---   h :>> a
 
 -- type JCursorMove s a =
 --   LensLike' (Indexing (Bazaar' (Indexed Int) a)) s a

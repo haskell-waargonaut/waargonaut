@@ -4,8 +4,8 @@
 module Waargonaut.Types.Whitespace where
 
 import           Control.Applicative     (liftA2)
-import           Control.Lens            (AsEmpty (..), Cons (..), Rewrapped,
-                                          Wrapped (..), isn't, iso, mapped,
+import           Control.Lens            (AsEmpty (..), Cons (..), Rewrapped, Prism',
+                                          Wrapped (..), isn't, iso, mapped, prism,
                                           nearly, over, prism', to, uncons,
                                           (^.), _2, _Wrapped)
 
@@ -75,6 +75,17 @@ instance Monoid WS where
 
 instance Semigroup WS where
   (<>) = mappend
+
+_WhitespaceChar :: Prism' Char Whitespace
+_WhitespaceChar = prism escapedWhitespaceChar
+  (\x -> case x of
+      ' '  -> Right Space
+      '\t' -> Right HorizontalTab
+      '\f' -> Right LineFeed
+      '\r' -> Right CarriageReturn
+      '\n' -> Right NewLine
+      _    -> Left x
+      )
 
 oneWhitespace
   :: CharParsing f

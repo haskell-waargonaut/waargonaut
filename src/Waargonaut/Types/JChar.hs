@@ -1,10 +1,12 @@
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
 {-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
+{-# LANGUAGE RankNTypes             #-}
 module Waargonaut.Types.JChar
   ( HexDigit4 (..)
   , HasHexDigit4 (..)
@@ -26,31 +28,41 @@ module Waargonaut.Types.JChar
 
   , jCharBuilder
   , jCharToChar
-  --
-  -- , reencodeChar
+
+  , utf8CharToJChar
+  , jCharToUtf8Char
   ) where
 
-import           Prelude                     (Char, Eq, Ord, Show, show, (&&),
-                                              (*), (+), (<=), (==), (>=))
+import           Prelude                     (Char, Eq, Int, Ord, Show,
+                                              otherwise, quotRem, show, (&&),
+                                              (*), (+), (-), (/=), (<=), (==),
+                                              (>=))
 
 import           Control.Category            (id, (.))
-import           Control.Lens                (Lens', Prism', has, prism, prism',
-                                              ( # ))
+import           Control.Lens                (Lens', Prism', failing, has,
+                                              prism, prism', to, ( # ), (^?),
+                                              _Just)
 
 import           Control.Applicative         (pure, (*>), (<$>), (<*>), (<|>))
-import           Control.Monad               ((>>=))
+import           Control.Monad               ((=<<), (>>=))
 
-import           Data.Char                   (chr)
+import           Control.Error.Util          (note)
+
+import           Data.Bits                   ((.&.))
+
+import           Data.Char                   (chr, ord)
 import           Data.Either                 (Either (..))
 import           Data.Foldable               (Foldable, any, asum, foldMap,
                                               foldl)
 import           Data.Function               (const, ($))
 import           Data.Functor                (Functor)
-import           Data.Maybe                  (Maybe (..))
+import           Data.Maybe                  (Maybe (..), fromMaybe)
 import           Data.Semigroup              ((<>))
-import           Data.Traversable            (Traversable)
+import           Data.Traversable            (Traversable, traverse)
 
-import           Data.Digit                  (HeXaDeCiMaL)
+import qualified Data.Text.Internal          as Text
+
+import           Data.Digit                  (Digit, HeXaDeCiMaL)
 import qualified Data.Digit                  as D
 
 import           Data.ByteString.Builder     (Builder)
@@ -58,7 +70,8 @@ import qualified Data.ByteString.Builder     as BB
 
 import           Waargonaut.Types.Whitespace (Whitespace (..),
                                               escapedWhitespaceChar,
-                                              unescapedWhitespaceChar)
+                                              unescapedWhitespaceChar,
+                                              _WhitespaceChar)
 
 import           Text.Parser.Char            (CharParsing, char, satisfy)
 import           Text.Parser.Combinators     (try)
@@ -186,6 +199,51 @@ instance AsJCharEscaped (JCharEscaped digit) digit where
         _      -> Left x
     )
 
+_GivenChar :: Char -> Prism' Char ()
+_GivenChar c = prism (const c) (\x -> if x == c then Right () else Left x)
+
+hexDigit4ToChar
+  :: HeXaDeCiMaL digit
+  => HexDigit4 digit
+  -> Char
+hexDigit4ToChar (HexDigit4 a b c d) =
+  chr (foldl (\acc x -> 16 * acc + (D.integralHexadecimal # x)) 0 [a,b,c,d])
+
+sandblast :: Char -> Maybe (HexDigit4 Digit)
+sandblast x = if x >= '\x0' && x <= '\xffff'
+  then shuriken =<< traverse (^? D.integralHexadecimal) (lavawave 4 [] (bile (ord x)))
+  else Nothing
+  where
+    shuriken (a:b:c:d:_) = Just (HexDigit4 a b c d)
+    shuriken _           = Nothing
+
+    bile n = quotRem n 16
+
+    lavawave :: Int -> [Int] -> (Int,Int) -> [Int]
+    lavawave 0 acc _     = acc
+    lavawave n acc (0,0) = lavawave (n - 1) (0:acc) (0,0)
+    lavawave n acc (q,r) = lavawave (n - 1) (r:acc) (bile q)
+    {-# INLINE lavawave #-}
+{-# INLINE sandblast #-}
+
+instance AsJCharEscaped Char Digit where
+  _JCharEscaped = prism
+    (\x -> case x of
+        QuotationMark  -> '"'
+        ReverseSolidus -> '\\'
+        Solidus        -> '/'
+        Backspace      -> '\b'
+        WhiteSpace wc  -> escapedWhitespaceChar wc
+        Hex hd         -> hexDigit4ToChar hd
+        )
+    (\c -> case c of
+        '"'  -> Right QuotationMark
+        '\\' -> Right ReverseSolidus
+        '/'  -> Right Solidus
+        '\b' -> Right Backspace
+        _    -> note c $ c ^? failing (_WhitespaceChar . to WhiteSpace) (to sandblast . _Just . to Hex)
+    )
+
 data JChar digit
   = EscapedJChar ( JCharEscaped digit )
   | UnescapedJChar JCharUnescaped
@@ -217,6 +275,41 @@ instance AsJChar (JChar digit) digit where
         UnescapedJChar y1 -> Right y1
         _                 -> Left x
     )
+
+instance AsJCharEscaped (JChar digit) digit where
+  _JCharEscaped = _JChar . _JCharEscaped
+
+instance AsJCharUnescaped (JChar digit) where
+  _JCharUnescaped = _JChar . _JCharUnescaped
+
+instance AsJChar Char Digit where
+  _JChar = prism
+    (\x -> case x of
+        UnescapedJChar jcu -> _JCharUnescaped # jcu
+        EscapedJChar jce   -> _JCharEscaped # jce
+    )
+    (\c -> note c $ c ^? failing
+      (_JCharUnescaped . to UnescapedJChar)
+      (_JCharEscaped . to EscapedJChar)
+    )
+
+utf8SafeChar :: Char -> Maybe Char
+utf8SafeChar c | ord c .&. 0x1ff800 /= 0xd800 = Just c
+               | otherwise                    = Nothing
+
+-- |
+-- Convert a 'Char' to 'JChar Digit' and replace any invalid values with @U+FFFD@ as per the 'Text' documentation.
+--
+-- Refer to <https://hackage.haskell.org/package/text/docs/Data-Text.html#g:2 'Text'> documentation for more info.
+--
+utf8CharToJChar :: Char -> JChar Digit
+utf8CharToJChar c = fromMaybe scalarReplacement (Text.safe c ^? _JChar)
+  where scalarReplacement = EscapedJChar (Hex (HexDigit4 D.xf D.xf D.xf D.xd))
+{-# INLINE utf8CharToJChar #-}
+
+jCharToUtf8Char :: JChar Digit -> Maybe Char
+jCharToUtf8Char jc = utf8SafeChar (_JChar # jc)
+{-# INLINE jCharToUtf8Char #-}
 
 -- |
 --
@@ -300,23 +393,24 @@ parseJCharEscaped ::
   (CharParsing f, HeXaDeCiMaL digit) =>
   f ( JCharEscaped digit )
 parseJCharEscaped =
-  let z =
-        asum
-          ((\(c, p) -> char c *> pure p) <$>
-            [
-              ('"' , QuotationMark)
-            , ('\\', ReverseSolidus)
-            , ('/' , Solidus)
-            , ('b' , Backspace)
-            , (' ' , WhiteSpace Space)
-            , ('f' , WhiteSpace LineFeed)
-            , ('n' , WhiteSpace NewLine)
-            , ('r' , WhiteSpace CarriageReturn)
-            , ('t' , WhiteSpace HorizontalTab)
-            ])
-      h =
-        Hex <$> (char 'u' *> parseHexDigit4)
-  in  char '\\' *> (z <|> h)
+  let
+    z =
+      asum ((\(c, p) -> char c *> pure p) <$>
+        [
+          ('"' , QuotationMark)
+        , ('\\', ReverseSolidus)
+        , ('/' , Solidus)
+        , ('b' , Backspace)
+        , (' ' , WhiteSpace Space)
+        , ('f' , WhiteSpace LineFeed)
+        , ('n' , WhiteSpace NewLine)
+        , ('r' , WhiteSpace CarriageReturn)
+        , ('t' , WhiteSpace HorizontalTab)
+        ])
+    h =
+      Hex <$> (char 'u' *> parseHexDigit4)
+  in
+    char '\\' *> (z <|> h)
 
 -- |
 --
@@ -342,16 +436,18 @@ parseJChar = asum
   , UnescapedJChar <$> parseJCharUnescaped
   ]
 
-jCharToChar :: HeXaDeCiMaL digit => JChar digit -> Char
+jCharToChar
+  :: HeXaDeCiMaL digit
+  => JChar digit
+  -> Char
 jCharToChar (UnescapedJChar (JCharUnescaped c)) = c
 jCharToChar (EscapedJChar jca) = case jca of
-    QuotationMark           -> '"'
-    ReverseSolidus          -> '\\'
-    Solidus                 -> '/'
-    Backspace               -> '\b'
-    (WhiteSpace ws)         -> escapedWhitespaceChar ws
-    Hex (HexDigit4 a b c d) ->
-      chr (foldl (\acc x -> 16*acc + (D.integralDecimal # x)) 0 [a,b,c,d])
+    QuotationMark   -> '"'
+    ReverseSolidus  -> '\\'
+    Solidus         -> '/'
+    Backspace       -> '\b'
+    (WhiteSpace ws) -> _WhiteSpace # ws
+    Hex hexDig4     -> hexDigit4ToChar hexDig4
 
 jCharBuilder
   :: HeXaDeCiMaL digit

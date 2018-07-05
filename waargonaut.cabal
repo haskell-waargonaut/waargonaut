@@ -83,6 +83,10 @@ library
                      , hoist-error
                      , containers
                      , vector
+                     , witherable
+                     , contravariant
+
+                     , algebraic-graphs
 
                      , hw-json >= 0.6
                      , hw-prim
@@ -142,6 +146,11 @@ test-suite waarg-tests
                      , semigroups             >= 0.8.4 && < 0.19
                      , waargonaut
                      , vector
+                     , containers
+                     , mtl
+                     , exceptions
+                     , mmorph
+                     , wl-pprint-annotated
 
   ghc-options:         -Wall
 

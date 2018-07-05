@@ -25,7 +25,7 @@ import           Types.CommaSep              (genCommaSeparated,
 genJArray :: Gen (JArray WS Json)
 genJArray = JArray <$> genCommaSeparated G.genWS genJson
 
-genJAssoc :: Gen (JAssoc Digit WS Json)
+genJAssoc :: Gen (JAssoc WS Json)
 genJAssoc = Gen.recursive Gen.choice
   -- Non Recursive
   (mk <$> genJsonNonRecursive)
@@ -38,7 +38,7 @@ genJAssoc = Gen.recursive Gen.choice
       <*> G.genWS
       <*> v
 
-genJObj :: Gen (JObject Digit WS Json)
+genJObj :: Gen (JObject WS Json)
 genJObj = JObject <$> genCommaSeparated G.genWS genJAssoc
 
 toJson
