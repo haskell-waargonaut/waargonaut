@@ -35,8 +35,6 @@ module Waargonaut.Types.CommaSep
   --
   , consCommaSep
   , unconsCommaSep
-  , consVal
-  , unconsVal
   ) where
 
 import           Prelude                 (Eq, Int, Show, otherwise, (&&), (<=),
@@ -46,12 +44,13 @@ import           Control.Applicative     (Applicative (..), liftA2, pure, (*>),
                                           (<*), (<*>))
 import           Control.Category        (id, (.))
 
-import           Control.Lens            (Index, Iso, Iso', IxValue, Ixed (..),
-                                          Lens', cons, iso, mapped, over, snoc,
-                                          to, traverse, unsnoc, (%%~), (%~),
-                                          (.~), (^.), (^..), (^?), _1, _2,
-                                          _Cons)
+import           Control.Lens            (Cons (..), Index, Iso, Iso', IxValue, AsEmpty (..),
+                                          Ixed (..), Lens', cons, iso, mapped, nearly, _Nothing, isn't,
+                                          over, prism, snoc, to, traverse,
+                                          unsnoc, (%%~), (%~), (.~), (^.),
+                                          (^..), (^?), _1, _2, _Cons)
 
+import           Control.Error.Util      (note)
 import           Control.Monad           (Monad)
 
 import           Data.Char               (Char)
@@ -156,9 +155,12 @@ instance Monoid ws => Applicative (Elems ws) where
 instance Monoid ws => Semigroup (Elems ws a) where
   (<>) (Elems as alast) (Elems bs blast) = Elems (snoc as (flipFInLast alast) <> bs) blast
 
-data CommaSeparated ws a
-  = CommaSeparated ws (Maybe (Elems ws a))
+data CommaSeparated ws a = CommaSeparated ws (Maybe (Elems ws a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+instance Monoid ws => Cons (CommaSeparated ws a) (CommaSeparated ws a) a a where
+  _Cons = prism (\(a,cs) -> consCommaSep ((Comma,mempty), a) cs) (\c -> note c . over (mapped . _1) (^. _2) $ unconsCommaSep c)
+  {-# INLINE _Cons #-}
 
 instance (Monoid ws, Semigroup ws) => Monoid (CommaSeparated ws a) where
   mempty = CommaSeparated mempty Nothing
@@ -199,14 +201,11 @@ unconsCommaSep :: Monoid ws => CommaSeparated ws a -> Maybe ((Maybe (Comma,ws), 
 unconsCommaSep (CommaSeparated ws es) = over _2 (CommaSeparated ws) . unconsElems <$> es
 {-# INLINE unconsCommaSep #-}
 
-consVal :: Monoid ws => a -> CommaSeparated ws a -> CommaSeparated ws a
-consVal a = consCommaSep ((Comma,mempty), a)
-
-unconsVal :: Monoid ws => CommaSeparated ws a -> Maybe (a, CommaSeparated ws a)
-unconsVal = over (mapped . _1) (^. _2) . unconsCommaSep
-
 type instance IxValue (CommaSeparated ws a) = a
 type instance Index (CommaSeparated ws a)   = Int
+
+instance (Semigroup ws, Monoid ws) => AsEmpty (CommaSeparated ws a) where
+  _Empty = nearly mempty (^. _CommaSeparated . _2 . to (isn't _Nothing))
 
 instance Ixed (CommaSeparated ws a) where
 
@@ -236,7 +235,7 @@ instance HasElems (Elems ws a) ws a where
   elemsLast f (Elems x1 x2) = fmap (Elems x1) (f x2)
 
 fromList :: (Monoid ws, Semigroup ws) => [a] -> CommaSeparated ws a
-fromList = foldr consVal mempty
+fromList = foldr cons mempty
 
 toList :: CommaSeparated ws a -> [a]
 toList = maybe [] g . (^. _CommaSeparated . _2) where

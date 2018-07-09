@@ -52,9 +52,7 @@ newtype WS = WS (Vector Whitespace)
   deriving (Eq, Show)
 
 instance Cons WS WS Whitespace Whitespace where
-  _Cons = prism'
-    (\(w,ws) -> over _Wrapped (V.cons w) ws)
-    (\(WS ws) -> over (mapped . _2) WS (uncons ws))
+  _Cons = prism' (\(w,ws) -> over _Wrapped (V.cons w) ws) (\(WS ws) -> over (mapped . _2) WS (uncons ws))
   {-# INLINE _Cons #-}
 
 instance AsEmpty WS where
@@ -75,6 +73,7 @@ instance Monoid WS where
 
 instance Semigroup WS where
   (<>) = mappend
+  {-# INLINE (<>) #-}
 
 _WhitespaceChar :: Prism' Char Whitespace
 _WhitespaceChar = prism escapedWhitespaceChar

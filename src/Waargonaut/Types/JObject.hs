@@ -32,7 +32,7 @@ import           Prelude                   (Eq, Int, Show, elem, not, otherwise,
 import           Control.Applicative       ((<*), (<*>))
 import           Control.Category          (id, (.))
 import           Control.Lens              (At (..), Index, IxValue, Ixed (..),
-                                            Lens', Rewrapped, Wrapped (..), iso,
+                                            Lens', Rewrapped, Wrapped (..), iso, cons,
                                             ( # ), (.~), (<&>), (^?))
 
 import           Control.Monad             (Monad)
@@ -54,7 +54,7 @@ import qualified Data.Witherable           as W
 import           Text.Parser.Char          (CharParsing, char)
 
 import           Waargonaut.Types.CommaSep (CommaSeparated,
-                                            commaSeparatedBuilder, consVal,
+                                            commaSeparatedBuilder,
                                             parseCommaSeparated)
 
 import           Waargonaut.Types.JString
@@ -136,7 +136,7 @@ toMapLikeObj (JObject xs) = (\(_,a,b) -> (MLO (JObject a), b)) $ foldr f (mempty
   where
     f x (ys,acc,discards)
       | _jsonAssocKey x `elem` ys = (ys, acc, x:discards)
-      | otherwise                 = (_jsonAssocKey x:ys, consVal x acc, discards)
+      | otherwise                 = (_jsonAssocKey x:ys, cons x acc, discards)
 
 textKeyMatch :: Text -> JAssoc ws a -> Bool
 textKeyMatch k = (== Just k) . (^? jsonAssocKey . _JStringText)
@@ -158,7 +158,7 @@ jAssocAlterF k f mja = fmap g <$> f (_jsonAssocVal <$> mja) where
 
 instance Monoid ws => At (MapLikeObj ws a) where
   at k f (MLO (JObject cs)) = jAssocAlterF k f (find (textKeyMatch k) cs) <&>
-    MLO . JObject . maybe (W.filter (not . textKeyMatch k) cs) (`consVal` cs)
+    MLO . JObject . maybe (W.filter (not . textKeyMatch k) cs) (`cons` cs)
 
 type instance IxValue (JObject ws a) = a
 type instance Index (JObject ws a)   = Int

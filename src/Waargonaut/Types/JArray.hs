@@ -10,18 +10,23 @@ module Waargonaut.Types.JArray
   ( JArray (..)
   , parseJArray
   , jArrayBuilder
-  , emptyJArray
   )where
 
 import           Prelude                   (Eq, Show)
 
-import           Control.Lens              (Rewrapped, Wrapped (..), iso, ( # ))
+import           Control.Category          ((.))
+import           Control.Error.Util        (note)
+import           Control.Lens              (AsEmpty (..), Cons (..), Rewrapped,
+                                            Wrapped (..), cons, isn't, iso,
+                                            nearly, over, prism, to, ( # ),
+                                            (^.), (^?), _2, _Wrapped)
 import           Control.Monad             (Monad)
 
 import           Data.Foldable             (Foldable)
+import           Data.Function             (($))
 import           Data.Functor              (Functor, (<$>))
-import           Data.Maybe                (Maybe (Nothing))
 import           Data.Monoid               (Monoid, mempty)
+import           Data.Semigroup            (Semigroup)
 import           Data.Traversable          (Traversable)
 
 import           Data.ByteString.Builder   (Builder)
@@ -30,8 +35,7 @@ import           Text.Parser.Char          (CharParsing, char)
 
 import           Waargonaut.Types.CommaSep (CommaSeparated,
                                             commaSeparatedBuilder,
-                                            parseCommaSeparated,
-                                            _CommaSeparated)
+                                            parseCommaSeparated)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -53,11 +57,15 @@ instance Wrapped (JArray ws a) where
   type Unwrapped (JArray ws a) = CommaSeparated ws a
   _Wrapped' = iso (\(JArray x) -> x) JArray
 
-emptyJArray
-  :: Monoid ws
-  => JArray ws a
-emptyJArray =
-  JArray (_CommaSeparated # (mempty, Nothing))
+instance Monoid ws => Cons (JArray ws a) (JArray ws a) a a where
+  _Cons = prism
+    (\(a,j) -> over _Wrapped (cons a) j)
+    (\j -> note j $ over _2 (_Wrapped #) <$> j ^? _Wrapped . _Cons)
+  {-# INLINE _Cons #-}
+
+instance (Semigroup ws, Monoid ws) => AsEmpty (JArray ws a) where
+  _Empty = nearly (JArray mempty) (^. _Wrapped . to (isn't _Empty))
+  {-# INLINE _Empty #-}
 
 -- |
 --

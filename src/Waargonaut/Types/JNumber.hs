@@ -7,6 +7,8 @@ module Waargonaut.Types.JNumber
   ( JNumber (..)
   , HasJNumber (..)
 
+  , _JNumberInt
+
   , E (..)
   , AsE (..)
 
@@ -26,7 +28,7 @@ module Waargonaut.Types.JNumber
   , jNumberToScientific
   ) where
 
-import           Prelude                 (Bool (..), Eq, Int, Ord, Show,
+import           Prelude                 (Bool (..), Eq, Int, Ord, Show, abs,
                                           fromIntegral, maxBound, minBound,
                                           negate, (-), (<), (>), (||))
 
@@ -41,6 +43,8 @@ import           Control.Lens            (Lens', Prism', Rewrapped,
 import           Control.Applicative     (pure, (*>), (<$), (<$>), (<*>))
 import           Control.Monad           (Monad, (=<<))
 
+import           Control.Error.Util      (note)
+
 import           Data.Either             (Either (..))
 import           Data.Function           (const, ($))
 import           Data.Functor            (fmap)
@@ -49,7 +53,7 @@ import           Data.Monoid             (mappend, mempty)
 import           Data.Semigroup          ((<>))
 import           Data.Tuple              (uncurry)
 
-import           Data.List.NonEmpty      (NonEmpty, some1)
+import           Data.List.NonEmpty      (NonEmpty ((:|)), some1)
 import qualified Data.List.NonEmpty      as NE
 
 import           Data.Foldable           (asum, foldMap, length)
@@ -190,6 +194,14 @@ instance HasJNumber JNumber where
   frac f (JNumber x1 x2 x3 x4)      = fmap (\ y1 -> JNumber x1 x2 y1 x4) (f x3)
   minus f (JNumber x1 x2 x3 x4)     = fmap (\ y1 -> JNumber y1 x2 x3 x4) (f x1)
   numberint f (JNumber x1 x2 x3 x4) = fmap (\ y1 -> JNumber x1 y1 x3 x4) (f x2)
+
+_JNumberInt :: Prism' JNumber Int
+_JNumberInt = prism jnumberToInt (\v -> note v $ Sci.toBoundedInteger =<< jNumberToScientific v)
+  where
+    jnumberToInt i = JNumber (i < 0) (mkjInt $ abs i) Nothing Nothing
+
+    mkjInt 0 = JZero
+    mkjInt n = (\(h :| t) -> JIntInt h t) $ D._NaturalDigits # fromIntegral n
 
 -- |
 --

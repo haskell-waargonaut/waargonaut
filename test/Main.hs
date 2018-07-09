@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import           Control.Lens                ((^.), _2, (#), (^?))
+import           Control.Lens                (( # ), (^.), (^?), _2)
+import qualified Control.Lens                as L
 
 import           Data.Either                 (isLeft)
 
@@ -17,26 +18,26 @@ import qualified Data.Text.Encoding          as Text
 
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
-import qualified Hedgehog.Range                as Range
+import qualified Hedgehog.Range              as Range
 import           Text.Parsec                 (ParseError)
 
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Test.Tasty.HUnit
 
-import Data.Digit (Digit)
+import           Data.Digit                  (Digit)
 
 import           Waargonaut                  (Json)
 import qualified Waargonaut                  as W
 import qualified Waargonaut.Types.CommaSep   as CommaSep
-import qualified Waargonaut.Types.Whitespace as WS
 import qualified Waargonaut.Types.JChar      as JChar
 import qualified Waargonaut.Types.JString    as JString
+import qualified Waargonaut.Types.Whitespace as WS
 
 import qualified Types.CommaSep              as CS
+import qualified Types.JChar                 as JC
 import qualified Types.Json                  as J
 import qualified Types.Whitespace            as WS
-import qualified Types.JChar                 as JC
 
 import qualified Utils
 
@@ -63,7 +64,7 @@ decode =
 
 prop_uncons_consCommaSep :: Property
 prop_uncons_consCommaSep = property $ do
-  cs <- forAll $ CS.genCommaSeparated (WS.genWS) (Gen.bool)
+  cs <- forAll $ CS.genCommaSeparated WS.genWS Gen.bool
   let
     elems = (^. CommaSep._CommaSeparated . _2)
 
@@ -80,9 +81,7 @@ prop_uncons_consCommaSepVal = property $ do
   let
     elems = (^. CommaSep._CommaSeparated . _2)
 
-    cs' = elems . uncurry CommaSep.consVal =<< CommaSep.unconsVal cs
-
-  elems cs === cs'
+  elems cs === (elems . uncurry L.cons =<< L.uncons cs)
 
 prop_jcharescaped_hex_prism :: Property
 prop_jcharescaped_hex_prism = withTests 500 . property $ do

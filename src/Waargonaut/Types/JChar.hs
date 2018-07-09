@@ -7,6 +7,7 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE LambdaCase #-}
 module Waargonaut.Types.JChar
   ( HexDigit4 (..)
   , HasHexDigit4 (..)
@@ -75,7 +76,6 @@ import           Waargonaut.Types.Whitespace (Whitespace (..),
 
 import           Text.Parser.Char            (CharParsing, char, satisfy)
 import           Text.Parser.Combinators     (try)
-
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -228,14 +228,14 @@ sandblast x = if x >= '\x0' && x <= '\xffff'
 
 instance AsJCharEscaped Char Digit where
   _JCharEscaped = prism
-    (\x -> case x of
+    (\case
         QuotationMark  -> '"'
         ReverseSolidus -> '\\'
         Solidus        -> '/'
         Backspace      -> '\b'
         WhiteSpace wc  -> escapedWhitespaceChar wc
         Hex hd         -> hexDigit4ToChar hd
-        )
+    )
     (\c -> case c of
         '"'  -> Right QuotationMark
         '\\' -> Right ReverseSolidus
@@ -284,7 +284,7 @@ instance AsJCharUnescaped (JChar digit) where
 
 instance AsJChar Char Digit where
   _JChar = prism
-    (\x -> case x of
+    (\case
         UnescapedJChar jcu -> _JCharUnescaped # jcu
         EscapedJChar jce   -> _JCharEscaped # jce
     )
