@@ -41,6 +41,8 @@ import qualified Types.Whitespace            as WS
 
 import qualified Utils
 
+import qualified Decoder
+
 encodeText
   :: Json
   -> Text
@@ -171,4 +173,5 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
   , prism_properties
   , unitTests
   , regressionTests
+  , Decoder.decoderTests
   ]
