@@ -42,6 +42,7 @@ import qualified Types.Whitespace            as WS
 import qualified Utils
 
 import qualified Decoder
+import qualified Encoder
 
 encodeText
   :: Json
@@ -86,18 +87,18 @@ prop_uncons_consCommaSepVal = property $ do
   elems cs === (elems . uncurry L.cons =<< L.uncons cs)
 
 prop_jcharescaped_hex_prism :: Property
-prop_jcharescaped_hex_prism = withTests 500 . property $ do
+prop_jcharescaped_hex_prism = property $ do
   a <- forAll JC.genHex4Lower
   -- Doesn't preserve the upper/lower case of the Hex values. Acceptable?
   Just a === ((((JChar._Hex # a) :: Char) ^? JChar._Hex) :: Maybe (JChar.HexDigit4 Digit))
 
 prop_jstring_text :: Property
-prop_jstring_text = withTests 5000 . property $ do
+prop_jstring_text = property $ do
   t <- forAll $ Gen.text (Range.linear 0 1000) Gen.unicodeAll
   Just t === ((JString._JStringText # t) ^? JString._JStringText)
 
 prop_jchar :: Property
-prop_jchar = withTests 5000 . property $ do
+prop_jchar = property $ do
   c <- forAll Gen.unicodeAll
   Just c === ((JChar._JChar #) <$> (c ^? JChar._JChar))
 
@@ -111,7 +112,7 @@ prop_print_parse_print_id = withTests 200 . property $ do
   Right printedA === (encodeText <$> decode printedA)
 
 prism_properties :: TestTree
-prism_properties = testGroup "Conversions"
+prism_properties = testGroup "Round trip some prisms"
   [ testProperty "CommaSeparated: cons . uncons = id" prop_uncons_consCommaSep
   , testProperty "CommaSeparated (disregard WS): cons . uncons = id" prop_uncons_consCommaSepVal
   , testProperty "HexDigit4 Digit -> Char -> HexDigit4 Digit = Just id" prop_jcharescaped_hex_prism
@@ -140,7 +141,7 @@ testFileFailure fp = do
 
 unitTests :: TestTree
 unitTests =
-  testGroup "Unit Tests (print . parse = id)" (toTest <$> fs)
+  testGroup "File Tests - (print . parse = id)" (toTest <$> fs)
   where
     toTest f = testCase f (testFile f)
 
@@ -173,5 +174,7 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
   , prism_properties
   , unitTests
   , regressionTests
+
   , Decoder.decoderTests
+  , Encoder.encoderTests
   ]

@@ -9,6 +9,9 @@ module Types.Common
   , genText
   , genWhitespace
   , hexadecimalDigitLower
+
+  -- * Some test types to be messed with
+  , Image (..)
   ) where
 
 
@@ -24,6 +27,16 @@ import           Data.Digit                  (Digit)
 import qualified Data.Digit                  as D
 
 import           Waargonaut.Types.Whitespace (Whitespace (..))
+
+
+data Image = Image
+  { _imageW        :: Int
+  , _imageH        :: Int
+  , _imageTitle    :: Text
+  , _imageAnimated :: Bool
+  , _imageIDs      :: [Int]
+  }
+  deriving Show
 
 genDecimalDigit :: Gen Digit
 genDecimalDigit = Gen.element decimalDigit

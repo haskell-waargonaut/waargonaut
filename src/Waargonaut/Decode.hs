@@ -32,6 +32,7 @@ import           Text.Parser.Combinators        (Parsing)
 
 import           Waargonaut.Types               (AsJTypes, JAssoc, Json,
                                                  MapLikeObj)
+
 import qualified Waargonaut.Types               as WT
 import           Waargonaut.Types.CommaSep      (Elems)
 import qualified Waargonaut.Types.CommaSep      as WT
@@ -154,8 +155,6 @@ valAt
 valAt k f c =
   into k (L.at k . L._Just) c >>= f
 
--- -> DecodeResult f (Maybe (Z.Zipper (Z.Zipper h j s :>> Elems ws (JAssoc ws Json)) Int (JAssoc ws Json) :>> Json))
--- -> DecodeResult f (Maybe (JCursor (JCursor (JCursor (JCursor h s) (Elems ws (JAssoc ws Json))) (JAssoc ws Json)) Json))
 toKey
   :: ( AsJTypes s digit ws s
      , Monad f
@@ -167,7 +166,7 @@ toKey k c =
   let
     c' = Z.within intoElems c >>= Z.within traverse >>= shuffleToKey
   in
-    (c' >>= Z.within WT.jsonAssocVal) <?> KeyNotFound k
+    moveAndKeepHistory (DAt k) (c' >>= Z.within WT.jsonAssocVal)
   where
     shuffleToKey cu = Z.within WT.jsonAssocKey cu ^? L._Just . Z.focus . WT._JStringText >>= \k' ->
       if k' /= k then Z.rightward cu >>= shuffleToKey else Just cu
@@ -212,7 +211,7 @@ boolean
   => JCursor h a
   -> DecodeResult f Bool
 boolean =
-  atCursor (note "JBool to Bool" . DR.boolean')
+  atCursor (note "Bool" . DR.boolean')
 
 text
   :: ( AsJTypes a digit ws a
@@ -221,26 +220,15 @@ text
   => JCursor h a
   -> DecodeResult f Text
 text =
-  atCursor (note "JString to Text" . DR.text')
-
-array
-  :: ( Monad f
-     , AsJTypes a digit ws a
-     )
-  => (a -> Maybe b)
-  -> JCursor h a
-  -> DecodeResult f [b]
-array elemL =
-  atCursor (Right . DR.array' elemL)
+  atCursor (note "Text" . DR.text')
 
 arrayOf
-  :: ( Monad f
-     )
-  => (h :>> Json :>> Json -> DecodeResult f b)
+  :: Monad f
+  => Decoder f b
   -> h :>> Json
   -> DecodeResult f [b]
 arrayOf elemD c =
-  moveAndKeepHistory D (Z.within WT.json c) >>= go mempty 
+  moveAndKeepHistory D (Z.within WT.json c) >>= go mempty
   where
     go acc cur = do
       r <- (:acc) <$> elemD cur

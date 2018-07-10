@@ -1,34 +1,35 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE Rank2Types        #-}
 module Decoder
   ( decoderTests
   ) where
 
-import           Test.Tasty                     (TestTree,testGroup)
-import           Test.Tasty.HUnit (testCase,assertBool)
+import           Test.Tasty                     (TestTree, testGroup)
+import           Test.Tasty.HUnit               (assertBool, testCase)
 
-import Control.Lens (over,_Left)
+import           Control.Lens                   (over, _Left)
 
-import Data.Bifunctor (bimap)
-import Data.Either (isLeft)
+import           Data.Bifunctor                 (bimap)
+import           Data.Either                    (isLeft)
 
-import           Data.Functor.Identity          (Identity,runIdentity)
+import           Data.Functor.Identity          (Identity, runIdentity)
 
 import           Data.ByteString                (ByteString)
 import qualified Data.ByteString.Char8          as BS8
-import           Data.Text                      (Text)
 
-import qualified Waargonaut.Types as WT
+import qualified Waargonaut.Types               as WT
 
-import Waargonaut.Decode (Decoder)
+import           Waargonaut.Decode              (Decoder)
 
 import qualified Waargonaut.Decode              as D
 import qualified Waargonaut.Decode.DecodeResult as D
 
-import qualified Text.Parsec as P
+import qualified Text.Parsec                    as P
 
-import qualified Control.Zipper as Z
+import qualified Control.Zipper                 as Z
+
+import Types.Common (Image (Image))
 
 data Err
   = Parse P.ParseError
@@ -51,15 +52,6 @@ pureDecode
 pureDecode dec c =
   runIdentity $ D.runDecoderResult (dec c)
 
-data Image = Image
-  { _imageW        :: Int
-  , _imageH        :: Int
-  , _imageTitle    :: Text
-  , _imageAnimated :: Bool
-  , _imageIDs      :: [Int]
-  }
-  deriving Show
-
 imageDecoder :: Monad f => Decoder f Image
 imageDecoder curs = do
   -- We're at the root of our object, move into it and move to the value at the "Image" key
@@ -76,7 +68,7 @@ simpleDecode :: (Decoder Identity a) -> ByteString -> Either Err a
 simpleDecode dec bs = over _Left Decode . pureDecode dec =<< (bimap Parse Z.zipper $ parseBS bs)
 
 decodeTest1Json :: IO (Either Err Image)
-decodeTest1Json = simpleDecode imageDecoder <$> BS8.readFile "test/json-data/test1.json" 
+decodeTest1Json = simpleDecode imageDecoder <$> BS8.readFile "test/json-data/test1.json"
 
 decodeTest2Json :: Either Err [Int]
-decodeTest2Json = simpleDecode (D.array D.int') "[23,44]"
+decodeTest2Json = simpleDecode (D.arrayOf D.int) "[23,44]"

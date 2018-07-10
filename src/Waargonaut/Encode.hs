@@ -20,6 +20,9 @@ import           Data.Functor.Identity      (Identity (..))
 import           Data.Monoid                (mempty)
 import           Data.Semigroup             (Semigroup)
 
+import Data.ByteString.Lazy (ByteString)
+import qualified Data.ByteString.Builder as BB
+
 import           Data.Map                   (Map)
 import qualified Data.Map                   as Map
 
@@ -27,8 +30,9 @@ import           Data.Text                  (Text)
 
 import qualified Data.Digit                 as D
 
+import Waargonaut (waargonautBuilder)
 import           Waargonaut.Types           (AsJTypes (..), Json,
-                                             MapLikeObj (..), WS, emptyMapLike,
+                                             MapLikeObj (..), WS, emptyMapLike, wsRemover,
                                              _JNumberInt, _JStringText)
 
 -- |
@@ -65,6 +69,15 @@ encodeA = Encoder'
 
 encodeIdentityA :: (a -> Json) -> Encoder a
 encodeIdentityA f = Encoder $ encodeA (Identity . f)
+
+runPureEncoder
+  :: Encoder a
+  -> a
+  -> ByteString
+runPureEncoder enc = BB.toLazyByteString
+  . waargonautBuilder wsRemover
+  . runIdentity
+  . runEncoder (unEncoder enc)
 
 encodeInt
   :: Encoder Int
@@ -161,12 +174,12 @@ arrayAt
 arrayAt enc =
   atKey (Encoder $ encodeArray (unEncoder enc))
 
-encodeAsMapLike
+encodeAsMapLikeObj
   :: ( AsJTypes Json D.Digit ws a
      , Semigroup ws
      , Monoid ws
      )
   => (i -> MapLikeObj ws a -> MapLikeObj ws a)
   -> Encoder i
-encodeAsMapLike f = encodeIdentityA $ \a ->
+encodeAsMapLikeObj f = encodeIdentityA $ \a ->
   _JObj # (fromMapLikeObj $ f a emptyMapLike, mempty)

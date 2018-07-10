@@ -92,6 +92,7 @@ instance CursorHistory' i ~ t => Rewrapped (CursorHistory' i) t
 instance Wrapped (CursorHistory' i) where
   type Unwrapped (CursorHistory' i) = Seq (Mv, i)
   _Wrapped' = L.iso (\(CursorHistory' x) -> x) CursorHistory'
+  {-# INLINE _Wrapped' #-}
 
 newtype DecodeResultT i f e a = DecodeResultT
   { runDecodeResult :: ExceptT e (StateT (CursorHistory' i) f) a
@@ -125,6 +126,7 @@ runDecoderResultT =
   . flip runStateT (CursorHistory' mempty)
   . runExceptT
   . runDecodeResult
+
 try :: MonadError e m => m a -> m (Maybe a)
 try d = catchError (pure <$> d) (const (pure Nothing))
 
