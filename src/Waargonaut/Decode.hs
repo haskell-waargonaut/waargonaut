@@ -9,41 +9,43 @@
 {-# LANGUAGE Rank2Types                 #-}
 module Waargonaut.Decode where
 
-import           Numeric.Natural                (Natural)
+import           Numeric.Natural               (Natural)
 
-import           Control.Monad.Except           (MonadError)
-import           Control.Monad.State            (MonadState)
+import           Control.Monad                 ((>=>))
+import           Control.Monad.Except          (MonadError)
+import           Control.Monad.State           (MonadState)
 
-import           Control.Lens                   (Bazaar', LensLike', (%=), (^.),
-                                                 (^?))
-import qualified Control.Lens                   as L
-import           Control.Lens.Internal.Indexed  (Indexed, Indexing)
+import           Control.Lens                  (AsEmpty (..), Bazaar', Cons,
+                                                LensLike', (^.), (^?))
+import qualified Control.Lens                  as L
+import           Control.Lens.Internal.Indexed (Indexed, Indexing)
 
-import           Data.Text                      (Text)
+import           Control.Error.Util            (note)
+import           Control.Monad.Error.Hoist     ((<%?>), (<?>))
 
-import           Control.Error.Util             (note)
-import           Control.Monad.Error.Hoist      ((<%?>), (<?>))
+import           Control.Zipper                ((:>>))
+import qualified Control.Zipper                as Z
 
-import           Control.Zipper                 ((:>>))
-import qualified Control.Zipper                 as Z
 
-import           Text.Parser.Char               (CharParsing)
-import           Text.Parser.Combinators        (Parsing)
+import           Data.Text                     (Text)
 
-import           Waargonaut.Types               (AsJTypes, JAssoc, Json,
-                                                 MapLikeObj)
+import           Data.Scientific               (Scientific)
 
-import qualified Waargonaut.Types               as WT
-import           Waargonaut.Types.CommaSep      (Elems)
-import qualified Waargonaut.Types.CommaSep      as WT
+import           Text.Parser.Char              (CharParsing)
+import           Text.Parser.Combinators       (Parsing)
 
-import           Waargonaut.Decode.DecodeResult (CursorHistory' (..),
-                                                 DecodeError (..),
-                                                 DecodeResultT, Mv (..),
-                                                 try,
-                                                 runDecoderResultT)
+import           Waargonaut.Types              (AsJTypes, JAssoc, Json)
 
-import qualified Waargonaut.Decode.DecodeResult as DR
+import qualified Waargonaut.Types              as WT
+import           Waargonaut.Types.CommaSep     (Elems)
+import qualified Waargonaut.Types.CommaSep     as WT
+
+import           Waargonaut.Decode.Internal    (CursorHistory' (..),
+                                                DecodeError (..), DecodeResultT,
+                                                Decoder' (..), Mv (..),
+                                                runDecoderResultT, try)
+
+import qualified Waargonaut.Decode.Internal    as DR
 
 newtype CursorHistory = CursorHist
   { unCursorHist :: CursorHistory' Int
@@ -67,7 +69,21 @@ type JCursor h a =
   h :>> a
 
 type Decoder f a =
-  forall h. JCursor h Json -> DecodeResult f a
+  forall h. Decoder' (JCursor h Json) Int f DecodeError a
+
+withCursor
+  :: Monad f
+  => (forall h. JCursor h Json -> DecodeResult f a)
+  -> Decoder f a
+withCursor f =
+  Decoder' (unDecodeResult . f)
+
+runDecoder
+  :: Decoder f a
+  -> JCursor h Json
+  -> DecodeResult f a
+runDecoder f =
+  DecodeResult . DR.runDecoder' f
 
 decodeToJson :: (Monad m, CharParsing m, Parsing m) => (m Json -> m Json) -> m Json
 decodeToJson f = f WT.parseWaargonaut
@@ -88,7 +104,7 @@ moveAndKeepHistory
   -> DecodeResult f (JCursor h s)
 moveAndKeepHistory dir mCurs = do
   a <- mCurs <?> FailedToMove dir
-  a <$ (L._Wrapped %= (`L.snoc` (dir, Z.tooth a)))
+  a <$ DR.recordMv dir (Z.tooth a)
 
 into
   :: Monad f
@@ -138,22 +154,12 @@ moveRight1 =
 
 atCursor
   :: Monad f
-  => (a -> Either Text b)
-  -> JCursor h a
-  -> DecodeResult f b
-atCursor f c =
-  c ^. Z.focus . L.to f <%?> ConversionFailure
-
-valAt
-  :: ( Monoid ws
-     , Monad f
-     )
   => Text
-  -> (JCursor (JCursor h (MapLikeObj ws a)) a -> DecodeResult f b)
-  -> JCursor h (MapLikeObj ws a)
-  -> DecodeResult f b
-valAt k f c =
-  into k (L.at k . L._Just) c >>= f
+  -> (Json -> Maybe b)
+  -> Decoder f b
+atCursor t f = withCursor $ \c -> do
+  b <- c ^. Z.focus . L.to (note t . f) <%?> ConversionFailure
+  b <$ DR.recordMv (Item t) (Z.tooth c)
 
 toKey
   :: ( AsJTypes s digit ws s
@@ -162,75 +168,63 @@ toKey
   => Text
   -> JCursor h s
   -> DecodeResult f (h :>> s :>> Elems ws (JAssoc ws s) :>> JAssoc ws s :>> s)
-toKey k c =
-  let
-    c' = Z.within intoElems c >>= Z.within traverse >>= shuffleToKey
-  in
-    moveAndKeepHistory (DAt k) (c' >>= Z.within WT.jsonAssocVal)
+toKey k =
+  moveAndKeepHistory (DAt k) . moveToVal
   where
+    moveToVal = Z.within intoElems
+      >=> Z.within traverse
+      >=> shuffleToKey
+      >=> Z.within WT.jsonAssocVal
+
     shuffleToKey cu = Z.within WT.jsonAssocKey cu ^? L._Just . Z.focus . WT._JStringText >>= \k' ->
       if k' /= k then Z.rightward cu >>= shuffleToKey else Just cu
 
     intoElems = WT._JObj . L._1 . L._Wrapped . WT._CommaSeparated . L._2 . L._Just
 
+-- (h :>> s :>> Elems ws (JAssoc ws s) :>> JAssoc ws s :>> s -> DecodeResult f b)
 fromKey
   :: ( Monad f
-     , AsJTypes s digit ws s
      )
   => Text
-  -> (h :>> s :>> Elems ws (JAssoc ws s) :>> JAssoc ws s :>> s -> DecodeResult f b)
-  -> JCursor h s
+  -> Decoder f b
+  -> JCursor h Json
   -> DecodeResult f b
-fromKey k d c =
-  toKey k c >>= d
+fromKey k d =
+  toKey k >=> runDecoder d
 
-integral
-  :: ( Bounded i
-     , Integral i
-     , Monad f
-     , AsJTypes a digit ws a
+scientific :: Monad f => Decoder f Scientific
+scientific = atCursor "Scientific" DR.scientific'
+
+integral :: (Bounded i, Integral i, Monad f) => Decoder f i
+integral = atCursor "Integral" DR.integral'
+
+int :: Monad f => Decoder f Int
+int = atCursor "Int" DR.int'
+
+boolean :: Monad f => Decoder f Bool
+boolean = atCursor "Bool" DR.boolean'
+
+text :: Monad f => Decoder f Text
+text = atCursor "Text" DR.text'
+
+string :: Monad f => Decoder f String
+string = atCursor "String" DR.string'
+
+arrayOfCons
+  :: ( Monad f
+     , AsEmpty s
+     , Cons s s a a
      )
-  => JCursor h a
-  -> DecodeResult f i
-integral =
-  atCursor (note "Integral" . DR.integral')
-
-int
-  :: ( AsJTypes a digit ws a
-     , Monad f
-     )
-  => JCursor h a
-  -> DecodeResult f Int
-int =
-  atCursor (note "Int" . DR.int')
-
-boolean
-  :: ( AsJTypes a digit ws a
-     , Monad f
-     )
-  => JCursor h a
-  -> DecodeResult f Bool
-boolean =
-  atCursor (note "Bool" . DR.boolean')
-
-text
-  :: ( AsJTypes a digit ws a
-     , Monad f
-     )
-  => JCursor h a
-  -> DecodeResult f Text
-text =
-  atCursor (note "Text" . DR.text')
-
-arrayOf
-  :: Monad f
-  => Decoder f b
-  -> h :>> Json
-  -> DecodeResult f [b]
-arrayOf elemD c =
-  moveAndKeepHistory D (Z.within WT.json c) >>= go mempty
+  => Decoder f a
+  -> JCursor h Json
+  -> DecodeResult f s
+arrayOfCons elemD c =
+  moveAndKeepHistory D (Z.within WT.json c) >>= go (_Empty L.# ())
   where
     go acc cur = do
-      r <- (:acc) <$> elemD cur
+      r <- (`L.cons` acc) <$> runDecoder elemD cur
       try (moveAndKeepHistory (R 1) (Z.rightward cur))
         >>= maybe (pure r) (go r)
+
+arrayOf :: Monad f => Decoder f b -> Decoder f [b]
+arrayOf d = withCursor (arrayOfCons d)

@@ -77,7 +77,7 @@ import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
 import           HaskellWorks.Data.Json.Succinct.Cursor    (JsonCursor (..))
 import qualified HaskellWorks.Data.Json.Succinct.Cursor    as JC
 
-import           Waargonaut.Decode.DecodeResult            (CursorHistory',
+import           Waargonaut.Decode.Internal (CursorHistory',
                                                             DecodeError (..),
                                                             DecodeResultT (..),
                                                             Decoder' (..),
