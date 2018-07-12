@@ -62,11 +62,9 @@ library
                      , Waargonaut.Types
 
                      , Waargonaut.Decode.Internal
-
-                     , Waargonaut.Zipper
+                     , Waargonaut.Decode
 
                      , Waargonaut.Encode
-                     , Waargonaut.Decode
 
                      , Waargonaut
 
@@ -93,12 +91,6 @@ library
                      , witherable
                      , contravariant
                      , wl-pprint-annotated
-
-                     , hw-json >= 0.6
-                     , hw-prim
-                     , hw-balancedparens
-                     , hw-rankselect
-                     , hw-bits
 
   -- Directories containing source files.
   hs-source-dirs:      src

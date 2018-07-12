@@ -1,12 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import           Control.Lens   (isn't, _Left)
-
-import qualified Criterion.Main as C
+import qualified Criterion.Main        as C
 
 import qualified ConvenientFlatSurface as W
-import Waargonaut.Zipper (decodeTest1Json)
 
 main :: IO ()
 main = C.defaultMain
@@ -15,6 +12,5 @@ main = C.defaultMain
     , C.bench "test2.json" $ C.nfIO (W.simpleParse "test2.json")
     , C.bench "jp100"      $ C.nfIO (W.simpleParse "jp100.json")
     , C.bench "twitter100" $ C.nfIO (W.simpleParse "twitter100.json")
-    , C.bench "silly"      $ C.nfIO (isn't _Left <$> decodeTest1Json)
     ]
   ]
