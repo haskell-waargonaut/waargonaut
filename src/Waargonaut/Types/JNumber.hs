@@ -3,28 +3,30 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE TypeFamilies          #-}
+-- | Representation of a JSON number and its various components.
 module Waargonaut.Types.JNumber
-  ( JNumber (..)
+  (
+    -- * Types
+    JNumber (..)
   , HasJNumber (..)
-
-  , _JNumberInt
-
   , E (..)
   , AsE (..)
-
   , Frac (..)
-
   , Exp (..)
   , HasExp (..)
-
   , JInt
   , JInt' (..)
+
+    -- * Prisms
   , _JZero
   , _JIntInt
+  , _JNumberInt
 
+    -- * Parser / Builder
   , jNumberBuilder
   , parseJNumber
 
+    -- * Other
   , jNumberToScientific
   ) where
 
@@ -79,13 +81,16 @@ import qualified Data.ByteString.Builder as BB
 -- >>> import Data.ByteString.Builder (toLazyByteString)
 -- >>> import Utils
 
+-- | Represent a JSON "int"
 data JInt' digit
   = JZero
   | JIntInt digit [Digit]
   deriving (Eq, Ord, Show)
 
+-- | Type alias to allow us to constrain the first 'digit' type.
 type JInt = JInt' Digit
 
+-- | Prism for JSON zeroes.
 _JZero :: Prism' JInt ()
 _JZero = prism (const JZero)
   (\case
@@ -93,18 +98,21 @@ _JZero = prism (const JZero)
       x     -> Left x
   )
 
+-- | Prism for JSON non-zero values.
 _JIntInt :: D.DecimalNoZero digit => Prism' (JInt' digit) (digit, [Digit])
 _JIntInt = prism (uncurry JIntInt)
   (\case
       JIntInt d ds -> Right (d,ds)
       x -> Left x
   )
-
+-- | The textual exponent character may be upper or lower case, we maintain this
+-- fact using this type.
 data E
   = EE
   | Ee
   deriving (Eq, Ord, Show)
 
+-- | Typeclass for things that may represent a upper or lower case exponent character.
 class AsE r where
   _E  :: Prism' r E
   _EE :: Prism' r ()
@@ -125,6 +133,7 @@ instance AsE E where
         _  -> Left x
     )
 
+-- | The fractional component of a JSON numeric value
 newtype Frac = Frac (NonEmpty Digit)
   deriving (Eq, Ord, Show)
 
@@ -133,6 +142,7 @@ instance Wrapped Frac where
   type Unwrapped Frac = NonEmpty Digit
   _Wrapped' = iso (\ (Frac x) -> x) Frac
 
+-- | The exponent part of a JSON numeric value
 data Exp = Exp
   { _ex        :: E
   , _minusplus :: Maybe Bool
@@ -140,6 +150,7 @@ data Exp = Exp
   }
   deriving (Eq, Ord, Show)
 
+-- | Typeclass for things that may have an 'Exp' component.
 class HasExp c where
   exp :: Lens' c Exp
   ex :: Lens' c E
@@ -161,6 +172,7 @@ instance HasExp Exp where
   expdigits f (Exp x1 x2 x3) = fmap (Exp x1 x2) (f x3)
   minusplus f (Exp x1 x2 x3) = fmap (\ y1 -> Exp x1 y1 x3) (f x2)
 
+-- | JSON Number type.
 data JNumber = JNumber
   { _minus     :: Bool
   , _numberint :: JInt
@@ -169,6 +181,7 @@ data JNumber = JNumber
   }
   deriving (Eq, Ord, Show)
 
+-- | Typeclass for things that may have a 'JNumber'.
 class HasJNumber c where
   jNumber   :: Lens' c JNumber
   expn      :: Lens' c (Maybe Exp)
@@ -195,6 +208,9 @@ instance HasJNumber JNumber where
   minus f (JNumber x1 x2 x3 x4)     = fmap (\ y1 -> JNumber y1 x2 x3 x4) (f x1)
   numberint f (JNumber x1 x2 x3 x4) = fmap (\ y1 -> JNumber x1 y1 x3 x4) (f x2)
 
+-- | Prism between a JNumber and a Haskell 'Int'. This prism will go via the
+-- 'Scientific' type to handle the various exponent and fractional values before
+-- attempting to convert it to a bounded integer.
 _JNumberInt :: Prism' JNumber Int
 _JNumberInt = prism jnumberToInt (\v -> note v $ Sci.toBoundedInteger =<< jNumberToScientific v)
   where
@@ -203,7 +219,7 @@ _JNumberInt = prism jnumberToInt (\v -> note v $ Sci.toBoundedInteger =<< jNumbe
     mkjInt 0 = JZero
     mkjInt n = (\(h :| t) -> JIntInt h t) $ D._NaturalDigits # fromIntegral n
 
--- |
+-- | Parse the integer component of a JSON number.
 --
 -- >>> testparse parseJInt "1"
 -- Right (JIntInt 1 [])
@@ -261,7 +277,7 @@ parseJInt =
   , JIntInt <$> D.parseDecimalNoZero <*> many D.parseDecimal
   ]
 
--- |
+-- | Parse the exponent portion of a JSON number.
 --
 -- >>> testparse parseE "e"
 -- Right Ee
@@ -298,7 +314,7 @@ eBuilder
 eBuilder Ee = BB.charUtf8 'e'
 eBuilder EE = BB.charUtf8 'E'
 
--- |
+-- | Parse the fractional component of a JSON number.
 --
 -- >>> testparsetheneof parseFrac "1"
 -- Right (Frac (1 :| []))
@@ -332,13 +348,14 @@ parseFrac ::
 parseFrac =
   Frac <$> some1 D.parseDecimal
 
+-- | Builder for the fractional component.
 fracBuilder
   :: Frac
   -> Builder
 fracBuilder (Frac digs) =
   digitsBuilder digs
 
--- |
+-- | Parse the full exponent portion of a JSON number.
 --
 -- >>> testparsethen parseExp "e10x"
 -- Right (Exp {_ex = Ee, _minusplus = Nothing, _expdigits = 1 :| [0]},'x')
@@ -359,6 +376,7 @@ parseExp = Exp
   <*> optional (asum [False <$ char '+', True <$ char '-'])
   <*> some1 D.parseDecimal
 
+-- | Helper to provide the right symbol for the sign of the exponent.
 getExpSymbol
   :: Maybe Bool
   -> Builder
@@ -366,19 +384,21 @@ getExpSymbol (Just True)  = BB.charUtf8 '-'
 getExpSymbol (Just False) = BB.charUtf8 '+'
 getExpSymbol _            = mempty
 
+-- | Builder for a list of digits.
 digitsBuilder
   :: NonEmpty Digit
   -> Builder
 digitsBuilder =
   foldMap (BB.int8Dec . (D.integralDecimal #))
 
+-- | Builder for the exponent portion.
 expBuilder
   :: Exp
   -> Builder
 expBuilder (Exp e sign digs) =
   eBuilder e <> getExpSymbol sign <> digitsBuilder digs
 
--- |
+-- | Parse a JSON numeric value.
 --
 -- >>> testparsethen parseJNumber "600x"
 -- Right (JNumber {_minus = False, _numberint = JIntInt 6 [0,0], _frac = Nothing, _expn = Nothing},'x')
@@ -489,6 +509,7 @@ jNumberToScientific (JNumber sign int mfrac mexp) =
 
     expval (Exp _ msign digs) = natToNeg msign (D.digitsToNatural digs)
 
+-- | Helper to convert a 'JInt' to a 'NonEmpty' list of component digits.
 jIntToDigits :: JInt -> NonEmpty Digit
 jIntToDigits JZero          = D.x0 NE.:| []
 jIntToDigits (JIntInt d ds) = d NE.:| ds

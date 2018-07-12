@@ -1,3 +1,4 @@
+-- | Convenience module for reexporting all the inner Waargonaut types.
 module Waargonaut.Types
   (
     module           Waargonaut.Types.JArray

@@ -170,7 +170,7 @@ instance HasJObject (JObject ws a) ws a where
 -- the first key found is treated as the desired element, and all subsequent
 -- occurrences of that key are discarded.
 newtype MapLikeObj ws a = MLO
-  { fromMapLikeObj :: JObject ws a
+  { fromMapLikeObj :: JObject ws a -- ^ Access the underlying 'JObject'.
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 

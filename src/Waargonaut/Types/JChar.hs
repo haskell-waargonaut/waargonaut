@@ -4,32 +4,33 @@
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TypeFamilies           #-}
+-- | Types and functions for handling characters in JSON.
 module Waargonaut.Types.JChar
-  ( HexDigit4 (..)
+  (
+    -- * Types
+    HexDigit4 (..)
   , HasHexDigit4 (..)
-
   , JChar (..)
   , AsJChar (..)
   , HasJChar (..)
-  , parseJChar
-
   , JCharEscaped (..)
   , AsJCharEscaped (..)
-  , HasJCharEscaped (..)
-  , parseJCharEscaped
-
   , JCharUnescaped (..)
   , AsJCharUnescaped (..)
-  , HasJCharUnescaped (..)
-  , parseJCharUnescaped
 
+    -- * Parser / Builder
+  , parseJChar
+  , parseJCharEscaped
+  , parseJCharUnescaped
   , jCharBuilder
   , jCharToChar
 
+    -- * Conversion
   , utf8CharToJChar
   , jCharToUtf8Char
   ) where
@@ -40,7 +41,8 @@ import           Prelude                     (Char, Eq, Int, Ord, Show,
                                               (>=))
 
 import           Control.Category            (id, (.))
-import           Control.Lens                (Lens', Prism', failing, has,
+import           Control.Lens                (Lens', Prism', Rewrapped,
+                                              Wrapped (..), failing, has, iso,
                                               prism, prism', to, ( # ), (^?),
                                               _Just)
 
@@ -87,10 +89,12 @@ import           Text.Parser.Combinators     (try)
 -- >>> import Utils
 ----
 
+-- | JSON Characters may be single escaped UTF16 "\uab34".
 data HexDigit4 d =
   HexDigit4 d d d d
   deriving (Eq, Ord, Functor, Foldable, Traversable)
 
+-- | Typeclass for things that contain a 'HexDigit4'.
 class HasHexDigit4 c d | c -> d where
   hexDigit4 :: Lens' c (HexDigit4 d)
 
@@ -105,16 +109,18 @@ instance Show d => Show ( HexDigit4 d ) where
     , q4
     ] >>= show
 
+-- | Type to specify that this character is unescaped and may be represented
+-- using a normal Haskell 'Char'.
 newtype JCharUnescaped =
   JCharUnescaped Char
   deriving (Eq, Ord, Show)
 
-class HasJCharUnescaped a where
-  jCharUnescaped :: Lens' a JCharUnescaped
+instance JCharUnescaped ~ t => Rewrapped JCharUnescaped t
+instance Wrapped JCharUnescaped where
+  type Unwrapped JCharUnescaped = Char
+  _Wrapped' = iso (\ (JCharUnescaped x) -> x) JCharUnescaped
 
-instance HasJCharUnescaped JCharUnescaped where
-  jCharUnescaped = id
-
+-- | Typeclass for things that may used as an unescaped JChar.
 class AsJCharUnescaped a where
   _JCharUnescaped :: Prism' a JCharUnescaped
 
@@ -135,6 +141,7 @@ instance AsJCharUnescaped Char where
         , \x -> x >= '\x00' && x <= '\x1f'
         ]
 
+-- | Things that may be escaped in a JSON string.
 data JCharEscaped digit
   = QuotationMark
   | ReverseSolidus
@@ -144,12 +151,7 @@ data JCharEscaped digit
   | Hex ( HexDigit4 digit )
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-class HasJCharEscaped c digit | c -> digit where
-  jCharEscaped :: Lens' c (JCharEscaped digit)
-
-instance HasJCharEscaped (JCharEscaped digit) digit where
-  jCharEscaped = id
-
+-- | Typeclass for things that may be used as an escaped JChar.
 class AsJCharEscaped r digit | r -> digit where
   _JCharEscaped   :: Prism' r (JCharEscaped digit)
   _QuotationMark  :: Prism' r ()
@@ -199,9 +201,7 @@ instance AsJCharEscaped (JCharEscaped digit) digit where
         _      -> Left x
     )
 
-_GivenChar :: Char -> Prism' Char ()
-_GivenChar c = prism (const c) (\x -> if x == c then Right () else Left x)
-
+-- | Convert a given 'HexDigit4' to a Haskell 'Char'.
 hexDigit4ToChar
   :: HeXaDeCiMaL digit
   => HexDigit4 digit
@@ -243,18 +243,20 @@ instance AsJCharEscaped Char Digit where
         '\b' -> Right Backspace
         _    -> note c $ c ^? failing (_WhitespaceChar . to WhiteSpace) (to sandblast . _Just . to Hex)
     )
-
+-- | A JChar may be unescaped or escaped.
 data JChar digit
   = EscapedJChar ( JCharEscaped digit )
   | UnescapedJChar JCharUnescaped
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
+-- | Typeclass for things that have a 'JChar'.
 class HasJChar c digit | c -> digit where
   jChar :: Lens' c (JChar digit)
 
 instance HasJChar (JChar digit) digit where
   jChar = id
 
+-- | Typeclass for things that be used as a 'JChar'.
 class AsJChar r digit | r -> digit where
   _JChar          :: Prism' r (JChar digit)
   _EscapedJChar   :: Prism' r (JCharEscaped digit)
@@ -293,12 +295,13 @@ instance AsJChar Char Digit where
       (_JCharEscaped . to EscapedJChar)
     )
 
+-- | Helper to determine if the given 'Char' is an acceptable utf8 value.
 utf8SafeChar :: Char -> Maybe Char
 utf8SafeChar c | ord c .&. 0x1ff800 /= 0xd800 = Just c
                | otherwise                    = Nothing
 
--- |
--- Convert a 'Char' to 'JChar Digit' and replace any invalid values with @U+FFFD@ as per the 'Text' documentation.
+-- | Convert a 'Char' to 'JChar Digit' and replace any invalid values with
+-- @U+FFFD@ as per the 'Text' documentation.
 --
 -- Refer to <https://hackage.haskell.org/package/text/docs/Data-Text.html#g:2 'Text'> documentation for more info.
 --
@@ -307,11 +310,12 @@ utf8CharToJChar c = fromMaybe scalarReplacement (Text.safe c ^? _JChar)
   where scalarReplacement = EscapedJChar (Hex (HexDigit4 D.xf D.xf D.xf D.xd))
 {-# INLINE utf8CharToJChar #-}
 
+-- | Try to convert a 'JChar' to a Haskell 'Char'.
 jCharToUtf8Char :: JChar Digit -> Maybe Char
 jCharToUtf8Char jc = utf8SafeChar (_JChar # jc)
 {-# INLINE jCharToUtf8Char #-}
 
--- |
+-- | Parse a single 'HexDigit4'.
 --
 -- >>> testparse parseHexDigit4 "1234" :: Either ParseError (HexDigit4 Digit)
 -- Right 1234
@@ -336,7 +340,7 @@ parseHexDigit4 = HexDigit4
   <*> D.parseHeXaDeCiMaL
   <*> D.parseHeXaDeCiMaL
 
--- |
+-- | Parse an unescaped JSON character.
 --
 -- >>> testparse parseJCharUnescaped "a"
 -- Right (JCharUnescaped 'a')
@@ -355,7 +359,7 @@ parseJCharUnescaped ::
 parseJCharUnescaped =
   JCharUnescaped <$> satisfy (has _JCharUnescaped)
 
--- |
+-- | Parse an escapted JSON character.
 --
 -- >>> testparse parseJCharEscaped "\\\""
 -- Right QuotationMark
@@ -412,7 +416,7 @@ parseJCharEscaped =
   in
     char '\\' *> (z <|> h)
 
--- |
+-- | Parse a JSON character.
 --
 -- >>> testparse parseJChar "\\u1234" :: Either ParseError (JChar Digit)
 -- Right (EscapedJChar (Hex 1234))
@@ -436,6 +440,7 @@ parseJChar = asum
   , UnescapedJChar <$> parseJCharUnescaped
   ]
 
+-- | Convert a 'JChar' to a Haskell 'Char'.
 jCharToChar
   :: HeXaDeCiMaL digit
   => JChar digit
@@ -449,6 +454,7 @@ jCharToChar (EscapedJChar jca) = case jca of
     (WhiteSpace ws) -> _WhiteSpace # ws
     Hex hexDig4     -> hexDigit4ToChar hexDig4
 
+-- | Create a 'Builder' for the given 'JChar'.
 jCharBuilder
   :: HeXaDeCiMaL digit
   => JChar digit

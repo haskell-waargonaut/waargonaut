@@ -96,6 +96,7 @@ import           Data.Witherable         (Filterable (..), Witherable (..))
 data Comma = Comma
   deriving (Eq, Show)
 
+-- | Isomorphism for 'Comma'.
 _Comma :: Iso' Comma ()
 _Comma = iso (\Comma -> ()) (const Comma)
 
@@ -160,6 +161,7 @@ data Elems ws a = Elems
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+-- | Typeclass for things that contain an 'Elems' structure.
 class HasElems c ws a | c -> ws a where
   elems      :: Lens' c (Elems ws a)
   elemsElems :: Lens' c (Vector (Elem Identity ws a))

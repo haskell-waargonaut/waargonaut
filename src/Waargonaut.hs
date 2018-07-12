@@ -1,12 +1,14 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
+-- | Top level module, reexporting the bare minimum of parsing and printing
+-- functions.
 module Waargonaut
   ( Json (..)
-  , JTypes (..)
+  , JType (..)
   , parseWaargonaut
   , waargonautBuilder
   ) where
 
-import           Waargonaut.Types.Json                 (JTypes (..), Json (..),
+import           Waargonaut.Types.Json                 (JType (..), Json (..),
                                                         parseWaargonaut,
                                                         waargonautBuilder)

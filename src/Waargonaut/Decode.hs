@@ -77,7 +77,7 @@ import           Data.Scientific               (Scientific)
 import           Text.Parser.Char              (CharParsing)
 import           Text.Parser.Combinators       (Parsing)
 
-import           Waargonaut.Types              (AsJTypes, Elems, JAssoc, Json)
+import           Waargonaut.Types              (AsJType, Elems, JAssoc, Json)
 
 import qualified Waargonaut.Types              as WT
 
@@ -287,7 +287,7 @@ atCursor t f = withCursor $ \c -> do
 -- occurence of that key. This move expects that you've positioned the cursor on an
 -- object.
 moveToKey
-  :: ( AsJTypes s digit ws s
+  :: ( AsJType s digit ws s
      , Monad f
      )
   => Text

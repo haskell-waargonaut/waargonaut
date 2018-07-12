@@ -17,7 +17,7 @@ import           Waargonaut.Types.Whitespace (WS)
 import           Waargonaut.Types.JArray     (JArray (..))
 import           Waargonaut.Types.JObject    (JObject (..), JAssoc (..))
 
-import           Waargonaut                  (JTypes (..), Json (..))
+import           Waargonaut                  (JType (..), Json (..))
 
 import           Types.CommaSep              (genCommaSeparated,
                                               genEmptyCommaSeparated)
@@ -42,7 +42,7 @@ genJObj :: Gen (JObject WS Json)
 genJObj = JObject <$> genCommaSeparated G.genWS genJAssoc
 
 toJson
-  :: (t -> WS -> JTypes Digit WS Json)
+  :: (t -> WS -> JType Digit WS Json)
   -> Gen t
   -> Gen Json
 toJson c v =

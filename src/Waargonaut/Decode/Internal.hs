@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
+-- | Internal types and functions for building Decoder infrastructure.
 module Waargonaut.Decode.Internal
   ( CursorHistory' (..)
   , DecodeResultT (..)
@@ -63,7 +64,7 @@ import qualified Data.Witherable               as Wither
 import           Data.Scientific               (Scientific)
 import qualified Data.Scientific               as Sci
 
-import           Waargonaut.Types              (AsJTypes (..), JNumber, JString,
+import           Waargonaut.Types              (AsJType (..), JNumber, JString,
                                                 jNumberToScientific,
                                                 jsonAssocKey, jsonAssocVal,
                                                 _JChar, _JStringText)
@@ -225,31 +226,31 @@ try :: MonadError e m => m a -> m (Maybe a)
 try d = catchError (pure <$> d) (const (pure Nothing))
 
 -- | Try to decode a 'Text' value from some 'Json' or value.
-text' :: AsJTypes a digit ws a => a -> Maybe Text
+text' :: AsJType a digit ws a => a -> Maybe Text
 text' = L.preview (_JStr . _1 . _JStringText)
 
 -- | Try to decode a 'String' value from some 'Json' or value.
-string' :: AsJTypes a digit ws a => a -> Maybe String
+string' :: AsJType a digit ws a => a -> Maybe String
 string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map (_JChar L.#)))
 
 -- | Try to decode a 'Scientific' value from some 'Json' or value.
-scientific' :: AsJTypes a digit ws a => a -> Maybe Scientific
+scientific' :: AsJType a digit ws a => a -> Maybe Scientific
 scientific' = L.preview (_JNum . _1) >=> jNumberToScientific
 
 -- | Try to decode a bounded 'Integral n => n' value from some 'Json' value.
-integral' :: (Bounded i , Integral i , AsJTypes a digit ws a) => a -> Maybe i
+integral' :: (Bounded i , Integral i , AsJType a digit ws a) => a -> Maybe i
 integral' = scientific' >=> Sci.toBoundedInteger
 
 -- | Try to decode an 'Int' from some 'Json' value
-int' :: AsJTypes a digit ws a => a -> Maybe Int
+int' :: AsJType a digit ws a => a -> Maybe Int
 int' = integral'
 
 -- | Try to decode a 'Bool' from some 'Json' value
-boolean' :: AsJTypes a digit ws a => a -> Maybe Bool
+boolean' :: AsJType a digit ws a => a -> Maybe Bool
 boolean' = L.preview (_JBool . _1)
 
 -- | Try to decode a 'null' value from some 'Json' value
-null' :: AsJTypes a digit ws a => a -> Maybe ()
+null' :: AsJType a digit ws a => a -> Maybe ()
 null' a = L.preview _JNull a $> ()
 
 -- | Combined with another decoder function 'f', try to decode a list of 'a' values.
@@ -258,7 +259,7 @@ null' a = L.preview _JNull a $> ()
 -- array' int' :: Json -> [Int]
 -- @
 --
-array' :: AsJTypes a digit ws a => (a -> Maybe b) -> a -> [b]
+array' :: AsJType a digit ws a => (a -> Maybe b) -> a -> [b]
 array' f a = Wither.mapMaybe f (a L.^.. _JArr . _1 . L.folded)
 
 -- |
@@ -270,7 +271,7 @@ array' f a = Wither.mapMaybe f (a L.^.. _JArr . _1 . L.folded)
 --
 objTuples'
   :: ( Applicative f
-     , AsJTypes a digit ws a
+     , AsJType a digit ws a
      )
   => (JString -> f k)
   -> (a -> f b)
@@ -290,7 +291,7 @@ objTuples' kF vF a =
 mapKeepingF
   :: ( Ord k
      , Applicative f
-     , AsJTypes a digit ws a
+     , AsJType a digit ws a
      )
   => (t -> Maybe a1 -> Maybe a1)
   -> (JString -> f k)
@@ -307,7 +308,7 @@ mapKeepingF f kF vF a =
 mapKeepingFirst
   :: ( Ord k
      , Applicative f
-     , AsJTypes a digit ws a
+     , AsJType a digit ws a
      )
   => (JString -> f k)
   -> (a -> f b)
@@ -323,7 +324,7 @@ mapKeepingFirst =
 mapKeepingLast
   :: ( Ord k
      , Applicative f
-     , AsJTypes a digit ws a
+     , AsJType a digit ws a
      )
   => (JString -> f k)
   -> (a -> f b)

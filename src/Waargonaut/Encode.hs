@@ -57,7 +57,7 @@ import           Data.Text                  (Text)
 import           Data.Digit                 (Digit)
 
 import           Waargonaut                 (waargonautBuilder)
-import           Waargonaut.Types           (AsJTypes (..), Json,
+import           Waargonaut.Types           (AsJType (..), Json,
                                              MapLikeObj (..), WS,
                                              wsRemover, _JNumberInt,
                                              _JStringText)
@@ -235,7 +235,7 @@ arrayAt enc =
 -- @
 --
 encodeAsMapLikeObj
-  :: ( AsJTypes Json Digit ws a
+  :: ( AsJType Json Digit ws a
      , Semigroup ws
      , Monoid ws
      )
