@@ -16,7 +16,7 @@ version:             0.1.0.0
 synopsis:            JSON Mangling
 
 -- A longer description of the package.
--- description:
+description:         Flexible, precise, and efficient JSON decoding/encoding library.
 
 -- The license under which the package is released.
 license:             BSD3
@@ -42,12 +42,22 @@ build-type:          Simple
 -- README.
 extra-source-files:  ChangeLog.md
 
+homepage:            https://github.com/qfpl/waargonaut
+bug-reports:         https://github.com/qfpl/waargonaut/issues
+
+
 -- Constraint on the version of Cabal needed to build this package.
 cabal-version:       >=1.10
 
-tested-with:         GHC==8.2.2
+tested-with:       GHC==7.10.3
                    , GHC==8.0.2
-                   , GHC==7.10.3
+                   , GHC==8.2.2
+                   , GHC==8.4.3
+                   , GHC==8.6.1
+
+source-repository    head
+  type:              git
+  location:          git@github.com/qfpl/waargonaut.git
 
 library
   -- Modules included in this executable, other than Main.
