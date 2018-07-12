@@ -58,7 +58,7 @@ pureDecode dec c =
 imageDecoder :: Monad f => Decoder f Image
 imageDecoder = D.withCursor $ \curs -> do
   -- We're at the root of our object, move into it and move to the value at the "Image" key
-  o <- D.toKey "Image" curs
+  o <- D.moveToKey "Image" curs
   -- We need individual values off of our object,
   Image
     <$> D.fromKey "Width" D.int o

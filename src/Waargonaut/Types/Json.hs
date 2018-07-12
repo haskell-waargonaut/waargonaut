@@ -175,13 +175,13 @@ parseJNull ws = JNull
 --
 -- >>> testparse (parseJBool (return ())) "false"
 -- Right (JBool False ())
----
+--
 -- >>> testparsetheneof (parseJBool (return ())) "true"
 -- Right (JBool True ())
 --
 -- >>> testparsetheneof (parseJBool (return ())) "false"
 -- Right (JBool False ())
----
+--
 -- >>> testparsethennoteof (parseJBool (return ())) "truex"
 -- Right (JBool True ())
 --
@@ -216,7 +216,7 @@ parseJNum ws =
 -- >>> testparse (parseJStr (return ())) "\"abc\""
 -- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
 --
--- >> testparse (parseJStr (return ())) "\"a\\rbc\""
+-- >>> testparse (parseJStr (return ())) "\"a\\rbc\""
 -- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
 --
 -- >>> testparse (parseJStr (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError (JTypes Digit () a)

@@ -78,7 +78,7 @@ instance Wrapped (JString' digit) where
 -- >>> testparse parseJString "\"abc\""
 -- Right (JString' [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')])
 --
--- >> testparse parseJString "\"a\\rbc\""
+-- >>> testparse parseJString "\"a\\rbc\""
 -- Right (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')])
 --
 -- >>> testparse parseJString "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError JString

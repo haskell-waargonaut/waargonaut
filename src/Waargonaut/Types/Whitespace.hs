@@ -4,10 +4,10 @@
 module Waargonaut.Types.Whitespace where
 
 import           Control.Applicative     (liftA2)
-import           Control.Lens            (AsEmpty (..), Cons (..), Rewrapped, Prism',
-                                          Wrapped (..), isn't, iso, mapped, prism,
-                                          nearly, over, prism', to, uncons,
-                                          (^.), _2, _Wrapped)
+import           Control.Lens            (AsEmpty (..), Cons (..), Prism',
+                                          Rewrapped, Wrapped (..), isn't, iso,
+                                          mapped, nearly, over, prism, prism',
+                                          to, uncons, (^.), _2, _Wrapped)
 
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as BB
@@ -34,12 +34,8 @@ import           Text.Parser.Combinators (many)
 -- >>> import Data.ByteString.Lazy (toStrict)
 -- >>> import Data.ByteString.Builder (toLazyByteString)
 -- >>> import Utils
+----
 
--- ws =
-  -- %x20 /              ; Space
-  -- %x09 /              ; Horizontal tab
-  -- %x0A /              ; Line feed or New line
-  -- %x0D )              ; Carriage return
 data Whitespace
   = Space
   | HorizontalTab
@@ -86,6 +82,7 @@ _WhitespaceChar = prism escapedWhitespaceChar
       _    -> Left x
       )
 
+-- | Parse a single 'Whitespace' character.
 oneWhitespace
   :: CharParsing f
   => f Whitespace
@@ -96,6 +93,7 @@ oneWhitespace = asum
   , CarriageReturn <$ char '\r'
   , NewLine        <$ newline
   ]
+
 -- |
 --
 -- >>> testparse parseWhitespace " "

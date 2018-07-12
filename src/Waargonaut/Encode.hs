@@ -3,7 +3,32 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE TypeFamilies          #-}
-module Waargonaut.Encode where
+module Waargonaut.Encode
+  (
+    -- * Encoder type
+    Encoder' (..)
+  , Encoder (..)
+
+    -- * Creation
+  , encodeA
+  , encodeIdentityA
+  , runPureEncoder
+
+    -- * Premade Encoders
+  , encodeInt
+  , encodeBool
+  , encodeText
+  , encodeArray
+  , encodeMapToObj
+
+    -- * Object encoder helpers
+  , encodeAsMapLikeObj
+  , atKey
+  , intAt
+  , textAt
+  , boolAt
+  , arrayAt
+  ) where
 
 import           Prelude                    hiding ((.))
 
@@ -20,24 +45,25 @@ import           Data.Functor.Identity      (Identity (..))
 import           Data.Monoid                (mempty)
 import           Data.Semigroup             (Semigroup)
 
-import Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Builder    as BB
+import           Data.ByteString.Lazy       (ByteString)
 
 import           Data.Map                   (Map)
 import qualified Data.Map                   as Map
 
 import           Data.Text                  (Text)
 
-import qualified Data.Digit                 as D
+import           Data.Digit                 (Digit)
 
-import Waargonaut (waargonautBuilder)
+import           Waargonaut                 (waargonautBuilder)
 import           Waargonaut.Types           (AsJTypes (..), Json,
-                                             MapLikeObj (..), WS, emptyMapLike, wsRemover,
-                                             _JNumberInt, _JStringText)
+                                             MapLikeObj (..), WS, emptyMapLike,
+                                             wsRemover, _JNumberInt,
+                                             _JStringText)
 
 -- |
 -- Define an "encoder" as a function from some @a@ to some 'Json' with the
--- allowance for a given (but unknown) context @f@.
+-- allowance for some context @f@.
 --
 newtype Encoder' f a = Encoder'
   { runEncoder :: a -> f Json
@@ -64,31 +90,35 @@ instance Wrapped (Encoder a) where
   type Unwrapped (Encoder a) = Encoder' Identity a
   _Wrapped' = iso unEncoder Encoder
 
+-- | Create an 'Encodere'' for 'a' by providing a function from 'a -> f Json'.
 encodeA :: (a -> f Json) -> Encoder' f a
 encodeA = Encoder'
 
+-- | As 'encodeA' but specialised to 'Identity' when the additional flexibility
+-- isn't needed.
 encodeIdentityA :: (a -> Json) -> Encoder a
 encodeIdentityA f = Encoder $ encodeA (Identity . f)
 
-runPureEncoder
-  :: Encoder a
-  -> a
-  -> ByteString
+-- | Run the given 'Encoder' to produce a lazy 'ByteString'.
+runPureEncoder :: Encoder a -> a -> ByteString
 runPureEncoder enc = BB.toLazyByteString
   . waargonautBuilder wsRemover
   . runIdentity
   . runEncoder (unEncoder enc)
 
-encodeInt
-  :: Encoder Int
-encodeInt = encodeIdentityA $ \i ->
-  _JNum # (_JNumberInt # i, mempty)
+-- | Encode an 'Int'
+encodeInt :: Encoder Int
+encodeInt = encodeIdentityA $ \i -> _JNum # (_JNumberInt # i, mempty)
 
-encodeBool
-  :: Encoder Bool
-encodeBool = encodeIdentityA $ \b ->
-  _JBool # (b,mempty)
+-- | Encode a 'Bool'
+encodeBool :: Encoder Bool
+encodeBool = encodeIdentityA $ \b -> _JBool # (b,mempty)
 
+-- | Encode a 'Text'
+encodeText :: Encoder Text
+encodeText = encodeIdentityA $ \t -> _JStr # (_JStringText # t, mempty)
+
+-- | Encode some 'a' that is contained with another 't' structure.
 encodeWithInner
   :: ( Applicative f
      , Traversable t
@@ -99,6 +129,7 @@ encodeWithInner
 encodeWithInner f g =
   Encoder' $ fmap f . traverse (runEncoder g)
 
+-- | Encode some 'Traversable' of 'a' into a JSON array.
 encodeArray
   :: ( Applicative f
      , Traversable t
@@ -108,6 +139,7 @@ encodeArray
 encodeArray = encodeWithInner
   (\xs -> _JArr # (_Wrapped # foldr cons mempty xs, mempty))
 
+-- | Encode a 'Map' in a JSON object.
 encodeMapToObj
   :: Applicative f
   => Encoder' f a
@@ -119,11 +151,7 @@ encodeMapToObj encodeVal kToText =
   in
     encodeWithInner (\xs -> _JObj # (fromMapLikeObj $ mapToCS xs, mempty)) encodeVal
 
-encodeText
-  :: Encoder Text
-encodeText = encodeIdentityA $ \t ->
-  _JStr # (_JStringText # t, mempty)
-
+-- | Encode an 'a' at the given index on the JSON object.
 atKey
   :: ( At t
      , IxValue t ~ Json
@@ -136,6 +164,7 @@ atKey
 atKey enc k v =
   at k ?~ runIdentity (runEncoder (unEncoder enc) v)
 
+-- | Encode an 'Int' at the given 'Text' key.
 intAt
   :: Text
   -> Int
@@ -144,6 +173,7 @@ intAt
 intAt =
   atKey encodeInt
 
+-- | Encode a 'Text' value at the given 'Text' key.
 textAt
   :: Text
   -> Text
@@ -152,6 +182,7 @@ textAt
 textAt =
   atKey encodeText
 
+-- | Encode a 'Bool' at the given 'Text' key.
 boolAt
   :: Text
   -> Bool
@@ -160,6 +191,7 @@ boolAt
 boolAt =
   atKey encodeBool
 
+-- | Encode a 'Foldable' of 'a' at the given index on a JSON object.
 arrayAt
   :: ( At t
      , Traversable f
@@ -174,8 +206,35 @@ arrayAt
 arrayAt enc =
   atKey (Encoder $ encodeArray (unEncoder enc))
 
+-- | Apply a function to update a 'MapLikeObj' and encode that as a JSON object.
+--
+-- For example, given the following data type:
+--
+-- @
+-- data Image = Image
+--   { _imageW        :: Int
+--   , _imageH        :: Int
+--   , _imageTitle    :: Text
+--   , _imageAnimated :: Bool
+--   , _imageIDs      :: [Int]
+--   }
+-- @
+--
+-- We can use this function to create an encoder, composing the individual
+-- update functions to set the keys and values as desired.
+--
+-- @
+-- encodeImage :: Encoder Image
+-- encodeImage = encodeAsMapLikeObj $ \\img ->
+--   intAt \"Width\" (_imageW img) .           -- ^ Set an 'Int' value at the \"Width\" key.
+--   intAt \"Height\" (_imageH img) .
+--   textAt \"Title\" (_imageTitle img) .
+--   boolAt \"Animated\" (_imageAnimated img) .
+--   arrayAt encodeInt \"IDs\" (_imageIDs img) -- ^ Set an @[Int]@ value at the \"IDs\" key.
+-- @
+--
 encodeAsMapLikeObj
-  :: ( AsJTypes Json D.Digit ws a
+  :: ( AsJTypes Json Digit ws a
      , Semigroup ws
      , Monoid ws
      )

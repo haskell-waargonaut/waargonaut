@@ -219,13 +219,13 @@ instance Ixed (CommaSeparated ws a) where
     | otherwise = pure c
 
 class HasElems c ws a | c -> ws a where
-  elems :: Lens' c (Elems ws a)
+  elems      :: Lens' c (Elems ws a)
   elemsElems :: Lens' c (Vector (Elem Identity ws a))
   {-# INLINE elemsElems #-}
-  elemsLast :: Lens' c (Elem Maybe ws a)
+  elemsLast  :: Lens' c (Elem Maybe ws a)
   {-# INLINE elemsLast #-}
   elemsElems = elems . elemsElems
-  elemsLast = elems . elemsLast
+  elemsLast  = elems . elemsLast
 
 instance HasElems (Elems ws a) ws a where
   {-# INLINE elemsElems #-}

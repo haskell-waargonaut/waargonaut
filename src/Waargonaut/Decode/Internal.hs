@@ -95,7 +95,7 @@ data Mv
   | Item Text
   | L Natural
   | R Natural
-  deriving (Eq)
+  deriving Eq
 
 instance Show Mv where
   show = WL.display . WL.renderPrettyDefault . prettyMv
@@ -112,14 +112,30 @@ prettyMv m = case m of
   (Item t) -> WL.text "-|-" <+> itxt "item" t
   where
     itxt t k' = WL.parens (WL.text t <+> WL.colon <+> WL.text (Text.unpack k'))
-    ntxt n' = WL.parens (WL.char 'i' <+> WL.char '+' <+> WL.text (show n'))
+    ntxt n'   = WL.parens (WL.char 'i' <+> WL.char '+' <+> WL.text (show n'))
 
 -- |
 -- Track the history of the cursor as we move around the zipper.
 --
 -- It is indexed over the type of the index used to navigate the zipper.
 newtype CursorHistory' i = CursorHistory' (Seq (Mv, i))
-  deriving (Eq, Show)
+  deriving Eq
+
+instance Show i => Show (CursorHistory' i) where
+  show = WL.display . WL.renderPrettyDefault . prettyCursorHistory
+
+prettyCursorHistory :: Show i => CursorHistory' i -> Doc a
+prettyCursorHistory (CursorHistory' s) = foldMap prettyTooth s
+  where
+    prettyTooth (mv, ix) =
+      mvFn mv (WL.text (show mv) <+> WL.parens (WL.char '@' <+> WL.text (show ix)))
+
+    mvFn U        = WL.indent (-2)
+    mvFn D        = WL.indent 2
+    mvFn (DAt _)  = WL.indent 2
+    mvFn (Item _) = id
+    mvFn (L _)    = id
+    mvFn (R _)    = id
 
 instance CursorHistory' i ~ t => Rewrapped (CursorHistory' i) t
 
