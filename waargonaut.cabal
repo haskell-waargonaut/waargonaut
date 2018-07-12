@@ -41,6 +41,15 @@ build-type:          Simple
 -- Extra files to be distributed with the package, such as examples or a
 -- README.
 extra-source-files:  changelog.md
+                   , test/json-data/jp100.json
+                   , test/json-data/test1.json
+                   , test/json-data/test2.json
+                   , test/json-data/test3.json
+                   , test/json-data/test4.json
+                   , test/json-data/test5.json
+                   , test/json-data/test6.json
+                   , test/json-data/test7.json
+                   , test/json-data/twitter100.json
 
 homepage:            https://github.com/qfpl/waargonaut
 bug-reports:         https://github.com/qfpl/waargonaut/issues
@@ -49,7 +58,7 @@ bug-reports:         https://github.com/qfpl/waargonaut/issues
 -- Constraint on the version of Cabal needed to build this package.
 cabal-version:       >=1.10
 
-tested-with:       GHC==7.10.3
+tested-with:         GHC==7.10.3
                    , GHC==8.0.2
                    , GHC==8.2.2
                    , GHC==8.4.3
