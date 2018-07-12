@@ -1,11 +1,12 @@
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE Rank2Types                 #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE Rank2Types                 #-}
+-- | Types and functions to convert Json values into your data types.
 module Waargonaut.Decode
   (
     CursorHistory (..)
@@ -76,11 +77,9 @@ import           Data.Scientific               (Scientific)
 import           Text.Parser.Char              (CharParsing)
 import           Text.Parser.Combinators       (Parsing)
 
-import           Waargonaut.Types              (AsJTypes, JAssoc, Json)
+import           Waargonaut.Types              (AsJTypes, Elems, JAssoc, Json)
 
 import qualified Waargonaut.Types              as WT
-import           Waargonaut.Types.CommaSep     (Elems)
-import qualified Waargonaut.Types.CommaSep     as WT
 
 import           Waargonaut.Decode.Internal    (CursorHistory' (..),
                                                 DecodeError (..), DecodeResultT,
@@ -325,21 +324,27 @@ fromKey
 fromKey k d =
   moveToKey k >=> runDecoder d
 
+-- | Decoder for 'Scientific'
 scientific :: Monad f => Decoder f Scientific
 scientific = atCursor "Scientific" DR.scientific'
 
+-- | Decoder for a bounded integral value.
 integral :: (Bounded i, Integral i, Monad f) => Decoder f i
 integral = atCursor "Integral" DR.integral'
 
+-- | Decoder for 'Int'
 int :: Monad f => Decoder f Int
 int = atCursor "Int" DR.int'
 
+-- | Decoder for 'Bool'
 boolean :: Monad f => Decoder f Bool
 boolean = atCursor "Bool" DR.boolean'
 
+-- | Decoder for 'Text', as per the 'Text' documentation any unacceptable utf8 characters will be replaced.
 text :: Monad f => Decoder f Text
 text = atCursor "Text" DR.text'
 
+-- | Decoder for 'String'
 string :: Monad f => Decoder f String
 string = atCursor "String" DR.string'
 

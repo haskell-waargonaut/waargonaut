@@ -61,7 +61,6 @@ import           Data.Vector.Storable                      (Vector)
 import           Numeric.Natural                           (Natural)
 
 import           Waargonaut.Types
-import           Waargonaut.Types.CommaSep
 
 import           HaskellWorks.Data.Positioning             (Count)
 import qualified HaskellWorks.Data.Positioning             as Pos
@@ -77,7 +76,7 @@ import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
 import           HaskellWorks.Data.Json.Succinct.Cursor    (JsonCursor (..))
 import qualified HaskellWorks.Data.Json.Succinct.Cursor    as JC
 
-import           Waargonaut.Decode.Internal (CursorHistory',
+import           Waargonaut.Decode.Internal                (CursorHistory',
                                                             DecodeError (..),
                                                             DecodeResultT (..),
                                                             Decoder' (..),

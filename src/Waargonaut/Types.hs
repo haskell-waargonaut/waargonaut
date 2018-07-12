@@ -1,11 +1,20 @@
 module Waargonaut.Types
-  ( module X
+  (
+    module           Waargonaut.Types.JArray
+  , module           Waargonaut.Types.JChar
+  , module           Waargonaut.Types.JNumber
+  , module           Waargonaut.Types.JObject
+  , module           Waargonaut.Types.JString
+  , module           Waargonaut.Types.Whitespace
+  , module           Waargonaut.Types.CommaSep
+  , module           Waargonaut.Types.Json
   ) where
 
-import           Waargonaut.Types.JArray     as X
-import           Waargonaut.Types.JChar      as X
-import           Waargonaut.Types.JNumber    as X
-import           Waargonaut.Types.JObject    as X
-import           Waargonaut.Types.JString    as X
-import           Waargonaut.Types.Whitespace as X
-import           Waargonaut.Types.Json       as X
+import           Waargonaut.Types.CommaSep
+import           Waargonaut.Types.JArray
+import           Waargonaut.Types.JChar
+import           Waargonaut.Types.JNumber
+import           Waargonaut.Types.JObject
+import           Waargonaut.Types.Json
+import           Waargonaut.Types.JString
+import           Waargonaut.Types.Whitespace

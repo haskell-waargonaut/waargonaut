@@ -1,7 +1,23 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
-module Waargonaut.Types.Whitespace where
+-- | Parsers and builders for whitespace characters in our JSON.
+module Waargonaut.Types.Whitespace
+  (
+    Whitespace (..)
+  , WS (..)
+  , _WhitespaceChar
+
+  , escapedWhitespaceChar
+  , unescapedWhitespaceChar
+
+  , oneWhitespace
+  , parseWhitespace
+  , parseSomeWhitespace
+
+  , wsBuilder
+  , wsRemover
+  ) where
 
 import           Control.Applicative     (liftA2)
 import           Control.Lens            (AsEmpty (..), Cons (..), Prism',
@@ -36,6 +52,7 @@ import           Text.Parser.Combinators (many)
 -- >>> import Utils
 ----
 
+-- | Represent the different types of whitespace.
 data Whitespace
   = Space
   | HorizontalTab
@@ -44,6 +61,7 @@ data Whitespace
   | CarriageReturn
   deriving (Eq, Ord, Show)
 
+-- | This is a wrapper for a sequence of consecutive whitespace.
 newtype WS = WS (Vector Whitespace)
   deriving (Eq, Show)
 
@@ -71,6 +89,7 @@ instance Semigroup WS where
   (<>) = mappend
   {-# INLINE (<>) #-}
 
+-- | Handy 'Prism'' between a 'Char' its possible 'Whitespace' representation.
 _WhitespaceChar :: Prism' Char Whitespace
 _WhitespaceChar = prism escapedWhitespaceChar
   (\x -> case x of
@@ -126,12 +145,15 @@ parseWhitespace
 parseWhitespace =
   WS . V.fromList <$> many oneWhitespace
 
+-- | Parse a 'NonEmpty' sequence of consecutive whitespace.
 parseSomeWhitespace
   :: CharParsing f
   => f (NonEmpty Whitespace)
 parseSomeWhitespace =
   liftA2 (:|) oneWhitespace (many oneWhitespace)
 
+-- | Change a 'Whitespace' into a single unescaped 'Char'. Useful if you're
+-- already handling escaping with some other mechanism.
 unescapedWhitespaceChar :: Whitespace -> Char
 unescapedWhitespaceChar Space          = ' '
 unescapedWhitespaceChar HorizontalTab  = 't'
@@ -140,6 +162,7 @@ unescapedWhitespaceChar CarriageReturn = 'r'
 unescapedWhitespaceChar NewLine        = 'n'
 {-# INLINE unescapedWhitespaceChar #-}
 
+-- | Change a 'Whitespace' into its escaped 'Char' form.
 escapedWhitespaceChar :: Whitespace -> Char
 escapedWhitespaceChar Space          = ' '
 escapedWhitespaceChar HorizontalTab  = '\t'
@@ -148,6 +171,7 @@ escapedWhitespaceChar CarriageReturn = '\r'
 escapedWhitespaceChar NewLine        = '\n'
 {-# INLINE escapedWhitespaceChar #-}
 
+-- | Create a 'Data.ByteString.Builder' from a 'Whitespace'
 whitespaceBuilder :: Whitespace -> Builder
 whitespaceBuilder Space          = BB.charUtf8 ' '
 whitespaceBuilder HorizontalTab  = BB.charUtf8 '\t'

@@ -9,16 +9,15 @@
 --
 {-# LANGUAGE FunctionalDependencies #-}
 module Waargonaut.Types.Json
-  ( JTypes (..)
+  (
+    JTypes (..)
+  , AsJTypes (..)
+
   , Json (..)
+  , json
+
   , waargonautBuilder
   , parseWaargonaut
-  --
-  , parseJStr
-  , parseJBool
-
-  , json
-  , AsJTypes (..)
   ) where
 
 import           Prelude                                (Eq, Show)

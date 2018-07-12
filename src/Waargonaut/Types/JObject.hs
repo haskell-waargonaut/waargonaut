@@ -1,27 +1,30 @@
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
 {-# LANGUAGE DeriveTraversable      #-}
-{-# LANGUAGE NoImplicitPrelude      #-}
---
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE TypeFamilies           #-}
+-- | Types and functions for handling our representation of a JSON object.
 module Waargonaut.Types.JObject
-  ( JObject (..)
-  , JAssoc (..)
-  , emptyObj
-
-  , HasJAssoc (..)
+  (
+    -- * Object Type
+    JObject (..)
   , HasJObject (..)
 
+    -- * Key/value pair type
+  , JAssoc (..)
+  , HasJAssoc (..)
+
+    -- * Map-like object representation
   , MapLikeObj
-  , emptyMapLike
   , toMapLikeObj
   , fromMapLikeObj
 
+    -- * Parser / Builder
   , jObjectBuilder
   , parseJObject
   ) where
@@ -31,9 +34,11 @@ import           Prelude                   (Eq, Int, Show, elem, not, otherwise,
 
 import           Control.Applicative       ((<*), (<*>))
 import           Control.Category          (id, (.))
-import           Control.Lens              (At (..), Index, IxValue, Ixed (..),
-                                            Lens', Rewrapped, Wrapped (..), iso, cons,
-                                            ( # ), (.~), (<&>), (^?))
+import           Control.Lens              (AsEmpty (..), At (..), Index,
+                                            IxValue, Ixed (..), Lens',
+                                            Rewrapped, Wrapped (..), cons,
+                                            isn't, iso, nearly, to, ( # ), (.~),
+                                            (<&>), (^.), (^?), _Wrapped)
 
 import           Control.Monad             (Monad)
 
@@ -70,6 +75,10 @@ import           Waargonaut.Types.JString
 -- >>> import Data.Digit (Digit)
 ----
 
+-- | This type represents the key-value pair inside of a JSON object.
+--
+-- It is built like this so that we can preserve any whitespace information that
+-- may surround it.
 data JAssoc ws a = JAssoc
   { _jsonAssocKey             :: JString
   , _jsonAssocKeyTrailingWS   :: ws
@@ -78,6 +87,8 @@ data JAssoc ws a = JAssoc
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+-- | This class allows you to write connective lenses for other data structures
+-- that may contain a 'JAssoc'.
 class HasJAssoc c ws a | c -> ws a where
   jAssoc :: Lens' c (JAssoc ws a)
   jsonAssocKey :: Lens' c JString
@@ -104,12 +115,33 @@ instance HasJAssoc (JAssoc ws a) ws a where
   jsonAssocValPreceedingWS f (JAssoc x1 x2 x3 x4) = fmap (\y1 -> JAssoc x1 x2 y1 x4) (f x3)
   {-# INLINE jsonAssocValPreceedingWS #-}
 
+-- Helper function for trying to update/create a JAssoc value in some Functor.
+-- This function is analogus to the 'Data.Map.alterF' function.
+jAssocAlterF :: (Monoid ws, Functor f) => Text -> (Maybe a -> f (Maybe a)) -> Maybe (JAssoc ws a) -> f (Maybe (JAssoc ws a))
+jAssocAlterF k f mja = fmap g <$> f (_jsonAssocVal <$> mja) where
+  g v = maybe (JAssoc (_JStringText # k) mempty mempty v) (jsonAssocVal .~ v) mja
+
+-- | The representation of a JSON object.
+--
+-- The <https://tools.ietf.org/html/rfc8259#section-4 JSON RFC8259> indicates
+-- that names within an object "should" be unique. But the standard does not
+-- enforce this, leaving it to the various implementations to decide how to
+-- handle it.
+--
+-- As there are multiple possibilities for deciding which key to use when
+-- enforcing uniqueness, Waargonaut accepts duplicate keys, allowing you to
+-- decide how to handle it.
+--
+-- This type is the "list of tuples of key and value" structure, as such it is a
+-- wrapper around the 'CommaSeparated' data type.
+--
 newtype JObject ws a =
   JObject (CommaSeparated ws (JAssoc ws a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
-emptyObj :: (Monoid ws, Semigroup ws) => JObject ws a
-emptyObj = JObject mempty
+instance (Semigroup ws, Monoid ws) => AsEmpty (JObject ws a) where
+  _Empty = nearly (_Wrapped # _Empty # ()) (^. _Wrapped . to (isn't _Empty))
+  {-# INLINE _Empty #-}
 
 instance JObject ws a ~ t => Rewrapped (JObject ws a) t
 
@@ -117,29 +149,30 @@ instance Wrapped (JObject ws a) where
   type Unwrapped (JObject ws a) = CommaSeparated ws (JAssoc ws a)
   _Wrapped' = iso (\ (JObject x) -> x) JObject
 
+type instance IxValue (JObject ws a) = a
+type instance Index (JObject ws a)   = Int
+
+-- | Without having an obviously correct "first" or "last" decision on which
+-- 'JString' key is the "right" one to use, a 'JObject' can only be indexed by a
+-- numeric value.
+instance Monoid ws => Ixed (JObject ws a) where
+  ix i f (JObject cs) = JObject <$> ix i (traverse f) cs
+
+-- | Type class to represent something that has a 'JObject' within it.
 class HasJObject c ws a | c -> ws a where
   jObject :: Lens' c (JObject ws a)
 
 instance HasJObject (JObject ws a) ws a where
   jObject = id
 
+-- | This is a newtype around our 'JObject' for when we want to use the
+-- "map-like" representation of our JSON object. This data type will enforce that
+-- the first key found is treated as the desired element, and all subsequent
+-- occurrences of that key are discarded.
 newtype MapLikeObj ws a = MLO
   { fromMapLikeObj :: JObject ws a
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
-
-emptyMapLike :: (Monoid ws, Semigroup ws) => MapLikeObj ws a
-emptyMapLike = MLO emptyObj
-
-toMapLikeObj :: (Semigroup ws, Monoid ws) => JObject ws a -> (MapLikeObj ws a, [JAssoc ws a])
-toMapLikeObj (JObject xs) = (\(_,a,b) -> (MLO (JObject a), b)) $ foldr f (mempty,mempty,mempty) xs
-  where
-    f x (ys,acc,discards)
-      | _jsonAssocKey x `elem` ys = (ys, acc, x:discards)
-      | otherwise                 = (_jsonAssocKey x:ys, cons x acc, discards)
-
-textKeyMatch :: Text -> JAssoc ws a -> Bool
-textKeyMatch k = (== Just k) . (^? jsonAssocKey . _JStringText)
 
 instance MapLikeObj ws a ~ t => Rewrapped (MapLikeObj ws a) t
 
@@ -147,25 +180,36 @@ instance Wrapped (MapLikeObj ws a) where
   type Unwrapped (MapLikeObj ws a) = JObject ws a
   _Wrapped' = iso (\ (MLO x) -> x) MLO
 
+instance (Monoid ws, Semigroup ws) => AsEmpty (MapLikeObj ws a) where
+  _Empty = nearly (_Wrapped # _Empty # ()) (^. _Wrapped . to (isn't _Empty))
+  {-# INLINE _Empty #-}
+
 type instance IxValue (MapLikeObj ws a) = a
 type instance Index (MapLikeObj ws a)   = Text
 
 instance Monoid ws => Ixed (MapLikeObj ws a) where
 
-jAssocAlterF :: (Monoid ws, Functor f) => Text -> (Maybe a -> f (Maybe a)) -> Maybe (JAssoc ws a) -> f (Maybe (JAssoc ws a))
-jAssocAlterF k f mja = fmap g <$> f (_jsonAssocVal <$> mja) where
-  g v = maybe (JAssoc (_JStringText # k) mempty mempty v) (jsonAssocVal .~ v) mja
-
+-- | Unlike 'JObject' this type has an opinionated stance on which key is the
+-- "correct" one, so we're able to have an 'At' instance.
 instance Monoid ws => At (MapLikeObj ws a) where
   at k f (MLO (JObject cs)) = jAssocAlterF k f (find (textKeyMatch k) cs) <&>
     MLO . JObject . maybe (W.filter (not . textKeyMatch k) cs) (`cons` cs)
 
-type instance IxValue (JObject ws a) = a
-type instance Index (JObject ws a)   = Int
+-- | Take a 'JObject' and produce a 'MapLikeObj' where the first key is
+-- considered the unique value. Subsequence occurrences of that key and it's value
+-- are collected and returned as a list.
+toMapLikeObj :: (Semigroup ws, Monoid ws) => JObject ws a -> (MapLikeObj ws a, [JAssoc ws a])
+toMapLikeObj (JObject xs) = (\(_,a,b) -> (MLO (JObject a), b)) $ foldr f (mempty,mempty,mempty) xs
+  where
+    f x (ys,acc,discards)
+      | _jsonAssocKey x `elem` ys = (ys, acc, x:discards)
+      | otherwise                 = (_jsonAssocKey x:ys, cons x acc, discards)
 
-instance Monoid ws => Ixed (JObject ws a) where
-  ix i f (JObject cs) = JObject <$> ix i (traverse f) cs
+-- Compare a 'Text' to the key for a 'JAssoc' value.
+textKeyMatch :: Text -> JAssoc ws a -> Bool
+textKeyMatch k = (== Just k) . (^? jsonAssocKey . _JStringText)
 
+-- | Parse a single "key:value" pair
 parseJAssoc
   :: ( Monad f
      , CharParsing f
@@ -176,6 +220,7 @@ parseJAssoc
 parseJAssoc ws a = JAssoc
   <$> parseJString <*> ws <* char ':' <*> ws <*> a
 
+-- | Builder for a single "key:value" pair.
 jAssocBuilder
   :: (ws -> Builder)
   -> ((ws -> Builder) -> a -> Builder)
@@ -202,6 +247,7 @@ parseJObject
 parseJObject ws a = JObject <$>
   parseCommaSeparated (char '{') (char '}') ws (parseJAssoc ws a)
 
+-- | Construct a 'Builder' for an entire 'JObject', duplicate keys are preserved.
 jObjectBuilder
   :: (ws -> Builder)
   -> ((ws -> Builder) -> a -> Builder)

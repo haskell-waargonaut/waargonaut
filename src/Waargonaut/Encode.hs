@@ -3,6 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE TypeFamilies          #-}
+-- | Types and functions to encode your data types to 'Json'.
 module Waargonaut.Encode
   (
     -- * Encoder type
@@ -35,7 +36,7 @@ import           Prelude                    hiding ((.))
 import           Control.Category           ((.))
 import           Control.Lens               (At, Index, IxValue, Rewrapped,
                                              Wrapped (..), at, cons, iso, ( # ),
-                                             (?~), _Wrapped)
+                                             (?~), _Wrapped, _Empty)
 
 import           Data.Traversable           (traverse)
 
@@ -57,7 +58,7 @@ import           Data.Digit                 (Digit)
 
 import           Waargonaut                 (waargonautBuilder)
 import           Waargonaut.Types           (AsJTypes (..), Json,
-                                             MapLikeObj (..), WS, emptyMapLike,
+                                             MapLikeObj (..), WS,
                                              wsRemover, _JNumberInt,
                                              _JStringText)
 
@@ -147,7 +148,7 @@ encodeMapToObj
   -> Encoder' f (Map k a)
 encodeMapToObj encodeVal kToText =
   let
-    mapToCS = Map.foldrWithKey (\k v -> at (kToText k) ?~ v) emptyMapLike
+    mapToCS = Map.foldrWithKey (\k v -> at (kToText k) ?~ v) (_Empty # ())
   in
     encodeWithInner (\xs -> _JObj # (fromMapLikeObj $ mapToCS xs, mempty)) encodeVal
 
@@ -241,4 +242,4 @@ encodeAsMapLikeObj
   => (i -> MapLikeObj ws a -> MapLikeObj ws a)
   -> Encoder i
 encodeAsMapLikeObj f = encodeIdentityA $ \a ->
-  _JObj # (fromMapLikeObj $ f a emptyMapLike, mempty)
+  _JObj # (fromMapLikeObj $ f a (_Empty # ()), mempty)
