@@ -36,7 +36,7 @@ copyright:           Copyright (C) 2017 Commonwealth Scientific and Industrial R
 
 category:            Parser, Web, JSON
 
-build-type:          Simple
+build-type:          Custom
 
 -- Extra files to be distributed with the package, such as examples or a
 -- README.
@@ -63,6 +63,11 @@ tested-with:         GHC==7.10.3
                    , GHC==8.2.2
                    , GHC==8.4.3
                    , GHC==8.6.1
+
+custom-setup
+ setup-depends:
+   base >= 4 && <5,
+   cabal-doctest >= 1 && <1.1
 
 source-repository    head
   type:              git
@@ -185,6 +190,7 @@ benchmark weigh
   build-depends:       base         >= 4.7 && <= 4.12
                      , lens         >= 4.15 && <= 5
                      , parsec       >= 3.1
+                     , semigroups   >= 0.8.4 && < 0.19
                      , text         >= 1.2 && < 1.3
                      , weigh        >= 0.0.12 && < 0.1
                      , waargonaut
@@ -202,6 +208,7 @@ benchmark criterion
   build-depends:       base         >= 4.7 && <= 4.12
                      , lens         >= 4.15 && <= 5
                      , parsec       >= 3.1
+                     , semigroups   >= 0.8.4 && < 0.19
                      , text         >= 1.2 && < 1.3
                      , criterion
                      , waargonaut
