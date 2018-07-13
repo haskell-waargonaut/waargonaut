@@ -104,7 +104,7 @@ library
                      , digit        >= 0.5.2 && < 0.6
                      , semigroups   >= 0.8.4 && < 0.19
                      , scientific   >= 0.3 && < 0.4
-                     , distributive >= 0.5 && < 0.6
+                     , distributive >= 0.5 && < 0.7
                      , nats         >= 1 && <1.2
                      , zippers
                      , transformers
