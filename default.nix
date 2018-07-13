@@ -13,6 +13,8 @@ let
     overrides = self: super: {
 
       digit          = self.callHackage "digit" "0.5.2" {};
+
+      hoist-error    = self.callHackage "hoist-error" "0.2.1.0" {};
       tasty-hedgehog = self.callHackage "tasty-hedgehog" "0.2.0.0" {};
       tasty-hunit    = self.callHackage "tasty-hunit" "0.10.0.1" {};
     };

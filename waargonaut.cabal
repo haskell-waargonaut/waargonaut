@@ -108,8 +108,8 @@ library
                      , zippers      >= 0.2 && < 0.3
                      , vector       >= 0.12 && < 0.13
                      , errors       >= 2.2 && < 3
-                     , hoist-error  >= 0.1 && < 0.2
-                     , containers   >= 0.5.10 && < 0.6
+                     , hoist-error  >= 0.2 && < 0.3
+                     , containers   >= 0.5.6 && < 0.7
                      , witherable   >= 0.2 && < 0.3
                      , transformers
                      , contravariant
