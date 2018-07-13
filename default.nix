@@ -11,8 +11,8 @@ let
 
   modifiedHaskellPackages = haskellPackages.override {
     overrides = self: super: {
+
       digit          = self.callHackage "digit" "0.5.2" {};
-      weigh          = self.callHackage "weigh" "0.0.12" {};
       tasty-hedgehog = self.callHackage "tasty-hedgehog" "0.2.0.0" {};
       tasty-hunit    = self.callHackage "tasty-hunit" "0.10.0.1" {};
     };

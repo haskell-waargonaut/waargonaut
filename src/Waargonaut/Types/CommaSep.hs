@@ -1,16 +1,16 @@
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
 {-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
-{-# LANGUAGE StandaloneDeriving     #-}
-{-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE StandaloneDeriving     #-}
+{-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE TypeFamilies           #-}
-{-# LANGUAGE FlexibleContexts       #-}
 -- | Both arrays and objects in JSON allow for an optional trailing comma on the
 -- final element. This module houses the shared types and functions that let us
 -- handle this.
@@ -38,6 +38,12 @@ module Waargonaut.Types.CommaSep
     -- * Cons / Uncons
   , consCommaSep
   , unconsCommaSep
+
+
+  -- * Traversals
+  , elemWS
+  , elemsWS
+  , commaSeparatedWS
   ) where
 
 import           Prelude                 (Eq, Int, Show, otherwise, (&&), (<=),
@@ -47,11 +53,13 @@ import           Control.Applicative     (Applicative (..), liftA2, pure, (*>),
                                           (<*), (<*>))
 import           Control.Category        (id, (.))
 
-import           Control.Lens            (Cons (..), Index, Iso, Iso', IxValue, AsEmpty (..),
-                                          Ixed (..), Lens', cons, iso, mapped, nearly, _Nothing, isn't,
-                                          over, prism, snoc, to, traverse,
-                                          unsnoc, (%%~), (%~), (.~), (^.),
-                                          (^..), (^?), _1, _2, _Cons)
+import           Control.Lens            (AsEmpty (..), Cons (..), Index, Iso,
+                                          Iso', IxValue, Ixed (..), Lens',
+                                          Traversal, cons, isn't, iso, mapped,
+                                          nearly, over, prism, snoc, to,
+                                          traverse, unsnoc, (%%~), (%~), (.~),
+                                          (^.), (^..), (^?), _1, _2, _Cons,
+                                          _Nothing)
 
 import           Control.Error.Util      (note)
 import           Control.Monad           (Monad)
@@ -111,12 +119,16 @@ parseComma = Comma <$ char ','
 {-# INLINE parseComma #-}
 
 
--- | Data type to represent a single element in a 'CommaSeparated' list. Carries information about it's own trailing whitespace. Denoted by the 'f'.
+-- | Data type to represent a single element in a 'CommaSeparated' list. Carries
+-- information about it's own trailing whitespace. Denoted by the 'f'.
 data Elem f ws a = Elem
   { _elemVal      :: a
   , _elemTrailing :: f (Comma, ws)
   }
   deriving (Functor, Foldable, Traversable)
+
+elemWS :: Traversable f => Traversal a a' ws ws' -> Traversal (Elem f ws a) (Elem f ws' a') ws ws'
+elemWS g f (Elem e tws) = liftA2 Elem (g f e) ((traverse . _2) f tws)
 
 instance (Monoid ws, Applicative f) => Applicative (Elem f ws) where
   pure a = Elem a (pure (Comma, mempty))
@@ -161,6 +173,9 @@ data Elems ws a = Elems
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+elemsWS :: Traversal a a' ws ws' -> Traversal (Elems ws a) (Elems ws' a') ws ws'
+elemsWS g f (Elems es el) = liftA2 Elems ((traverse . elemWS g) f es) (elemWS g f el)
+
 -- | Typeclass for things that contain an 'Elems' structure.
 class HasElems c ws a | c -> ws a where
   elems      :: Lens' c (Elems ws a)
@@ -190,6 +205,9 @@ instance Monoid ws => Semigroup (Elems ws a) where
 -- the rest of the elements in an 'Elems' type.
 data CommaSeparated ws a = CommaSeparated ws (Maybe (Elems ws a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+commaSeparatedWS :: Traversal a a' ws ws' -> Traversal (CommaSeparated ws a) (CommaSeparated ws' a') ws ws'
+commaSeparatedWS g f (CommaSeparated ws c) = liftA2 CommaSeparated (f ws) ((traverse . elemsWS g) f c)
 
 -- | By ignoring whitespace we're able to write a 'Cons' instance.
 instance Monoid ws => Cons (CommaSeparated ws a) (CommaSeparated ws a) a a where
@@ -225,7 +243,7 @@ instance Monoid ws => Filterable (CommaSeparated ws) where
 
 instance Monoid ws => Witherable (CommaSeparated ws) where
 
--- | Isomorphism between the internal pieces of a 'CommaSeparated' element. 
+-- | Isomorphism between the internal pieces of a 'CommaSeparated' element.
 _CommaSeparated :: Iso (CommaSeparated ws a) (CommaSeparated ws' b) (ws, Maybe (Elems ws a)) (ws', Maybe (Elems ws' b))
 _CommaSeparated = iso (\(CommaSeparated ws a) -> (ws,a)) (uncurry CommaSeparated)
 {-# INLINE _CommaSeparated #-}

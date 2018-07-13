@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE TypeFamilies           #-}
 -- | Top level types and functions for Waargonaut 'Json' types.
 module Waargonaut.Types.Json
@@ -16,20 +17,29 @@ module Waargonaut.Types.Json
 
     -- * Top level JSON type
   , Json (..)
-  , json
 
     -- * Parser / Builder
   , waargonautBuilder
   , parseWaargonaut
+
+  -- * Traversals
+  , json
+  , jsonWS
+  , jtypeWS
+
+    -- * Helpers
+  , editWhitespace
   ) where
 
 import           Prelude                     (Eq, Show)
 
-import           Control.Applicative         ((<$>), (<*>), (<|>))
+import           Control.Applicative         (liftA2, (<$>), (<*>), (<|>))
 import           Control.Category            (id, (.))
-import           Control.Lens                (Prism', Rewrapped, Traversal',
-                                              Wrapped (..), failing, iso, prism,
-                                              traverseOf, _1, _Wrapped)
+import           Control.Lens                (Prism', Rewrapped, Traversal,
+                                              Traversal', Wrapped (..), failing,
+                                              iso, over, prism, traverseOf, _1,
+                                              _Wrapped)
+
 import           Control.Monad               (Monad)
 
 import           Data.Bool                   (Bool (..))
@@ -49,12 +59,13 @@ import           Data.Digit                  (Digit)
 
 import           Text.Parser.Char            (CharParsing, text)
 
+
 import           Waargonaut.Types.JArray     (JArray (..), jArrayBuilder,
-                                              parseJArray)
+                                              jarrayWS, parseJArray)
 import           Waargonaut.Types.JNumber    (JNumber, jNumberBuilder,
                                               parseJNumber)
-import           Waargonaut.Types.JObject    (JObject, jObjectBuilder,
-                                              parseJObject)
+import           Waargonaut.Types.JObject    (JObject (..), jObjectBuilder,
+                                              jobjectWS, parseJObject)
 import           Waargonaut.Types.JString    (JString, jStringBuilder,
                                               parseJString)
 import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
@@ -147,6 +158,37 @@ instance AsJType Json Digit WS Json where
 -- | Ignoring whitespace, traverse a 'Json' structure.
 json :: Traversal' Json Json
 json = traverseOf (_Wrapped . failing (_JObj . _1 . traverse) (_JArr . _1 . _Wrapped . traverse))
+
+-- | Traverse the trailing whitespace of this 'Json' structure.
+jsonWS :: Traversal Json Json WS WS
+jsonWS f (Json jt) = Json <$> case jt of
+  JNull ws   -> JNull   <$> f ws
+  JBool b ws -> JBool b <$> f ws
+  JNum n ws  -> JNum n  <$> f ws
+  JStr s ws  -> JStr s  <$> f ws
+  JArr a ws  -> JArr a  <$> f ws
+  JObj o ws  -> JObj o  <$> f ws
+
+-- | Traverse all of the whitespace of this 'Json' structure and every element
+-- in the tree.
+jtypeWS :: Traversal a a' ws ws' -> Traversal (JType digit ws a) (JType digit ws' a') ws ws'
+jtypeWS _ f (JNull ws)   = JNull   <$> f ws
+jtypeWS _ f (JBool b ws) = JBool b <$> f ws
+jtypeWS _ f (JNum n ws)  = JNum n  <$> f ws
+jtypeWS _ f (JStr s ws)  = JStr s  <$> f ws
+jtypeWS g f (JArr a ws)  = liftA2 JArr (jarrayWS g f a) (f ws)
+jtypeWS g f (JObj o ws)  = liftA2 JObj (jobjectWS g f o) (f ws)
+
+-- | This function combines the 'Json' whitespace traversal functions so that
+-- modifications can be made to every piece of whitespace in a given 'Json' data
+-- structure.
+--
+editWhitespace
+  :: (WS -> WS)
+  -> Json
+  -> Json
+editWhitespace =
+  over (_Wrapped . jtypeWS jsonWS)
 
 -- | Using the provided whitespace builder, create a builder for a given 'JType'.
 jTypesBuilder

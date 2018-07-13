@@ -27,6 +27,10 @@ module Waargonaut.Types.JObject
     -- * Parser / Builder
   , jObjectBuilder
   , parseJObject
+
+    -- * Traversals
+  , jassocWS
+  , jobjectWS
   ) where
 
 import           Prelude                   (Eq, Int, Show, elem, not, otherwise,
@@ -34,14 +38,13 @@ import           Prelude                   (Eq, Int, Show, elem, not, otherwise,
 
 import           Control.Applicative       ((<*), (<*>))
 import           Control.Category          (id, (.))
-import           Control.Lens              (AsEmpty (..), At (..), Index,
+import           Control.Lens              (AsEmpty (..), At (..), Index, traverseOf,
                                             IxValue, Ixed (..), Lens',
-                                            Rewrapped, Wrapped (..), cons,
-                                            isn't, iso, nearly, to, ( # ), (.~),
-                                            (<&>), (^.), (^?), _Wrapped)
+                                            Rewrapped, Traversal, Wrapped (..),
+                                            cons, isn't, iso, nearly, to, ( # ),
+                                            (.~), (<&>), (^.), (^?), _Wrapped)
 
 import           Control.Monad             (Monad)
-
 import           Data.Bool                 (Bool (..))
 import           Data.Foldable             (Foldable, find, foldr)
 import           Data.Function             (($))
@@ -59,7 +62,8 @@ import qualified Data.Witherable           as W
 
 import           Text.Parser.Char          (CharParsing, char)
 
-import           Waargonaut.Types.CommaSep (CommaSeparated,
+import           Waargonaut.Types.CommaSep (CommaSeparated (..),
+                                            commaSeparatedWS,
                                             commaSeparatedBuilder,
                                             parseCommaSeparated)
 
@@ -87,6 +91,9 @@ data JAssoc ws a = JAssoc
   , _jsonAssocVal             :: a
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+jassocWS :: Traversal a a' ws ws' -> Traversal (JAssoc ws a) (JAssoc ws' a') ws ws'
+jassocWS g f (JAssoc k t p v) = JAssoc k <$> f t <*> f p <*> traverseOf g f v
 
 -- | This class allows you to write connective lenses for other data structures
 -- that may contain a 'JAssoc'.
@@ -139,6 +146,9 @@ jAssocAlterF k f mja = fmap g <$> f (_jsonAssocVal <$> mja) where
 newtype JObject ws a =
   JObject (CommaSeparated ws (JAssoc ws a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+jobjectWS :: Traversal a a' ws ws' -> Traversal (JObject ws a) (JObject ws' a') ws ws'
+jobjectWS g f (JObject cs) = JObject <$> commaSeparatedWS (jassocWS g) f cs
 
 instance (Semigroup ws, Monoid ws) => AsEmpty (JObject ws a) where
   _Empty = nearly (_Wrapped # _Empty # ()) (^. _Wrapped . to (isn't _Empty))

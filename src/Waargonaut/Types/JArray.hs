@@ -1,9 +1,10 @@
 {-# LANGUAGE DeriveFoldable        #-}
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE DeriveTraversable     #-}
-{-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 -- | JSON Array representation and functions.
 module Waargonaut.Types.JArray
@@ -14,6 +15,9 @@ module Waargonaut.Types.JArray
     -- * Parser / Builder
   , parseJArray
   , jArrayBuilder
+
+    -- * Traversals
+  , jarrayWS
   ) where
 
 import           Prelude                   (Eq, Show)
@@ -21,9 +25,9 @@ import           Prelude                   (Eq, Show)
 import           Control.Category          ((.))
 import           Control.Error.Util        (note)
 import           Control.Lens              (AsEmpty (..), Cons (..), Rewrapped,
-                                            Wrapped (..), cons, isn't, iso,
-                                            nearly, over, prism, to, ( # ),
-                                            (^.), (^?), _2, _Wrapped)
+                                            Traversal, Wrapped (..), cons,
+                                            isn't, iso, nearly, over, prism, to,
+                                            ( # ), (^.), (^?), _2, _Wrapped)
 import           Control.Monad             (Monad)
 
 import           Data.Foldable             (Foldable)
@@ -39,6 +43,7 @@ import           Text.Parser.Char          (CharParsing, char)
 
 import           Waargonaut.Types.CommaSep (CommaSeparated,
                                             commaSeparatedBuilder,
+                                            commaSeparatedWS,
                                             parseCommaSeparated)
 
 -- $setup
@@ -58,6 +63,9 @@ import           Waargonaut.Types.CommaSep (CommaSeparated,
 newtype JArray ws a =
   JArray (CommaSeparated ws a)
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+jarrayWS :: Traversal a a' ws ws' -> Traversal (JArray ws a) (JArray ws' a') ws ws'
+jarrayWS g f (JArray xs) = JArray <$> commaSeparatedWS g f xs
 
 instance JArray ws a ~ t => Rewrapped (JArray ws a) t
 instance Wrapped (JArray ws a) where

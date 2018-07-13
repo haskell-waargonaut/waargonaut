@@ -54,7 +54,6 @@ extra-source-files:  changelog.md
 homepage:            https://github.com/qfpl/waargonaut
 bug-reports:         https://github.com/qfpl/waargonaut/issues
 
-
 -- Constraint on the version of Cabal needed to build this package.
 cabal-version:       >=1.10
 
@@ -65,9 +64,9 @@ tested-with:         GHC==7.10.3
                    , GHC==8.6.1
 
 custom-setup
- setup-depends:
-   base >= 4 && <5,
-   cabal-doctest >= 1 && <1.1
+  setup-depends:       base >= 4 && <5
+                     , cabal-doctest >= 1 && <1.1
+                     , Cabal
 
 source-repository    head
   type:              git
@@ -106,13 +105,13 @@ library
                      , scientific   >= 0.3 && < 0.4
                      , distributive >= 0.5 && < 0.7
                      , nats         >= 1 && <1.2
-                     , zippers
+                     , zippers      >= 0.2 && < 0.3
+                     , vector       >= 0.12 && < 0.13
+                     , errors       >= 2.2 && < 3
+                     , hoist-error  >= 0.1 && < 0.2
+                     , containers   >= 0.5.10 && < 0.6
+                     , witherable   >= 0.2 && < 0.3
                      , transformers
-                     , errors
-                     , hoist-error
-                     , containers
-                     , vector
-                     , witherable
                      , contravariant
                      , wl-pprint-annotated
 
@@ -141,17 +140,17 @@ test-suite doctests
   ghc-options:         -Wall -threaded
 
 test-suite waarg-tests
-   other-modules:     Types.Common
-                    , Types.CommaSep
-                    , Types.JChar
-                    , Types.JNumber
-                    , Types.JString
-                    , Types.Json
-                    , Types.Whitespace
+   other-modules:      Types.Common
+                     , Types.CommaSep
+                     , Types.JChar
+                     , Types.JNumber
+                     , Types.JString
+                     , Types.Json
+                     , Types.Whitespace
 
-                    , Utils
-                    , Encoder
-                    , Decoder
+                     , Utils
+                     , Encoder
+                     , Decoder
 
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
@@ -169,33 +168,14 @@ test-suite waarg-tests
                      , text                   >= 1.2 && < 1.3
                      , parsec                 >= 3.1
                      , semigroups             >= 0.8.4 && < 0.19
+                     , zippers                >= 0.2 && < 0.3
+                     , vector                 >= 0.12 && < 0.13
 
                      , waargonaut
-
-                     , zippers
-                     , vector
 
   ghc-options:         -Wall
 
   default-language:    Haskell2010
-
-benchmark weigh
-  other-modules:       ConvenientFlatSurface
-
-  default-language:    Haskell2010
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      benchmarks
-  main-is:             Allocations.hs
-
-  build-depends:       base         >= 4.7 && < 4.12
-                     , lens         >= 4.15 && < 5
-                     , parsec       >= 3.1
-                     , semigroups   >= 0.8.4 && < 0.19
-                     , text         >= 1.2 && < 1.3
-                     , weigh        >= 0.0.12 && < 0.1
-                     , waargonaut
-
-  ghc-options:         -Wall -O2
 
 benchmark criterion
   other-modules:       ConvenientFlatSurface
