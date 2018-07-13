@@ -63,7 +63,7 @@ import           Data.Function           (const, ($), (&))
 import           Data.Functor            (Functor, fmap, (<$), (<$>))
 import           Data.Maybe              (Maybe (..), fromMaybe, maybe)
 import           Data.Monoid             (Monoid (..), mempty)
-import           Data.Semigroup          (Semigroup (..), (<>))
+import           Data.Semigroup          (Semigroup ((<>)))
 import           Data.Traversable        (Traversable)
 import           Data.Tuple              (snd, uncurry)
 
@@ -208,9 +208,12 @@ unconsElems e = maybe (e', Nothing) (\(em, ems) -> (idT em, Just $ e & elemsElem
     idT x = (x ^. elemTrailing . to (Just . runIdentity), x ^. elemVal)
 {-# INLINE unconsElems #-}
 
+instance (Monoid ws, Semigroup ws) => Semigroup (CommaSeparated ws a) where
+  CommaSeparated wsA a <> CommaSeparated wsB b = CommaSeparated (wsA <> wsB) (a <> b)
+
 instance (Monoid ws, Semigroup ws) => Monoid (CommaSeparated ws a) where
   mempty = CommaSeparated mempty Nothing
-  mappend (CommaSeparated wsA a) (CommaSeparated wsB b) = CommaSeparated (wsA <> wsB) (a <> b)
+  mappend = (<>)
 
 instance Monoid ws => Filterable (CommaSeparated ws) where
   mapMaybe _ (CommaSeparated ws Nothing)              = CommaSeparated ws Nothing

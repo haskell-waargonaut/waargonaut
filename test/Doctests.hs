@@ -1,16 +1,7 @@
 module Main where
 
-import           Test.DocTest
+import           Build_doctests (flags, pkgs, module_sources)
+import           Test.DocTest (doctest)
 
 main :: IO ()
-main = doctest
-  [ "test/Utils.hs"
-  , "src/Waargonaut/Types/CommaSep.hs"
-  , "src/Waargonaut/Types/Whitespace.hs"
-  , "src/Waargonaut/Types/JNumber.hs"
-  , "src/Waargonaut/Types/JChar.hs"
-  , "src/Waargonaut/Types/JString.hs"
-  , "src/Waargonaut/Types/JArray.hs"
-  , "src/Waargonaut/Types/JObject.hs"
-  , "src/Waargonaut/Types/Json.hs"
-  ]
+main = doctest $ flags ++ pkgs ++ ["test/Utils.hs"] ++ module_sources
