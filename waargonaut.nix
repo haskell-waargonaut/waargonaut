@@ -4,7 +4,7 @@
 , parsers, scientific, semigroups, stdenv, tasty
 , tasty-expected-failure, tasty-hedgehog, tasty-hunit
 , template-haskell, text, transformers, vector, witherable
-, wl-pprint-annotated, zippers, generics-sop
+, wl-pprint-annotated, zippers
 }:
 mkDerivation {
   pname = "waargonaut";
@@ -15,7 +15,6 @@ mkDerivation {
     base bytestring containers contravariant digit distributive errors
     hoist-error lens mtl nats parsers scientific semigroups text
     transformers vector witherable wl-pprint-annotated zippers
-    generics-sop
   ];
   testHaskellDepends = [
     base bytestring digit directory doctest filepath hedgehog lens

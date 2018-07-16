@@ -89,8 +89,6 @@ library
 
                      , Waargonaut.Encode
 
-                     , Waargonaut.Generic
-
                      , Waargonaut
 
   ghc-options:         -Wall
@@ -116,7 +114,6 @@ library
                      , transformers
                      , contravariant
                      , wl-pprint-annotated
-                     , generics-sop
 
   -- Directories containing source files.
   hs-source-dirs:      src
