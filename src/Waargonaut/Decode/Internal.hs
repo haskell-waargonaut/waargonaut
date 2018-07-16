@@ -67,7 +67,7 @@ import qualified Data.Scientific               as Sci
 import           Waargonaut.Types              (AsJType (..), JNumber, JString,
                                                 jNumberToScientific,
                                                 jsonAssocKey, jsonAssocVal,
-                                                _JChar, _JStringText)
+                                                _JChar, _JString)
 import           Waargonaut.Types.CommaSep     (toList)
 
 import           Text.PrettyPrint.Annotated.WL (Doc, (<+>))
@@ -104,13 +104,13 @@ instance Show Mv where
 prettyMv :: Mv -> Doc a
 prettyMv m = case m of
   U        -> WL.text "up/"
-  D        -> WL.text "down\\"
+  D        -> WL.text "into\\"
 
   (L n)    -> WL.text "->-" <+> ntxt n
   (R n)    -> WL.text "-<-" <+> ntxt n
 
-  (DAt k)  -> WL.text "=\\" <+> itxt "key" k
-  (Item t) -> WL.text "-|-" <+> itxt "item" t
+  (DAt k)  -> WL.text "into\\" <+> itxt "key" k
+  (Item t) -> WL.text "-::" <+> itxt "item" t
   where
     itxt t k' = WL.parens (WL.text t <+> WL.colon <+> WL.text (Text.unpack k'))
     ntxt n'   = WL.parens (WL.char 'i' <+> WL.char '+' <+> WL.text (show n'))
@@ -126,17 +126,10 @@ instance Show i => Show (CursorHistory' i) where
   show = WL.display . WL.renderPrettyDefault . prettyCursorHistory
 
 prettyCursorHistory :: Show i => CursorHistory' i -> Doc a
-prettyCursorHistory (CursorHistory' s) = foldMap prettyTooth s
+prettyCursorHistory (CursorHistory' s) =
+  foldr (<+>) mempty $ prettyTooth <$> s
   where
-    prettyTooth (mv, ix) =
-      mvFn mv (WL.text (show mv) <+> WL.parens (WL.char '@' <+> WL.text (show ix)))
-
-    mvFn U        = WL.indent (-2)
-    mvFn D        = WL.indent 2
-    mvFn (DAt _)  = WL.indent 2
-    mvFn (Item _) = id
-    mvFn (L _)    = id
-    mvFn (R _)    = id
+    prettyTooth (mv, _ix) = WL.text (show mv)
 
 instance CursorHistory' i ~ t => Rewrapped (CursorHistory' i) t
 
@@ -227,7 +220,7 @@ try d = catchError (pure <$> d) (const (pure Nothing))
 
 -- | Try to decode a 'Text' value from some 'Json' or value.
 text' :: AsJType a digit ws a => a -> Maybe Text
-text' = L.preview (_JStr . _1 . _JStringText)
+text' = L.preview (_JStr . _1 . L.re _JString)
 
 -- | Try to decode a 'String' value from some 'Json' or value.
 string' :: AsJType a digit ws a => a -> Maybe String

@@ -300,7 +300,7 @@ moveToKey k =
                                  >=> Z.within WT.jsonAssocVal
                                )
   where
-    shuffleToKey cu = Z.within WT.jsonAssocKey cu ^? L._Just . Z.focus . WT._JStringText
+    shuffleToKey cu = Z.within WT.jsonAssocKey cu ^? L._Just . Z.focus . L.re WT._JString
       >>= \k' -> if k' /= k then Z.rightward cu >>= shuffleToKey else Just cu
 
     intoElems = WT._JObj . L._1 . L._Wrapped . WT._CommaSeparated . L._2 . L._Just

@@ -36,7 +36,7 @@ import           Prelude                    hiding ((.))
 import           Control.Category           ((.))
 import           Control.Lens               (At, Index, IxValue, Rewrapped,
                                              Wrapped (..), at, cons, iso, ( # ),
-                                             (?~), _Wrapped, _Empty)
+                                             (?~), _Empty, _Wrapped)
 
 import           Data.Traversable           (traverse)
 
@@ -58,9 +58,8 @@ import           Data.Digit                 (Digit)
 
 import           Waargonaut                 (waargonautBuilder)
 import           Waargonaut.Types           (AsJType (..), Json,
-                                             MapLikeObj (..), WS,
-                                             wsRemover, _JNumberInt,
-                                             _JStringText)
+                                             MapLikeObj (..), WS, textToJString,
+                                             wsRemover, _JNumberInt)
 
 -- |
 -- Define an "encoder" as a function from some @a@ to some 'Json' with the
@@ -117,7 +116,7 @@ encodeBool = encodeIdentityA $ \b -> _JBool # (b,mempty)
 
 -- | Encode a 'Text'
 encodeText :: Encoder Text
-encodeText = encodeIdentityA $ \t -> _JStr # (_JStringText # t, mempty)
+encodeText = encodeIdentityA $ \t -> _JStr # (textToJString t, mempty)
 
 -- | Encode some 'a' that is contained with another 't' structure.
 encodeWithInner

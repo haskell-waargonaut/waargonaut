@@ -31,6 +31,7 @@ module Waargonaut.Types.Json
   , editWhitespace
   ) where
 
+
 import           Prelude                     (Eq, Show)
 
 import           Control.Applicative         (liftA2, (<$>), (<*>), (<|>))
@@ -58,7 +59,6 @@ import           Data.Digit                  (Digit)
 
 
 import           Text.Parser.Char            (CharParsing, text)
-
 
 import           Waargonaut.Types.JArray     (JArray (..), jArrayBuilder,
                                               jarrayWS, parseJArray)

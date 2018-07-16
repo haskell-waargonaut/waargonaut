@@ -18,7 +18,6 @@ import qualified Data.Text.Encoding          as Text
 
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
-import qualified Hedgehog.Range              as Range
 import           Text.Parsec                 (ParseError)
 
 import           Test.Tasty
@@ -31,7 +30,6 @@ import           Waargonaut                  (Json)
 import qualified Waargonaut                  as W
 import qualified Waargonaut.Types.CommaSep   as CommaSep
 import qualified Waargonaut.Types.JChar      as JChar
-import qualified Waargonaut.Types.JString    as JString
 import qualified Waargonaut.Types.Whitespace as WS
 
 import qualified Types.CommaSep              as CS
@@ -92,11 +90,6 @@ prop_jcharescaped_hex_prism = property $ do
   -- Doesn't preserve the upper/lower case of the Hex values. Acceptable?
   Just a === ((((JChar._Hex # a) :: Char) ^? JChar._Hex) :: Maybe (JChar.HexDigit4 Digit))
 
-prop_jstring_text :: Property
-prop_jstring_text = property $ do
-  t <- forAll $ Gen.text (Range.linear 0 1000) Gen.unicodeAll
-  Just t === ((JString._JStringText # t) ^? JString._JStringText)
-
 prop_jchar :: Property
 prop_jchar = property $ do
   c <- forAll Gen.unicodeAll
@@ -117,7 +110,6 @@ prism_properties = testGroup "Round trip some prisms"
   , testProperty "CommaSeparated (disregard WS): cons . uncons = id" prop_uncons_consCommaSepVal
   , testProperty "HexDigit4 Digit -> Char -> HexDigit4 Digit = Just id" prop_jcharescaped_hex_prism
   , testProperty "Char -> JChar Digit -> Maybe Char = Just id" prop_jchar
-  , testProperty "Text -> Maybe JString -> Maybe Text = Just id" prop_jstring_text
   ]
 
 parser_properties :: TestTree

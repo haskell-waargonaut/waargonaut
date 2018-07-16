@@ -10,22 +10,24 @@ module Waargonaut.Types.JString
   (
     -- * Types
     JString
+  , AsJString (..)
 
     -- * Parser / Builder
   , parseJString
   , jStringBuilder
 
-  , _JStringText
+  , textToJString
   ) where
 
-import           Prelude                 (Eq, Ord, Show)
+import           Prelude                 (Eq, Ord, Show, String)
 
 import           Control.Applicative     ((*>), (<*))
-import           Control.Category        ((.))
+import           Control.Category        (id, (.))
 import           Control.Error.Util      (note)
 import           Control.Lens            (Prism', Rewrapped, Wrapped (..), iso,
-                                          prism)
+                                          preview, prism, ( # ), (^?))
 
+import           Data.Either             (Either (Right))
 import           Data.Foldable           (Foldable, foldMap)
 import           Data.Function           (($))
 import           Data.Functor            (Functor, (<$>))
@@ -42,10 +44,12 @@ import           Data.Digit              (Digit)
 import           Text.Parser.Char        (CharParsing, char)
 import           Text.Parser.Combinators (many)
 
+import           Data.ByteString         (ByteString)
 import qualified Data.ByteString.Builder as BB
+import qualified Data.ByteString.Char8   as BS8
 
-import           Waargonaut.Types.JChar  (JChar, jCharBuilder, jCharToUtf8Char,
-                                          parseJChar, utf8CharToJChar)
+import           Waargonaut.Types.JChar  (JChar, jCharBuilder, parseJChar,
+                                          utf8CharToJChar, _JChar)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -77,6 +81,24 @@ instance JString' digit ~ t => Rewrapped (JString' digit) t
 instance Wrapped (JString' digit) where
   type Unwrapped (JString' digit) = Vector (JChar digit)
   _Wrapped' = iso (\ (JString' x) -> x) JString'
+
+class AsJString a where
+  _JString :: Prism' a JString
+
+instance AsJString JString where
+  _JString = id
+
+instance AsJString [JChar Digit] where
+  _JString = prism (\(JString' cs) -> V.toList cs) (Right . JString' . V.fromList)
+
+instance AsJString String where
+  _JString = prism (\(JString' cx) -> V.toList $ (_JChar #) <$> cx) (\x -> JString' . V.fromList <$> traverse (note x . (^? _JChar)) x)
+
+instance AsJString Text where
+  _JString = prism (Text.pack . (_JString #)) (\x -> note x . preview _JString . Text.unpack $ x)
+
+instance AsJString ByteString where
+  _JString = prism (BS8.pack . (_JString #)) (\x -> note x . preview _JString . BS8.unpack $ x)
 
 -- | Parse a 'JString', storing escaped characters and any explicitly escaped
 -- character encodings '\uXXXX'.
@@ -138,7 +160,10 @@ jStringBuilder (JString' jcs) =
 -- JSON strings a wider range of encodings than 'Text' and to be consistent with
 -- the 'Text' type, these invalid types are replaced with a placeholder value.
 --
-_JStringText :: Prism' JString Text
-_JStringText = prism
-  (JString' . Text.foldr (V.cons . utf8CharToJChar) V.empty)
-  (\j@(JString' v) -> note j $ Text.pack . V.toList <$> traverse jCharToUtf8Char v)
+textToJString :: Text -> JString
+textToJString = JString' . Text.foldr (V.cons . utf8CharToJChar) V.empty
+
+-- _JStringText :: Prism' JString Text
+-- _JStringText = prism
+--   ()
+--   (\j@(JString' v) -> note j $ Text.pack . V.toList <$> traverse jCharToUtf8Char v)

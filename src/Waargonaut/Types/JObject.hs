@@ -38,7 +38,7 @@ import           Prelude                   (Eq, Int, Show, elem, not, otherwise,
 
 import           Control.Applicative       ((<*), (<*>))
 import           Control.Category          (id, (.))
-import           Control.Lens              (AsEmpty (..), At (..), Index, traverseOf,
+import           Control.Lens              (AsEmpty (..), At (..), Index, traverseOf, re,
                                             IxValue, Ixed (..), Lens',
                                             Rewrapped, Traversal, Wrapped (..),
                                             cons, isn't, iso, nearly, to, ( # ),
@@ -127,7 +127,7 @@ instance HasJAssoc (JAssoc ws a) ws a where
 -- This function is analogus to the 'Data.Map.alterF' function.
 jAssocAlterF :: (Monoid ws, Functor f) => Text -> (Maybe a -> f (Maybe a)) -> Maybe (JAssoc ws a) -> f (Maybe (JAssoc ws a))
 jAssocAlterF k f mja = fmap g <$> f (_jsonAssocVal <$> mja) where
-  g v = maybe (JAssoc (_JStringText # k) mempty mempty v) (jsonAssocVal .~ v) mja
+  g v = maybe (JAssoc (textToJString k) mempty mempty v) (jsonAssocVal .~ v) mja
 
 -- | The representation of a JSON object.
 --
@@ -218,7 +218,7 @@ toMapLikeObj (JObject xs) = (\(_,a,b) -> (MLO (JObject a), b)) $ foldr f (mempty
 
 -- Compare a 'Text' to the key for a 'JAssoc' value.
 textKeyMatch :: Text -> JAssoc ws a -> Bool
-textKeyMatch k = (== Just k) . (^? jsonAssocKey . _JStringText)
+textKeyMatch k = (== Just k) . (^? jsonAssocKey . re _JString)
 
 -- | Parse a single "key:value" pair
 parseJAssoc
