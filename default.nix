@@ -9,10 +9,16 @@ let
                       then pkgs.haskellPackages
                       else pkgs.haskell.packages.${compiler};
 
+  sources = {
+    digit = import ./nix/digit.nix;
+  };
+
   modifiedHaskellPackages = haskellPackages.override {
     overrides = self: super: {
 
-      digit          = self.callHackage "digit" "0.5.2" {};
+      # papa           = self.callHackage "papa" "0.3.1" {};
+      # digit          = self.callPackage sources.digit {};
+      digit = self.callHackage "digit" "0.5.2" {};
 
       hoist-error    = self.callHackage "hoist-error" "0.2.1.0" {};
       tasty-hedgehog = self.callHackage "tasty-hedgehog" "0.2.0.0" {};

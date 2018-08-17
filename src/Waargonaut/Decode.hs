@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -9,7 +10,8 @@
 -- | Types and functions to convert Json values into your data types.
 module Waargonaut.Decode
   (
-    CursorHistory (..)
+    Err (..)
+  , CursorHistory (..)
   , DecodeResult (..)
 
     -- * Type aliases
@@ -17,14 +19,14 @@ module Waargonaut.Decode
   , JCursor
   , Decoder
 
-  , decodeToJson
-
     -- * Decoder creation
   , withCursor
 
     -- * Decoder execution
   , runDecoder
   , runDecoderResult
+  , runPureDecode
+  , simpleDecode
 
     -- * Cursor movement
   , into
@@ -69,13 +71,11 @@ import           Control.Monad.Error.Hoist     ((<%?>), (<?>))
 import           Control.Zipper                ((:>>))
 import qualified Control.Zipper                as Z
 
+import           Data.Functor.Identity         (Identity, runIdentity)
 
 import           Data.Text                     (Text)
 
 import           Data.Scientific               (Scientific)
-
-import           Text.Parser.Char              (CharParsing)
-import           Text.Parser.Combinators       (Parsing)
 
 import           Waargonaut.Types              (AsJType, Elems, JAssoc, Json)
 
@@ -87,6 +87,13 @@ import           Waargonaut.Decode.Internal    (CursorHistory' (..),
                                                 runDecoderResultT, try)
 
 import qualified Waargonaut.Decode.Internal    as DR
+
+-- | Convenience Error structure for the separate parsing/decoding phases. For
+-- when things really aren't that complicated.
+data Err e
+  = Parse e
+  | Decode (DecodeError, CursorHistory)
+  deriving (Show, Eq, Functor)
 
 -- | Wrapper for our 'CursorHistory'' to define our index as being an 'Int'.
 --
@@ -196,9 +203,28 @@ runDecoderResult =
   . runDecoderResultT
   . unDecodeResult
 
--- | Something to plug your chosen parser into. This function/design is likely to change.
-decodeToJson :: (Monad m, CharParsing m, Parsing m) => (m Json -> m Json) -> m Json
-decodeToJson f = f WT.parseWaargonaut
+-- |
+-- Run a pure decoder with 'Identity'.
+--
+runPureDecode
+  :: Decoder Identity a
+  -> JCursor h Json
+  -> Either (DecodeError, CursorHistory) a
+runPureDecode dec = runIdentity
+  . runDecoderResult
+  . runDecoder dec
+
+-- |
+-- Using the given parsing function, take some input and try to convert it to
+-- the 'Json' structure. Then pass it to the given 'Decoder'.
+simpleDecode
+  :: (s -> Either e Json)
+  -> Decoder Identity a
+  -> s
+  -> Either (Err e) a
+simpleDecode p dec =
+  L.bimap Parse Z.zipper . p >=>
+  L.over L._Left Decode . runPureDecode dec
 
 -- Helper function that takes a given attempt to move the cursor to a new
 -- location, throwing the 'FailedToMove' error if it fails, or recording the new
@@ -370,3 +396,4 @@ arrayOfCons elemD c =
 -- | 'arrayOfCons' specialised to '[]'.
 arrayOf :: Monad f => Decoder f b -> Decoder f [b]
 arrayOf d = withCursor (arrayOfCons d)
+

@@ -221,7 +221,7 @@ try d = catchError (pure <$> d) (const (pure Nothing))
 -- | Try to decode a 'Text' value from some 'Json' or value.
 text' :: AsJType a digit ws a => a -> Maybe Text
 text' = L.preview (_JStr . _1 . L.re _JString)
-
+ 
 -- | Try to decode a 'String' value from some 'Json' or value.
 string' :: AsJType a digit ws a => a -> Maybe String
 string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map (_JChar L.#)))

@@ -1,4 +1,4 @@
-{ mkDerivation, base, bytestring, cabal-doctest, containers
+{ mkDerivation, base, bytestring, Cabal, cabal-doctest, containers
 , contravariant, criterion, digit, directory, distributive, doctest
 , errors, filepath, hedgehog, hoist-error, lens, mtl, nats, parsec
 , parsers, scientific, semigroups, stdenv, tasty
@@ -10,7 +10,7 @@ mkDerivation {
   pname = "waargonaut";
   version = "0.1.0.0";
   src = ./.;
-  setupHaskellDepends = [ base cabal-doctest ];
+  setupHaskellDepends = [ base Cabal cabal-doctest ];
   libraryHaskellDepends = [
     base bytestring containers contravariant digit distributive errors
     hoist-error lens mtl nats parsers scientific semigroups text

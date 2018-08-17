@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Types.Common
   ( genDecimalDigit
   , genDecimalDigits
@@ -12,8 +13,10 @@ module Types.Common
 
   -- * Some test types to be messed with
   , Image (..)
+  , HasImage (..)
   ) where
 
+import Control.Lens (makeClassy)
 
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Semigroup              ((<>))
@@ -37,6 +40,7 @@ data Image = Image
   , _imageIDs      :: [Int]
   }
   deriving Show
+makeClassy ''Image
 
 genDecimalDigit :: Gen Digit
 genDecimalDigit = Gen.element decimalDigit

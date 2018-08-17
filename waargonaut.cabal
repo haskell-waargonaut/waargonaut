@@ -72,6 +72,10 @@ source-repository    head
   type:              git
   location:          git@github.com/qfpl/waargonaut.git
 
+flag DoBenchmark
+     description:         Enable benchmark suite
+     default:             False
+
 library
   -- Modules included in this executable, other than Main.
   exposed-modules:     Waargonaut.Types.Whitespace
@@ -100,7 +104,7 @@ library
                      , text         >= 1.2 && < 1.3
                      , bytestring   >= 0.10.6 && < 0.11
                      , parsers      >= 0.12 && < 0.13
-                     , digit        >= 0.5.2 && < 0.6
+                     , digit        >= 0.5 && < 0.6
                      , semigroups   >= 0.8.4 && < 0.19
                      , scientific   >= 0.3 && < 0.4
                      , distributive >= 0.5 && < 0.7
@@ -135,7 +139,7 @@ test-suite doctests
                      , template-haskell >= 2.8
                      , parsec           >= 3.1
                      , text             >= 1.2 && < 1.3
-                     , digit            >= 0.5.2 && < 0.6
+                     , digit            >= 0.5 && < 0.6
 
   ghc-options:         -Wall -threaded
 
@@ -164,7 +168,7 @@ test-suite waarg-tests
                      , tasty-hedgehog         >= 0.2  && < 0.3
                      , lens                   >= 4.15 && < 5
                      , bytestring             >= 0.10.6 && < 0.11
-                     , digit                  >= 0.5.2 && < 0.6
+                     , digit                  >= 0.5 && < 0.6
                      , text                   >= 1.2 && < 1.3
                      , parsec                 >= 3.1
                      , semigroups             >= 0.8.4 && < 0.19

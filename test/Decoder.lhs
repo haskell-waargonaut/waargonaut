@@ -1,41 +1,34 @@
-{-# LANGUAGE FlexibleContexts  #-}
+Decoding with Waargonaut.
+=========================
+
+\begin{code}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE Rank2Types        #-}
 module Decoder
   ( decoderTests
   ) where
+\end{code}
 
+\begin{code}
 import           Test.Tasty                 (TestTree, testGroup)
 import           Test.Tasty.HUnit           (assertBool, testCase)
 
-import           Control.Lens               (over, _Left)
-
-import           Data.Bifunctor             (bimap)
 import           Data.Either                (isLeft)
-
-import           Data.Functor.Identity      (Identity, runIdentity)
 
 import           Data.ByteString            (ByteString)
 import qualified Data.ByteString.Char8      as BS8
 
+import           Waargonaut.Decode          (Err, Decoder)
+import qualified Waargonaut.Decode          as D
 import qualified Waargonaut.Types           as WT
 
-import           Waargonaut.Decode          (Decoder)
-
-import qualified Waargonaut.Decode          as D
-import qualified Waargonaut.Decode.Internal as DI
-
 import qualified Text.Parsec                as P
+\end{code}
 
-import qualified Control.Zipper             as Z
-
+\begin{code}
 import           Types.Common               (Image (Image))
+\end{code}
 
-data Err
-  = Parse P.ParseError
-  | Decode (DI.DecodeError, D.CursorHistory)
-  deriving Show
-
+\begin{code}
 decoderTests :: TestTree
 decoderTests = testGroup "Decoding"
   [ testCase "Decode Image (test1.json)"
@@ -44,17 +37,19 @@ decoderTests = testGroup "Decoding"
   , testCase "Decode [Int]"
     $ assertBool "[Int] Decode Success" (not $ isLeft decodeTest2Json)
   ]
+\end{code}
 
+\begin{code}
 parseBS :: ByteString -> Either P.ParseError WT.Json
 parseBS = P.parse WT.parseWaargonaut "ByteString"
+\end{code}
 
-pureDecode
-  :: Decoder Identity a
-  -> D.JCursor h WT.Json
-  -> Either (DI.DecodeError, D.CursorHistory) a
-pureDecode dec c =
-  runIdentity $ D.runDecoderResult (D.runDecoder dec c)
+\begin{code}
+decodeTest2Json :: Either (Err P.ParseError) [Int]
+decodeTest2Json = D.simpleDecode parseBS (D.arrayOf D.int) "[23,44]"
+\end{code}
 
+\begin{code}
 imageDecoder :: Monad f => Decoder f Image
 imageDecoder = D.withCursor $ \curs -> do
   -- We're at the root of our object, move into it and move to the value at the "Image" key
@@ -65,17 +60,10 @@ imageDecoder = D.withCursor $ \curs -> do
     <*> D.fromKey "Height" D.int o
     <*> D.fromKey "Title" D.text o
     <*> D.fromKey "Animated" D.boolean o
-    <*> D.fromKey "IDs" intArray o
+    <*> D.fromKey "IDs" (D.arrayOf D.int) o
+\end{code}
 
-simpleDecode :: (Decoder Identity a) -> ByteString -> Either Err a
-simpleDecode dec bs = over _Left Decode . pureDecode dec =<< (bimap Parse Z.zipper $ parseBS bs)
-
-intArray :: Monad f => Decoder f [Int]
-intArray = D.arrayOf D.int
-
-decodeTest1Json :: IO (Either Err Image)
-decodeTest1Json = simpleDecode imageDecoder <$> BS8.readFile "test/json-data/test1.json"
-
-decodeTest2Json :: Either Err [Int]
-decodeTest2Json = simpleDecode intArray "[23,44]"
-
+\begin{code}
+decodeTest1Json :: IO (Either (Err P.ParseError) Image)
+decodeTest1Json = D.simpleDecode parseBS imageDecoder <$> BS8.readFile "test/json-data/test1.json"
+\end{code}
