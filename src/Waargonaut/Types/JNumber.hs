@@ -60,7 +60,7 @@ import qualified Data.List.NonEmpty      as NE
 
 import           Data.Foldable           (asum, foldMap, length)
 
-import           Data.Digit              (Digit)
+import           Data.Digit              (DecDigit)
 import qualified Data.Digit              as D
 
 import           Text.Parser.Char        (CharParsing, char)
@@ -73,8 +73,8 @@ import qualified Data.ByteString.Builder as BB
 -- >>> :set -XOverloadedStrings
 -- >>> import Control.Monad (return)
 -- >>> import Data.Either(Either (..), isLeft)
--- >>> import Data.Digit (Digit(..))
 -- >>> import Data.List.NonEmpty (NonEmpty ((:|)))
+-- >>> import Data.Digit (DecDigit(..))
 -- >>> import qualified Data.Digit as D
 -- >>> import Text.Parsec(ParseError)
 -- >>> import Data.ByteString.Lazy (toStrict)
@@ -84,11 +84,11 @@ import qualified Data.ByteString.Builder as BB
 -- | Represent a JSON "int"
 data JInt' digit
   = JZero
-  | JIntInt digit [Digit]
+  | JIntInt digit [DecDigit]
   deriving (Eq, Ord, Show)
 
 -- | Type alias to allow us to constrain the first 'digit' type.
-type JInt = JInt' Digit
+type JInt = JInt' DecDigit
 
 -- | Prism for JSON zeroes.
 _JZero :: Prism' JInt ()
@@ -99,7 +99,7 @@ _JZero = prism (const JZero)
   )
 
 -- | Prism for JSON non-zero values.
-_JIntInt :: D.DecimalNoZero digit => Prism' (JInt' digit) (digit, [Digit])
+_JIntInt :: D.DecimalNoZero digit => Prism' (JInt' digit) (digit, [DecDigit])
 _JIntInt = prism (uncurry JIntInt)
   (\case
       JIntInt d ds -> Right (d,ds)
@@ -134,19 +134,19 @@ instance AsE E where
     )
 
 -- | The fractional component of a JSON numeric value
-newtype Frac = Frac (NonEmpty Digit)
+newtype Frac = Frac (NonEmpty DecDigit)
   deriving (Eq, Ord, Show)
 
 instance Frac ~ t => Rewrapped Frac t
 instance Wrapped Frac where
-  type Unwrapped Frac = NonEmpty Digit
+  type Unwrapped Frac = NonEmpty DecDigit
   _Wrapped' = iso (\ (Frac x) -> x) Frac
 
 -- | The exponent part of a JSON numeric value
 data Exp = Exp
   { _ex        :: E
   , _minusplus :: Maybe Bool
-  , _expdigits :: NonEmpty Digit
+  , _expdigits :: NonEmpty DecDigit
   }
   deriving (Eq, Ord, Show)
 
@@ -155,7 +155,7 @@ class HasExp c where
   exp :: Lens' c Exp
   ex :: Lens' c E
   {-# INLINE ex #-}
-  expdigits :: Lens' c (NonEmpty Digit)
+  expdigits :: Lens' c (NonEmpty DecDigit)
   {-# INLINE expdigits #-}
   minusplus :: Lens' c (Maybe Bool)
   {-# INLINE minusplus #-}
@@ -222,19 +222,19 @@ _JNumberInt = prism jnumberToInt (\v -> note v $ Sci.toBoundedInteger =<< jNumbe
 -- | Parse the integer component of a JSON number.
 --
 -- >>> testparse parseJInt "1"
--- Right (JIntInt 1 [])
+-- Right (JIntInt DecDigit1 [])
 --
 -- >>> testparse parseJInt "9"
--- Right (JIntInt 9 [])
+-- Right (JIntInt DecDigit9 [])
 --
 -- >>> testparse parseJInt "10"
--- Right (JIntInt 1 [0])
+-- Right (JIntInt DecDigit1 [DecDigit0])
 --
 -- >>> testparse parseJInt "39"
--- Right (JIntInt 3 [9])
+-- Right (JIntInt DecDigit3 [DecDigit9])
 --
 -- >>> testparse parseJInt "393564"
--- Right (JIntInt 3 [9,3,5,6,4])
+-- Right (JIntInt DecDigit3 [DecDigit9,DecDigit3,DecDigit5,DecDigit6,DecDigit4])
 --
 -- >>> testparse parseJInt "0"
 -- Right JZero
@@ -246,19 +246,19 @@ _JNumberInt = prism jnumberToInt (\v -> note v $ Sci.toBoundedInteger =<< jNumbe
 -- Right JZero
 --
 -- >>> testparsetheneof parseJInt "1"
--- Right (JIntInt 1 [])
+-- Right (JIntInt DecDigit1 [])
 --
 -- >>> testparsetheneof parseJInt "9"
--- Right (JIntInt 9 [])
+-- Right (JIntInt DecDigit9 [])
 --
 -- >>> testparsetheneof parseJInt "10"
--- Right (JIntInt 1 [0])
+-- Right (JIntInt DecDigit1 [DecDigit0])
 --
 -- >>> testparsetheneof parseJInt "39"
--- Right (JIntInt 3 [9])
+-- Right (JIntInt DecDigit3 [DecDigit9])
 --
 -- >>> testparsetheneof parseJInt "393564"
--- Right (JIntInt 3 [9,3,5,6,4])
+-- Right (JIntInt DecDigit3 [DecDigit9,DecDigit3,DecDigit5,DecDigit6,DecDigit4])
 --
 -- >>> testparsetheneof parseJInt "0"
 -- Right JZero
@@ -317,31 +317,31 @@ eBuilder EE = BB.charUtf8 'E'
 -- | Parse the fractional component of a JSON number.
 --
 -- >>> testparsetheneof parseFrac "1"
--- Right (Frac (1 :| []))
+-- Right (Frac (DecDigit1 :| []))
 --
 -- >>> testparsetheneof parseFrac "9"
--- Right (Frac (9 :| []))
+-- Right (Frac (DecDigit9 :| []))
 --
 -- >>> testparsetheneof parseFrac "10"
--- Right (Frac (1 :| [0]))
+-- Right (Frac (DecDigit1 :| [DecDigit0]))
 --
 -- >>> testparsetheneof parseFrac "39"
--- Right (Frac (3 :| [9]))
+-- Right (Frac (DecDigit3 :| [DecDigit9]))
 --
 -- >>> testparsetheneof parseFrac "393564"
--- Right (Frac (3 :| [9,3,5,6,4]))
+-- Right (Frac (DecDigit3 :| [DecDigit9,DecDigit3,DecDigit5,DecDigit6,DecDigit4]))
 --
 -- >>> testparsetheneof parseFrac "0"
--- Right (Frac (0 :| []))
+-- Right (Frac (DecDigit0 :| []))
 --
 -- >>> testparsetheneof parseFrac "00"
--- Right (Frac (0 :| [0]))
+-- Right (Frac (DecDigit0 :| [DecDigit0]))
 --
 -- >>> testparsetheneof parseFrac "01"
--- Right (Frac (0 :| [1]))
+-- Right (Frac (DecDigit0 :| [DecDigit1]))
 --
 -- >>> testparsethennoteof parseFrac "01x"
--- Right (Frac (0 :| [1]))
+-- Right (Frac (DecDigit0 :| [DecDigit1]))
 parseFrac ::
   (Monad f, CharParsing f) =>
   f Frac
@@ -358,16 +358,16 @@ fracBuilder (Frac digs) =
 -- | Parse the full exponent portion of a JSON number.
 --
 -- >>> testparsethen parseExp "e10x"
--- Right (Exp {_ex = Ee, _minusplus = Nothing, _expdigits = 1 :| [0]},'x')
+-- Right (Exp {_ex = Ee, _minusplus = Nothing, _expdigits = DecDigit1 :| [DecDigit0]},'x')
 --
 -- >>> testparsethen parseExp "e+10x"
--- Right (Exp {_ex = Ee, _minusplus = Just False, _expdigits = 1 :| [0]},'x')
+-- Right (Exp {_ex = Ee, _minusplus = Just False, _expdigits = DecDigit1 :| [DecDigit0]},'x')
 --
 -- >>> testparsethen parseExp "e-0x"
--- Right (Exp {_ex = Ee, _minusplus = Just True, _expdigits = 0 :| []},'x')
+-- Right (Exp {_ex = Ee, _minusplus = Just True, _expdigits = DecDigit0 :| []},'x')
 --
 -- >>> testparsethen parseExp "E-1x"
--- Right (Exp {_ex = EE, _minusplus = Just True, _expdigits = 1 :| []},'x')
+-- Right (Exp {_ex = EE, _minusplus = Just True, _expdigits = DecDigit1 :| []},'x')
 parseExp ::
   (Monad f, CharParsing f) =>
   f Exp
@@ -386,7 +386,7 @@ getExpSymbol _            = mempty
 
 -- | Builder for a list of digits.
 digitsBuilder
-  :: NonEmpty Digit
+  :: NonEmpty DecDigit
   -> Builder
 digitsBuilder =
   foldMap (BB.int8Dec . (D.integralDecimal #))
@@ -401,16 +401,16 @@ expBuilder (Exp e sign digs) =
 -- | Parse a JSON numeric value.
 --
 -- >>> testparsethen parseJNumber "600x"
--- Right (JNumber {_minus = False, _numberint = JIntInt 6 [0,0], _frac = Nothing, _expn = Nothing},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt DecDigit6 [DecDigit0,DecDigit0], _frac = Nothing, _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "800x"
--- Right (JNumber {_minus = False, _numberint = JIntInt 8 [0,0], _frac = Nothing, _expn = Nothing},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt DecDigit8 [DecDigit0,DecDigit0], _frac = Nothing, _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "3x"
--- Right (JNumber {_minus = False, _numberint = JIntInt 3 [], _frac = Nothing, _expn = Nothing},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt DecDigit3 [], _frac = Nothing, _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "-3x"
--- Right (JNumber {_minus = True, _numberint = JIntInt 3 [], _frac = Nothing, _expn = Nothing},'x')
+-- Right (JNumber {_minus = True, _numberint = JIntInt DecDigit3 [], _frac = Nothing, _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "0x"
 -- Right (JNumber {_minus = False, _numberint = JZero, _frac = Nothing, _expn = Nothing},'x')
@@ -419,22 +419,22 @@ expBuilder (Exp e sign digs) =
 -- Right (JNumber {_minus = True, _numberint = JZero, _frac = Nothing, _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "3.45x"
--- Right (JNumber {_minus = False, _numberint = JIntInt 3 [], _frac = Just (Frac (4 :| [5])), _expn = Nothing},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt DecDigit3 [], _frac = Just (Frac (DecDigit4 :| [DecDigit5])), _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "-3.45x"
--- Right (JNumber {_minus = True, _numberint = JIntInt 3 [], _frac = Just (Frac (4 :| [5])), _expn = Nothing},'x')
+-- Right (JNumber {_minus = True, _numberint = JIntInt DecDigit3 [], _frac = Just (Frac (DecDigit4 :| [DecDigit5])), _expn = Nothing},'x')
 --
 -- >>> testparsethen parseJNumber "3.45e10x"
--- Right (JNumber {_minus = False, _numberint = JIntInt 3 [], _frac = Just (Frac (4 :| [5])), _expn = Just (Exp {_ex = Ee, _minusplus = Nothing, _expdigits = 1 :| [0]})},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt DecDigit3 [], _frac = Just (Frac (DecDigit4 :| [DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Nothing, _expdigits = DecDigit1 :| [DecDigit0]})},'x')
 --
 -- >>> testparsethen parseJNumber "3e10x"
--- Right (JNumber {_minus = False, _numberint = JIntInt 3 [], _frac = Nothing, _expn = Just (Exp {_ex = Ee, _minusplus = Nothing, _expdigits = 1 :| [0]})},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt DecDigit3 [], _frac = Nothing, _expn = Just (Exp {_ex = Ee, _minusplus = Nothing, _expdigits = DecDigit1 :| [DecDigit0]})},'x')
 --
 -- >>> testparsethen parseJNumber "3.45e+10x"
--- Right (JNumber {_minus = False, _numberint = JIntInt 3 [], _frac = Just (Frac (4 :| [5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = 1 :| [0]})},'x')
+-- Right (JNumber {_minus = False, _numberint = JIntInt DecDigit3 [], _frac = Just (Frac (DecDigit4 :| [DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = DecDigit1 :| [DecDigit0]})},'x')
 --
 -- >>> testparsethen parseJNumber "-3.45e-02x"
--- Right (JNumber {_minus = True, _numberint = JIntInt 3 [], _frac = Just (Frac (4 :| [5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = 0 :| [2]})},'x')
+-- Right (JNumber {_minus = True, _numberint = JIntInt DecDigit3 [], _frac = Just (Frac (DecDigit4 :| [DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = DecDigit0 :| [DecDigit2]})},'x')
 --
 -- >>> isLeft (testparsethen parseJNumber "-3.45ex")
 -- True
@@ -452,13 +452,13 @@ parseJNumber = JNumber
 
 -- | Printing of JNumbers
 --
--- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.Digit3 [], _frac = Just (Frac (D.Digit4 :| [D.Digit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = D.Digit1 :| [D.Digit0]})})
+-- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = D.DecDigit1 :| [D.DecDigit0]})})
 -- "3.45e+10"
 --
--- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = True, _numberint = JIntInt D.Digit3 [], _frac = Just (Frac (D.Digit4 :| [D.Digit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.Digit0 :| [D.x2]})})
+-- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = True, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.DecDigit0 :| [D.x2]})})
 -- "-3.45e-02"
 --
--- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.Digit0 [D.Digit0], _frac = Nothing, _expn = Nothing})
+-- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit0 [D.DecDigit0], _frac = Nothing, _expn = Nothing})
 -- "00"
 --
 jNumberBuilder
@@ -475,7 +475,7 @@ jNumberBuilder (JNumber sign digs mfrac mexp) =
 -- | Returns a normalised 'Scientific' value or Nothing if the exponent
 --   is out of the range @[minBound,maxBound::Int]@
 --
--- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt Digit3 [], _frac = Just (Frac (D.x4 :| [D.x5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.x0 :| [D.x2]})}
+-- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt DecDigit3 [], _frac = Just (Frac (D.x4 :| [D.x5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.x0 :| [D.x2]})}
 -- Just -3.45e-2
 --
 -- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt D.x1 [D.x2, D.x3], _frac = Just (Frac (D.x4 :| [D.x5, D.x6])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = (D.x7 :| [D.x8, D.x9])})}
@@ -510,6 +510,6 @@ jNumberToScientific (JNumber sign int mfrac mexp) =
     expval (Exp _ msign digs) = natToNeg msign (D.digitsToNatural digs)
 
 -- | Helper to convert a 'JInt' to a 'NonEmpty' list of component digits.
-jIntToDigits :: JInt -> NonEmpty Digit
+jIntToDigits :: JInt -> NonEmpty DecDigit
 jIntToDigits JZero          = D.x0 NE.:| []
 jIntToDigits (JIntInt d ds) = d NE.:| ds

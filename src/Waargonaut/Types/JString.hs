@@ -39,7 +39,7 @@ import           Data.Traversable        (Traversable, traverse)
 import           Data.Vector             (Vector)
 import qualified Data.Vector             as V
 
-import           Data.Digit              (Digit)
+import           Data.Digit              (HeXDigit)
 
 import           Text.Parser.Char        (CharParsing, char)
 import           Text.Parser.Combinators (many)
@@ -57,7 +57,7 @@ import           Waargonaut.Types.JChar  (JChar, jCharBuilder, parseJChar,
 -- >>> import Control.Monad (return)
 -- >>> import Data.Function (($))
 -- >>> import Data.Either(Either (..), isLeft)
--- >>> import Data.Digit (Digit(..))
+-- >>> import Data.Digit (HeXDigit(..))
 -- >>> import qualified Data.Vector as V
 -- >>> import Text.Parsec(ParseError)
 -- >>> import Utils
@@ -74,7 +74,7 @@ newtype JString' digit =
 
 -- | As only one subset of digits are currently acceptable, Hexadecimal, we
 -- provide this type alias to close that loop.
-type JString = JString' Digit
+type JString = JString' HeXDigit
 
 instance JString' digit ~ t => Rewrapped (JString' digit) t
 
@@ -88,7 +88,7 @@ class AsJString a where
 instance AsJString JString where
   _JString = id
 
-instance AsJString [JChar Digit] where
+instance AsJString [JChar HeXDigit] where
   _JString = prism (\(JString' cs) -> V.toList cs) (Right . JString' . V.fromList)
 
 instance AsJString String where
@@ -116,7 +116,7 @@ instance AsJString ByteString where
 -- Right (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')])
 --
 -- >>> testparse parseJString "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError JString
--- Right (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark])
+-- Right (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark])
 --
 -- >>> testparsethennoteof parseJString "\"a\"\\u"
 -- Right (JString' [UnescapedJChar (JCharUnescaped 'a')])
@@ -140,7 +140,7 @@ parseJString =
 -- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString)
 -- "\"a\\rbc\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 Digita Digitb Digit1 Digit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) :: JString)
+-- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) :: JString)
 -- "\"a\\rbc\\uab12\\ndef\\\"\""
 --
 -- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.singleton (UnescapedJChar (JCharUnescaped 'a'))) :: JString)

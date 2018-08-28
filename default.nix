@@ -6,21 +6,20 @@ let
   inherit (nixpkgs) pkgs;
 
   haskellPackages = if compiler == "default"
-                      then pkgs.haskellPackages
-                      else pkgs.haskell.packages.${compiler};
-
-  sources = {
-    digit = import ./nix/digit.nix;
-  };
+                    then pkgs.haskellPackages
+                    else pkgs.haskell.packages.${compiler};
 
   modifiedHaskellPackages = haskellPackages.override {
-    overrides = self: super: {
-
-      # papa           = self.callHackage "papa" "0.3.1" {};
-      # digit          = self.callPackage sources.digit {};
-      digit = self.callHackage "digit" "0.5.2" {};
+    overrides = self: super: let
+      sources = {
+        digit = import ./nix/digit.nix;
+      };
+    in
+    {
+      digit          = self.callCabal2nix "digit" sources.digit {};
 
       hoist-error    = self.callHackage "hoist-error" "0.2.1.0" {};
+      hedgehog       = self.callHackage "hedgehog" "0.6" {};
       tasty-hedgehog = self.callHackage "tasty-hedgehog" "0.2.0.0" {};
       tasty-hunit    = self.callHackage "tasty-hunit" "0.10.0.1" {};
     };

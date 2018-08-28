@@ -54,7 +54,6 @@ import           Waargonaut.Types.CommaSep (CommaSeparated,
 -- >>> import Control.Monad (return)
 -- >>> import Data.Either (Either (..), isLeft)
 -- >>> import Text.Parsec (ParseError)
--- >>> import Data.Digit (Digit)
 ----
 
 -- | Conveniently, a JSON array is a 'CommaSeparated' list with an optional

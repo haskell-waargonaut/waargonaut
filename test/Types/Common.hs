@@ -19,14 +19,13 @@ module Types.Common
 import Control.Lens (makeClassy)
 
 import           Data.List.NonEmpty          (NonEmpty)
-import           Data.Semigroup              ((<>))
 import           Data.Text                   (Text)
 
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
 import qualified Hedgehog.Range              as Range
 
-import           Data.Digit                  (Digit)
+import           Data.Digit                  (DecDigit, HeXDigit, HexDigit)
 import qualified Data.Digit                  as D
 
 import           Waargonaut.Types.Whitespace (Whitespace (..))
@@ -42,61 +41,75 @@ data Image = Image
   deriving Show
 makeClassy ''Image
 
-genDecimalDigit :: Gen Digit
+genDecimalDigit :: Gen DecDigit
 genDecimalDigit = Gen.element decimalDigit
 
-genHexadecimalDigitLower :: Gen Digit
+genHexadecimalDigitLower :: Gen HexDigit
 genHexadecimalDigitLower = Gen.element hexadecimalDigitLower
 
-genHeXaDeCiMaLDigit :: Gen Digit
+genHeXaDeCiMaLDigit :: Gen HeXDigit
 genHeXaDeCiMaLDigit = Gen.element hExAdEcImAlDigit
 
-decimalDigit :: [Digit]
+decimalDigit :: [DecDigit]
 decimalDigit =
-  [ D.Digit0
-  , D.Digit1
-  , D.Digit2
-  , D.Digit3
-  , D.Digit4
-  , D.Digit5
-  , D.Digit6
-  , D.Digit7
-  , D.Digit8
-  , D.Digit9
+  [ D.DecDigit0
+  , D.DecDigit1
+  , D.DecDigit2
+  , D.DecDigit3
+  , D.DecDigit4
+  , D.DecDigit5
+  , D.DecDigit6
+  , D.DecDigit7
+  , D.DecDigit8
+  , D.DecDigit9
   ]
 
-hexadecimalDigitLower :: [Digit]
+hexadecimalDigitLower :: [HexDigit]
 hexadecimalDigitLower =
-  [ D.Digita
-  , D.Digitb
-  , D.Digitc
-  , D.Digitd
-  , D.Digite
-  , D.Digitf
+  [ D.HexDigita
+  , D.HexDigitb
+  , D.HexDigitc
+  , D.HexDigitd
+  , D.HexDigite
+  , D.HexDigitf
   ]
 
-hExAdEcImAlDigit :: [Digit]
+hExAdEcImAlDigit :: [HeXDigit]
 hExAdEcImAlDigit =
-  decimalDigit <>
-  hexadecimalDigitLower <>
-  [ D.DigitA
-  , D.DigitB
-  , D.DigitC
-  , D.DigitD
-  , D.DigitE
-  , D.DigitF
+  [ D.HeXDigit0
+  , D.HeXDigit1
+  , D.HeXDigit2
+  , D.HeXDigit3
+  , D.HeXDigit4
+  , D.HeXDigit5
+  , D.HeXDigit6
+  , D.HeXDigit7
+  , D.HeXDigit8
+  , D.HeXDigit9
+  , D.HeXDigita
+  , D.HeXDigitb
+  , D.HeXDigitc
+  , D.HeXDigitd
+  , D.HeXDigite
+  , D.HeXDigitf
+  , D.HeXDigitA
+  , D.HeXDigitB
+  , D.HeXDigitC
+  , D.HeXDigitD
+  , D.HeXDigitE
+  , D.HeXDigitF
   ]
 
-genDecimalDigitNoZero :: Gen Digit
-genDecimalDigitNoZero = Gen.filter (/= D.Digit0) genDecimalDigit
+genDecimalDigitNoZero :: Gen DecDigit
+genDecimalDigitNoZero = Gen.filter (/= D.DecDigit0) genDecimalDigit
 
-genHeXaDeCiMaLDigitNoZero :: Gen Digit
-genHeXaDeCiMaLDigitNoZero = Gen.filter (/= D.Digit0) genHeXaDeCiMaLDigit
+genHeXaDeCiMaLDigitNoZero :: Gen HeXDigit
+genHeXaDeCiMaLDigitNoZero = Gen.filter (/= D.HeXDigit0) genHeXaDeCiMaLDigit
 
-genDecimalDigits :: Gen [Digit]
+genDecimalDigits :: Gen [DecDigit]
 genDecimalDigits = Gen.list (Range.linear 1 10) genDecimalDigit
 
-genNonEmptyDecimalDigit :: Gen (NonEmpty Digit)
+genNonEmptyDecimalDigit :: Gen (NonEmpty DecDigit)
 genNonEmptyDecimalDigit = Gen.nonEmpty (Range.linear 1 10) genDecimalDigit
 
 genWhitespace :: Gen Whitespace

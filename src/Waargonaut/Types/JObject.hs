@@ -77,7 +77,7 @@ import           Waargonaut.Types.JString
 -- >>> import Control.Monad (return)
 -- >>> import Data.Either (Either (..), isLeft)
 -- >>> import Text.Parsec (ParseError)
--- >>> import Data.Digit (Digit)
+-- >>> import Data.Digit (HeXDigit)
 ----
 
 -- | This type represents the key-value pair inside of a JSON object.

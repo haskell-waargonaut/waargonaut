@@ -374,6 +374,24 @@ text = atCursor "Text" DR.text'
 string :: Monad f => Decoder f String
 string = atCursor "String" DR.string'
 
+-- | From the current cursor position, given an element 'Decoder', consume
+-- rightward until unable to move further and combine the results into a 'Cons'
+-- satisfying structure.
+consumeRightward
+  :: ( Monad f
+     , AsEmpty s
+     , Cons s s a a
+     )
+  => Decoder f a
+  -> JCursor h Json
+  -> DecodeResult f s
+consumeRightward elemD =
+  go (_Empty L.# ())
+  where
+    go acc cur = do
+      r <- (`L.cons` acc) <$> runDecoder elemD cur
+      try (moveRight1 cur) >>= maybe (pure r) (go r)
+
 -- | Lean on the 'Cons' and 'AsEmpty' instances from lens to let you provide a
 -- 'Decoder' function and collect it into any data structure that has an
 -- instance of those typeclasses.
@@ -386,14 +404,9 @@ arrayOfCons
   -> JCursor h Json
   -> DecodeResult f s
 arrayOfCons elemD c =
-  moveAndKeepHistory D (Z.within WT.json c) >>= go (_Empty L.# ())
-  where
-    go acc cur = do
-      r <- (`L.cons` acc) <$> runDecoder elemD cur
-      try (moveAndKeepHistory (R 1) (Z.rightward cur))
-        >>= maybe (pure r) (go r)
+  moveAndKeepHistory D (Z.within WT.json c)
+  >>= consumeRightward elemD
 
 -- | 'arrayOfCons' specialised to '[]'.
 arrayOf :: Monad f => Decoder f b -> Decoder f [b]
 arrayOf d = withCursor (arrayOfCons d)
-

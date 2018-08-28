@@ -54,7 +54,7 @@ import qualified Data.Map                   as Map
 
 import           Data.Text                  (Text)
 
-import           Data.Digit                 (Digit)
+import           Data.Digit                 (HeXDigit)
 
 import           Waargonaut                 (waargonautBuilder)
 import           Waargonaut.Types           (AsJType (..), Json,
@@ -234,7 +234,7 @@ arrayAt enc =
 -- @
 --
 encodeAsMapLikeObj
-  :: ( AsJType Json Digit ws a
+  :: ( AsJType Json HeXDigit ws a
      , Semigroup ws
      , Monoid ws
      )

@@ -36,7 +36,7 @@ module Waargonaut.Types.JChar
   ) where
 
 import           Prelude                     (Char, Eq, Int, Ord, Show,
-                                              otherwise, quotRem, show, (&&),
+                                              otherwise, quotRem, (&&),
                                               (*), (+), (-), (/=), (<=), (==),
                                               (>=))
 
@@ -47,7 +47,7 @@ import           Control.Lens                (Lens', Prism', Rewrapped,
                                               _Just)
 
 import           Control.Applicative         (pure, (*>), (<$>), (<*>), (<|>))
-import           Control.Monad               ((=<<), (>>=))
+import           Control.Monad               ((=<<))
 
 import           Control.Error.Util          (note)
 
@@ -65,7 +65,7 @@ import           Data.Traversable            (Traversable, traverse)
 
 import qualified Data.Text.Internal          as Text
 
-import           Data.Digit                  (Digit, HeXaDeCiMaL)
+import           Data.Digit                  (HeXDigit, HeXaDeCiMaL)
 import qualified Data.Digit                  as D
 
 import           Data.ByteString.Builder     (Builder)
@@ -83,7 +83,7 @@ import           Text.Parser.Combinators     (try)
 -- >>> :set -XOverloadedStrings
 -- >>> import Control.Monad (return)
 -- >>> import Data.Either(Either (..), isLeft)
--- >>> import Data.Digit (Digit(..))
+-- >>> import Data.Digit (HeXDigit(..))
 -- >>> import qualified Data.Digit as D
 -- >>> import Text.Parsec(ParseError)
 -- >>> import Utils
@@ -92,7 +92,7 @@ import           Text.Parser.Combinators     (try)
 -- | JSON Characters may be single escaped UTF16 "\uab34".
 data HexDigit4 d =
   HexDigit4 d d d d
-  deriving (Eq, Ord, Functor, Foldable, Traversable)
+  deriving (Eq, Show, Ord, Functor, Foldable, Traversable)
 
 -- | Typeclass for things that contain a 'HexDigit4'.
 class HasHexDigit4 c d | c -> d where
@@ -100,14 +100,6 @@ class HasHexDigit4 c d | c -> d where
 
 instance HasHexDigit4 (HexDigit4 d) d where
   hexDigit4 = id
-
-instance Show d => Show ( HexDigit4 d ) where
-  show (HexDigit4 q1 q2 q3 q4) =
-    [ q1
-    , q2
-    , q3
-    , q4
-    ] >>= show
 
 -- | Type to specify that this character is unescaped and may be represented
 -- using a normal Haskell 'Char'.
@@ -209,7 +201,7 @@ hexDigit4ToChar
 hexDigit4ToChar (HexDigit4 a b c d) =
   chr (foldl (\acc x -> 16 * acc + (D.integralHexadecimal # x)) 0 [a,b,c,d])
 
-sandblast :: Char -> Maybe (HexDigit4 Digit)
+sandblast :: Char -> Maybe (HexDigit4 HeXDigit)
 sandblast x = if x >= '\x0' && x <= '\xffff'
   then shuriken =<< traverse (^? D.integralHexadecimal) (lavawave 4 [] (bile (ord x)))
   else Nothing
@@ -226,7 +218,7 @@ sandblast x = if x >= '\x0' && x <= '\xffff'
     {-# INLINE lavawave #-}
 {-# INLINE sandblast #-}
 
-instance AsJCharEscaped Char Digit where
+instance AsJCharEscaped Char HeXDigit where
   _JCharEscaped = prism
     (\case
         QuotationMark  -> '"'
@@ -284,7 +276,7 @@ instance AsJCharEscaped (JChar digit) digit where
 instance AsJCharUnescaped (JChar digit) where
   _JCharUnescaped = _JChar . _JCharUnescaped
 
-instance AsJChar Char Digit where
+instance AsJChar Char HeXDigit where
   _JChar = prism
     (\case
         UnescapedJChar jcu -> _JCharUnescaped # jcu
@@ -300,37 +292,37 @@ utf8SafeChar :: Char -> Maybe Char
 utf8SafeChar c | ord c .&. 0x1ff800 /= 0xd800 = Just c
                | otherwise                    = Nothing
 
--- | Convert a 'Char' to 'JChar Digit' and replace any invalid values with
+-- | Convert a 'Char' to 'JChar HexDigit' and replace any invalid values with
 -- @U+FFFD@ as per the 'Text' documentation.
 --
 -- Refer to <https://hackage.haskell.org/package/text/docs/Data-Text.html#g:2 'Text'> documentation for more info.
 --
-utf8CharToJChar :: Char -> JChar Digit
+utf8CharToJChar :: Char -> JChar HeXDigit
 utf8CharToJChar c = fromMaybe scalarReplacement (Text.safe c ^? _JChar)
   where scalarReplacement = EscapedJChar (Hex (HexDigit4 D.xf D.xf D.xf D.xd))
 {-# INLINE utf8CharToJChar #-}
 
 -- | Try to convert a 'JChar' to a Haskell 'Char'.
-jCharToUtf8Char :: JChar Digit -> Maybe Char
+jCharToUtf8Char :: JChar HeXDigit -> Maybe Char
 jCharToUtf8Char jc = utf8SafeChar (_JChar # jc)
 {-# INLINE jCharToUtf8Char #-}
 
 -- | Parse a single 'HexDigit4'.
 --
--- >>> testparse parseHexDigit4 "1234" :: Either ParseError (HexDigit4 Digit)
--- Right 1234
+-- >>> testparse parseHexDigit4 "1234" :: Either ParseError (HexDigit4 HeXDigit)
+-- Right (HexDigit4 HeXDigit1 HeXDigit2 HeXDigit3 HeXDigit4)
 --
--- >>> testparse parseHexDigit4 "12aF" :: Either ParseError (HexDigit4 Digit)
--- Right 12aF
+-- >>> testparse parseHexDigit4 "12aF" :: Either ParseError (HexDigit4 HeXDigit)
+-- Right (HexDigit4 HeXDigit1 HeXDigit2 HeXDigita HeXDigitF)
 --
--- >>> testparse parseHexDigit4 "aBcD" :: Either ParseError (HexDigit4 Digit)
--- Right aBcD
+-- >>> testparse parseHexDigit4 "aBcD" :: Either ParseError (HexDigit4 HeXDigit)
+-- Right (HexDigit4 HeXDigita HeXDigitB HeXDigitc HeXDigitD)
 --
--- >>> testparsetheneof parseHexDigit4 "12aF" :: Either ParseError (HexDigit4 Digit)
--- Right 12aF
+-- >>> testparsetheneof parseHexDigit4 "12aF" :: Either ParseError (HexDigit4 HeXDigit)
+-- Right (HexDigit4 HeXDigit1 HeXDigit2 HeXDigita HeXDigitF)
 --
--- >>> testparsethennoteof parseHexDigit4 "12aFx" :: Either ParseError (HexDigit4 Digit)
--- Right 12aF
+-- >>> testparsethennoteof parseHexDigit4 "12aFx" :: Either ParseError (HexDigit4 HeXDigit)
+-- Right (HexDigit4 HeXDigit1 HeXDigit2 HeXDigita HeXDigitF)
 parseHexDigit4 ::
   ( CharParsing f, HeXaDeCiMaL digit ) =>
   f ( HexDigit4 digit )
@@ -385,8 +377,8 @@ parseJCharUnescaped =
 -- >>> testparse parseJCharEscaped "\\t"
 -- Right (WhiteSpace HorizontalTab)
 --
--- >>> testparse parseJCharEscaped "\\u1234" :: Either ParseError (JCharEscaped Digit)
--- Right (Hex 1234)
+-- >>> testparse parseJCharEscaped "\\u1234" :: Either ParseError (JCharEscaped HeXDigit)
+-- Right (Hex (HexDigit4 HeXDigit1 HeXDigit2 HeXDigit3 HeXDigit4))
 --
 -- >>> testparsetheneof parseJCharEscaped "\\t"
 -- Right (WhiteSpace HorizontalTab)
@@ -418,10 +410,10 @@ parseJCharEscaped =
 
 -- | Parse a JSON character.
 --
--- >>> testparse parseJChar "\\u1234" :: Either ParseError (JChar Digit)
--- Right (EscapedJChar (Hex 1234))
+-- >>> testparse parseJChar "\\u1234" :: Either ParseError (JChar HeXDigit)
+-- Right (EscapedJChar (Hex (HexDigit4 HeXDigit1 HeXDigit2 HeXDigit3 HeXDigit4)))
 --
--- >>> testparse parseJChar "\\\\" :: Either ParseError (JChar Digit)
+-- >>> testparse parseJChar "\\\\" :: Either ParseError (JChar HeXDigit)
 -- Right (EscapedJChar ReverseSolidus)
 --
 -- >>> testparse parseJChar "\\r"

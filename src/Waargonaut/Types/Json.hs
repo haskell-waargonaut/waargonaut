@@ -55,7 +55,7 @@ import           Data.Tuple                  (uncurry)
 import           Data.ByteString.Builder     (Builder)
 import qualified Data.ByteString.Builder     as BB
 
-import           Data.Digit                  (Digit)
+import           Data.Digit                  (HeXDigit)
 
 
 import           Text.Parser.Char            (CharParsing, text)
@@ -76,7 +76,7 @@ import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
 -- >>> import Control.Monad (return)
 -- >>> import Data.Either (Either (..), isLeft)
 -- >>> import Text.Parsec (ParseError)
--- >>> import Data.Digit (Digit)
+-- >>> import Data.Digit (HeXDigit)
 ----
 
 -- | Individual JSON Types and their trailing whitespace.
@@ -143,16 +143,16 @@ instance AsJType (JType digit ws a) digit ws a where
 -- type to 'Digit'. Also defining that our structures can recursively only contain
 -- 'Json' types.
 newtype Json
-  = Json (JType Digit WS Json)
+  = Json (JType HeXDigit WS Json)
   deriving (Eq, Show)
 
 instance Json ~ t => Rewrapped Json t
 instance Wrapped Json where
-  type Unwrapped Json = JType Digit WS Json
+  type Unwrapped Json = JType HeXDigit WS Json
   _Wrapped' = iso (\(Json x) -> x) Json
 
 -- | 'Json' is comprised of the different 'JType' types.
-instance AsJType Json Digit WS Json where
+instance AsJType Json HeXDigit WS Json where
   _JType = _Wrapped . _JType
 
 -- | Ignoring whitespace, traverse a 'Json' structure.
@@ -193,7 +193,7 @@ editWhitespace =
 -- | Using the provided whitespace builder, create a builder for a given 'JType'.
 jTypesBuilder
   :: (WS -> Builder)
-  -> JType Digit WS Json
+  -> JType HeXDigit WS Json
   -> BB.Builder
 jTypesBuilder s (JNull tws)     = BB.stringUtf8 "null"                          <> s tws
 jTypesBuilder s (JBool b tws)   = BB.stringUtf8 (if b then "true" else "false") <> s tws
@@ -217,7 +217,7 @@ parseJNull
   :: ( CharParsing f
      )
   => f ws
-  -> f (JType Digit ws a)
+  -> f (JType HeXDigit ws a)
 parseJNull ws = JNull
   <$ text "null"
   <*> ws
@@ -246,7 +246,7 @@ parseJBool
   :: ( CharParsing f
      )
   => f ws
-  -> f (JType Digit ws a)
+  -> f (JType HeXDigit ws a)
 parseJBool ws =
   let
     b q t = JBool q <$ text t
@@ -259,7 +259,7 @@ parseJNum
      , CharParsing f
      )
   => f ws
-  -> f (JType Digit ws a)
+  -> f (JType HeXDigit ws a)
 parseJNum ws =
   JNum <$> parseJNumber <*> ws
 
@@ -274,8 +274,8 @@ parseJNum ws =
 -- >>> testparse (parseJStr (return ())) "\"a\\rbc\""
 -- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
 --
--- >>> testparse (parseJStr (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError (JType Digit () a)
--- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex ab12),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
+-- >>> testparse (parseJStr (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError (JType HeXDigit () a)
+-- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
 --
 -- >>> testparsetheneof (parseJStr (return ())) "\"\""
 -- Right (JStr (JString' []) ())
@@ -291,7 +291,7 @@ parseJNum ws =
 parseJStr
   :: CharParsing f
   => f ws
-  -> f (JType Digit ws a)
+  -> f (JType HeXDigit ws a)
 parseJStr ws =
   JStr <$> parseJString <*> ws
 
@@ -301,7 +301,7 @@ parseJArr
      , CharParsing f
      )
   => f ws
-  -> f (JType Digit ws Json)
+  -> f (JType HeXDigit ws Json)
 parseJArr ws =
   JArr <$> parseJArray ws parseWaargonaut <*> ws
 
@@ -311,7 +311,7 @@ parseJObj
      , CharParsing f
      )
   => f ws
-  -> f (JType Digit ws Json)
+  -> f (JType HeXDigit ws Json)
 parseJObj ws =
   JObj <$> parseJObject ws parseWaargonaut <*> ws
 
@@ -321,7 +321,7 @@ parseJType
      , CharParsing f
      )
   => f ws
-  -> f (JType Digit ws Json)
+  -> f (JType HeXDigit ws Json)
 parseJType =
   asum . distribute
     [ parseJNull

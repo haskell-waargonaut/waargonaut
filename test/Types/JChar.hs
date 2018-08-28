@@ -10,13 +10,13 @@ import qualified Hedgehog.Gen           as Gen
 import           Control.Lens           (preview)
 import           Types.Common           (genHeXaDeCiMaLDigit, genHexadecimalDigitLower, genWhitespace)
 
-import           Data.Digit             (Digit)
+import           Data.Digit             (HeXDigit,HexDigit)
 
 import           Waargonaut.Types.JChar (HexDigit4 (..), JChar (..),
                                          JCharEscaped (..), JCharUnescaped (..),
                                          _JCharUnescaped)
 
-genJChar :: Gen (JChar Digit)
+genJChar :: Gen (JChar HeXDigit)
 genJChar = Gen.choice
   [ EscapedJChar <$> genJCharEscaped
   , UnescapedJChar <$> genJCharUnescaped
@@ -25,7 +25,7 @@ genJChar = Gen.choice
 genJCharUnescaped :: Gen JCharUnescaped
 genJCharUnescaped = Gen.just $ preview _JCharUnescaped <$> Gen.unicode
 
-genJCharEscaped :: Gen (JCharEscaped Digit)
+genJCharEscaped :: Gen (JCharEscaped HeXDigit)
 genJCharEscaped = do
   h4 <- genHex4
   ws <- genWhitespace
@@ -38,14 +38,14 @@ genJCharEscaped = do
     , Hex h4
     ]
 
-genHex4 :: Gen (HexDigit4 Digit)
+genHex4 :: Gen (HexDigit4 HeXDigit)
 genHex4 = HexDigit4
   <$> genHeXaDeCiMaLDigit
   <*> genHeXaDeCiMaLDigit
   <*> genHeXaDeCiMaLDigit
   <*> genHeXaDeCiMaLDigit
 
-genHex4Lower :: Gen (HexDigit4 Digit)
+genHex4Lower :: Gen (HexDigit4 HexDigit)
 genHex4Lower = HexDigit4
   <$> genHexadecimalDigitLower
   <*> genHexadecimalDigitLower
