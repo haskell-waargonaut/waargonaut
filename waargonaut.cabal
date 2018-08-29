@@ -72,10 +72,6 @@ source-repository    head
   type:              git
   location:          git@github.com/qfpl/waargonaut.git
 
-flag dobenchmark
-     description:    Enable benchmark suite
-     default:        False
-
 library
   -- Modules included in this executable, other than Main.
   exposed-modules:     Waargonaut.Types.Whitespace
@@ -182,11 +178,6 @@ test-suite waarg-tests
   default-language:    Haskell2010
 
 benchmark criterion
-  if flag(dobenchmark)
-    buildable:           True
-  else
-    buildable:           False
-
   other-modules:       ConvenientFlatSurface
 
   default-language:    Haskell2010
