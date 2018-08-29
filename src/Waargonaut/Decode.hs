@@ -31,6 +31,7 @@ module Waargonaut.Decode
     -- * Cursor movement
   , into
   , up
+  , down
   , moveLeftN
   , moveLeft1
   , moveRightN
@@ -40,6 +41,7 @@ module Waargonaut.Decode
     -- * Decode at Cursor
   , fromKey
   , atCursor
+  , focus
 
     -- * Provided decoders
   , scientific
@@ -48,6 +50,9 @@ module Waargonaut.Decode
   , boolean
   , text
   , string
+  , boundedChar
+  , unboundedChar
+  , consumeRightward
   , arrayOfCons
   , arrayOf
 
@@ -255,6 +260,25 @@ into
 into tgt l =
   moveAndKeepHistory (DAt tgt) . Z.within l
 
+-- | A constrained version of 'into' that will only move a single step down into
+-- a 'Json' value. The 'Text' input is so you're able to provide an expectation
+-- of what you are stepping down into, this provides a more descriptive error
+-- message than simply "down".
+--
+-- For example:
+--
+-- @
+-- firstElemCursor <- down "array" cursor
+-- @
+--
+down
+  :: Monad f
+  => Text
+  -> JCursor h Json
+  -> DecodeResult f (JCursor (JCursor h Json) Json)
+down tgt =
+  into tgt WT.json
+
 -- | Attempt to step one level "up" from the current cursor location.
 up
   :: Monad f
@@ -373,6 +397,21 @@ text = atCursor "Text" DR.text'
 -- | Decoder for 'String'
 string :: Monad f => Decoder f String
 string = atCursor "String" DR.string'
+
+boundedChar :: Monad f => Decoder f Char
+boundedChar = atCursor "Bounded Char" DR.boundedChar'
+
+unboundedChar :: Monad f => Decoder f Char
+unboundedChar = atCursor "Bounded Char" DR.unboundedChar'
+
+-- | Try to decode the value at the current focus
+focus
+  :: Monad f
+  => Decoder f a
+  -> JCursor h Json
+  -> DecodeResult f a
+focus =
+  runDecoder
 
 -- | From the current cursor position, given an element 'Decoder', consume
 -- rightward until unable to move further and combine the results into a 'Cons'

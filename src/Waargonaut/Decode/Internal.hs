@@ -22,6 +22,8 @@ module Waargonaut.Decode.Internal
   , int'
   , text'
   , string'
+  , unboundedChar'
+  , boundedChar'
   , boolean'
   , array'
   , integral'
@@ -69,6 +71,7 @@ import           Waargonaut.Types              (AsJType (..), JNumber, JString,
                                                 jsonAssocKey, jsonAssocVal,
                                                 _JChar, _JString)
 import           Waargonaut.Types.CommaSep     (toList)
+import           Waargonaut.Types.JChar        (jCharToUtf8Char)
 
 import           Text.PrettyPrint.Annotated.WL (Doc, (<+>))
 import qualified Text.PrettyPrint.Annotated.WL as WL
@@ -221,10 +224,17 @@ try d = catchError (pure <$> d) (const (pure Nothing))
 -- | Try to decode a 'Text' value from some 'Json' or value.
 text' :: AsJType a digit ws a => a -> Maybe Text
 text' = L.preview (_JStr . _1 . L.re _JString)
- 
+
 -- | Try to decode a 'String' value from some 'Json' or value.
 string' :: AsJType a digit ws a => a -> Maybe String
 string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map (_JChar L.#)))
+
+-- | Try to decode a "safe" utf8 acceptable Char value
+boundedChar' :: AsJType a digit ws a => a -> Maybe Char
+boundedChar' = L.preview (_JStr . _1 . _Wrapped . L._head) >=> jCharToUtf8Char
+
+unboundedChar' :: AsJType a digit ws a => a -> Maybe Char
+unboundedChar' = L.preview (_JStr . _1 . _Wrapped . L._head . L.re _JChar)
 
 -- | Try to decode a 'Scientific' value from some 'Json' or value.
 scientific' :: AsJType a digit ws a => a -> Maybe Scientific
