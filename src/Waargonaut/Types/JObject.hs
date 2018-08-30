@@ -45,12 +45,15 @@ import           Control.Lens              (AsEmpty (..), At (..), Index, traver
                                             (.~), (<&>), (^.), (^?), _Wrapped)
 
 import           Control.Monad             (Monad)
+import           Data.Bifoldable           (Bifoldable (bifoldMap))
+import           Data.Bifunctor            (Bifunctor (bimap))
+import           Data.Bitraversable        (Bitraversable (bitraverse))
 import           Data.Bool                 (Bool (..))
 import           Data.Foldable             (Foldable, find, foldr)
 import           Data.Function             (($))
 import           Data.Functor              (Functor, fmap, (<$>))
 import           Data.Maybe                (Maybe (..), maybe)
-import           Data.Monoid               (Monoid (mempty))
+import           Data.Monoid               (Monoid (mappend, mempty))
 import           Data.Semigroup            (Semigroup ((<>)))
 import           Data.Text                 (Text)
 import           Data.Traversable          (Traversable, traverse)
@@ -94,6 +97,15 @@ data JAssoc ws a = JAssoc
 
 jassocWS :: Traversal a a' ws ws' -> Traversal (JAssoc ws a) (JAssoc ws' a') ws ws'
 jassocWS g f (JAssoc k t p v) = JAssoc k <$> f t <*> f p <*> traverseOf g f v
+
+instance Bifunctor JAssoc where
+  bimap f g (JAssoc k w1 w2 v) = JAssoc k (f w1) (f w2) (g v)
+
+instance Bifoldable JAssoc where
+  bifoldMap f g (JAssoc _ w1 w2 v) = f w1 `mappend` f w2 `mappend` g v
+
+instance Bitraversable JAssoc where
+  bitraverse f g (JAssoc k w1 w2 v) = JAssoc k <$> f w1 <*> f w2 <*> g v
 
 -- | This class allows you to write connective lenses for other data structures
 -- that may contain a 'JAssoc'.
@@ -163,6 +175,15 @@ instance Wrapped (JObject ws a) where
 type instance IxValue (JObject ws a) = a
 type instance Index (JObject ws a)   = Int
 
+instance Bifunctor JObject where
+  bimap f g (JObject c) = JObject (bimap f (bimap f g) c)
+
+instance Bifoldable JObject where
+  bifoldMap f g (JObject c) = bifoldMap f (bifoldMap f g) c
+
+instance Bitraversable JObject where
+  bitraverse f g (JObject c) = JObject <$> bitraverse f (bitraverse f g) c
+
 -- | Without having an obviously correct "first" or "last" decision on which
 -- 'JString' key is the "right" one to use, a 'JObject' can only be indexed by a
 -- numeric value.
@@ -205,6 +226,15 @@ instance Monoid ws => Ixed (MapLikeObj ws a) where
 instance Monoid ws => At (MapLikeObj ws a) where
   at k f (MLO (JObject cs)) = jAssocAlterF k f (find (textKeyMatch k) cs) <&>
     MLO . JObject . maybe (W.filter (not . textKeyMatch k) cs) (`cons` cs)
+
+instance Bifunctor MapLikeObj where
+  bimap f g (MLO o) = MLO (bimap f g o)
+
+instance Bifoldable MapLikeObj where
+  bifoldMap f g (MLO o) = bifoldMap f g o
+
+instance Bitraversable MapLikeObj where
+  bitraverse f g (MLO o) = MLO <$> bitraverse f g o
 
 -- | Take a 'JObject' and produce a 'MapLikeObj' where the first key is
 -- considered the unique value. Subsequence occurrences of that key and it's value
