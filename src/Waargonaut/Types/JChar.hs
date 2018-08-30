@@ -77,7 +77,6 @@ import           Waargonaut.Types.Whitespace (Whitespace (..),
                                               _WhitespaceChar)
 
 import           Text.Parser.Char            (CharParsing, char, satisfy)
-import           Text.Parser.Combinators     (try)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -428,7 +427,7 @@ parseJChar ::
   (CharParsing f, HeXaDeCiMaL digit) =>
   f ( JChar digit )
 parseJChar = asum
-  [ EscapedJChar <$> try parseJCharEscaped
+  [ EscapedJChar <$> parseJCharEscaped
   , UnescapedJChar <$> parseJCharUnescaped
   ]
 
