@@ -338,7 +338,7 @@ atCursor t f = withCursor $ \c -> do
 -- occurence of that key. This move expects that you've positioned the cursor on an
 -- object.
 moveToKey
-  :: ( AsJType s digit ws s
+  :: ( AsJType s ws s
      , Monad f
      )
   => Text

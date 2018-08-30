@@ -10,12 +10,10 @@ import qualified Types.JNumber               as G
 import qualified Types.JString               as G
 import qualified Types.Whitespace            as G
 
-import           Data.Digit                  (HeXDigit)
-
 import           Waargonaut.Types.Whitespace (WS)
 
 import           Waargonaut.Types.JArray     (JArray (..))
-import           Waargonaut.Types.JObject    (JObject (..), JAssoc (..))
+import           Waargonaut.Types.JObject    (JAssoc (..), JObject (..))
 
 import           Waargonaut                  (JType (..), Json (..))
 
@@ -42,7 +40,7 @@ genJObj :: Gen (JObject WS Json)
 genJObj = JObject <$> genCommaSeparated G.genWS genJAssoc
 
 toJson
-  :: (t -> WS -> JType HeXDigit WS Json)
+  :: (t -> WS -> JType WS Json)
   -> Gen t
   -> Gen Json
 toJson c v =
