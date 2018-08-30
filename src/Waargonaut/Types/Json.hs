@@ -43,11 +43,15 @@ import           Control.Lens                (Prism', Rewrapped, Traversal,
 
 import           Control.Monad               (Monad)
 
+import           Data.Bifoldable             (Bifoldable (bifoldMap))
+import           Data.Bifunctor              (Bifunctor (bimap))
+import           Data.Bitraversable          (Bitraversable (bitraverse))
 import           Data.Bool                   (Bool (..))
 import           Data.Distributive           (distribute)
 import           Data.Either                 (Either (..))
 import           Data.Foldable               (Foldable (..), asum)
 import           Data.Functor                (Functor (..))
+import           Data.Monoid                 (Monoid (mappend))
 import           Data.Semigroup              ((<>))
 import           Data.Traversable            (Traversable (..))
 import           Data.Tuple                  (uncurry)
@@ -85,6 +89,33 @@ data JType ws a
   | JArr (JArray ws a) ws
   | JObj (JObject ws a) ws
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+instance Bifunctor JType where
+  bimap f g jt = case jt of
+    JNull ws -> JNull (f ws)
+    JBool b ws -> JBool b (f ws)
+    JNum n ws -> JNum n (f ws)
+    JStr s ws -> JStr s (f ws)
+    JArr a ws -> JArr (bimap f g a) (f ws)
+    JObj o ws -> JObj (bimap f g o) (f ws)
+
+instance Bifoldable JType where
+  bifoldMap f g jt = case jt of
+    JNull ws -> f ws
+    JBool _ ws -> f ws
+    JNum _ ws -> f ws
+    JStr _ ws -> f ws
+    JArr a ws -> bifoldMap f g a `mappend` f ws
+    JObj o ws -> bifoldMap f g o `mappend` f ws
+
+instance Bitraversable JType where
+  bitraverse f g jt = case jt of
+    JNull ws -> JNull <$> f ws
+    JBool b ws -> JBool b <$> f ws
+    JNum n ws -> JNum n <$> f ws
+    JStr s ws -> JStr s <$> f ws
+    JArr a ws -> JArr <$> bitraverse f g a <*> f ws
+    JObj o ws -> JObj <$> bitraverse f g o <*> f ws
 
 -- | Typeclass for things that can represent a 'JType'
 class AsJType r ws a | r -> ws a where

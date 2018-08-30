@@ -63,6 +63,9 @@ import           Control.Lens            (AsEmpty (..), Cons (..), Index, Iso,
 import           Control.Error.Util      (note)
 import           Control.Monad           (Monad)
 
+import           Data.Bifoldable         (Bifoldable (bifoldMap))
+import           Data.Bifunctor          (Bifunctor (bimap))
+import           Data.Bitraversable      (Bitraversable (bitraverse))
 import           Data.Char               (Char)
 import           Data.Foldable           (Foldable, asum, foldMap, foldr,
                                           length)
@@ -134,6 +137,15 @@ instance (Monoid ws, Applicative f) => Applicative (Elem f ws) where
   pure a = Elem a (pure (Comma, mempty))
   (Elem atob _) <*> (Elem a t') = Elem (atob a) t'
 
+instance Functor f => Bifunctor (Elem f) where
+  bimap f g (Elem a t) = Elem (g a) (fmap (fmap f) t)
+
+instance Foldable f => Bifoldable (Elem f) where
+  bifoldMap f g (Elem a t) = g a `mappend` foldMap (foldMap f) t
+
+instance Traversable f => Bitraversable (Elem f) where
+  bitraverse f g (Elem a t) = Elem <$> g a <*> traverse (traverse f) t
+
 -- | Typeclass for things that contain a single 'Elem' structure.
 class HasElem c f ws a | c -> f ws a where
   elem :: Lens' c (Elem f ws a)
@@ -180,6 +192,15 @@ data Elems ws a = Elems
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+instance Bifunctor Elems where
+  bimap f g (Elems es el) = Elems (fmap (bimap f g) es) (bimap f g el)
+
+instance Bifoldable Elems where
+  bifoldMap f g (Elems es el) = foldMap (bifoldMap f g) es `mappend` bifoldMap f g el
+
+instance Bitraversable Elems where
+  bitraverse f g (Elems es el) = Elems <$> traverse (bitraverse f g) es <*> bitraverse f g el
+
 elemsWS :: Traversal a a' ws ws' -> Traversal (Elems ws a) (Elems ws' a') ws ws'
 elemsWS g f (Elems es el) = liftA2 Elems ((traverse . elemWS g) f es) (elemWS g f el)
 
@@ -215,6 +236,15 @@ data CommaSeparated ws a = CommaSeparated ws (Maybe (Elems ws a))
 
 commaSeparatedWS :: Traversal a a' ws ws' -> Traversal (CommaSeparated ws a) (CommaSeparated ws' a') ws ws'
 commaSeparatedWS g f (CommaSeparated ws c) = liftA2 CommaSeparated (f ws) ((traverse . elemsWS g) f c)
+
+instance Bifunctor CommaSeparated where
+  bimap f g (CommaSeparated ws c) = CommaSeparated (f ws) (fmap (bimap f g) c)
+
+instance Bifoldable CommaSeparated where
+  bifoldMap f g (CommaSeparated ws c) = f ws `mappend` foldMap (bifoldMap f g) c
+
+instance Bitraversable CommaSeparated where
+  bitraverse f g (CommaSeparated ws c) = CommaSeparated <$> f ws <*> traverse (bitraverse f g) c
 
 -- | By ignoring whitespace we're able to write a 'Cons' instance.
 instance Monoid ws => Cons (CommaSeparated ws a) (CommaSeparated ws a) a a where

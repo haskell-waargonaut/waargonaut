@@ -30,6 +30,9 @@ import           Control.Lens              (AsEmpty (..), Cons (..), Rewrapped,
                                             ( # ), (^.), (^?), _2, _Wrapped)
 import           Control.Monad             (Monad)
 
+import           Data.Bifoldable           (Bifoldable (bifoldMap))
+import           Data.Bifunctor            (Bifunctor (bimap))
+import           Data.Bitraversable        (Bitraversable (bitraverse))
 import           Data.Foldable             (Foldable)
 import           Data.Function             (($))
 import           Data.Functor              (Functor, (<$>))
@@ -80,6 +83,15 @@ instance Monoid ws => Cons (JArray ws a) (JArray ws a) a a where
 instance (Semigroup ws, Monoid ws) => AsEmpty (JArray ws a) where
   _Empty = nearly (JArray mempty) (^. _Wrapped . to (isn't _Empty))
   {-# INLINE _Empty #-}
+
+instance Bifunctor JArray where
+  bimap f g (JArray cs) = JArray (bimap f g cs)
+
+instance Bifoldable JArray where
+  bifoldMap f g (JArray cs) = bifoldMap f g cs
+
+instance Bitraversable JArray where
+  bitraverse f g (JArray cs) = JArray <$> bitraverse f g cs
 
 -- | Parse a single JSON array
 --
