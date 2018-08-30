@@ -23,23 +23,20 @@ module Waargonaut.Types.Json
   , parseWaargonaut
 
   -- * Traversals
-  , json
-  , jsonWS
-  , jtypeWS
-
-    -- * Helpers
-  , editWhitespace
+  , jsonTraversal
+  , jsonWSTraversal
+  , jtypeTraversal
+  , jtypeWSTraversal
   ) where
 
 
 import           Prelude                     (Eq, Show)
 
-import           Control.Applicative         (liftA2, (<$>), (<*>), (<|>))
+import           Control.Applicative         (pure, (<$>), (<*>), (<|>))
 import           Control.Category            (id, (.))
 import           Control.Lens                (Prism', Rewrapped, Traversal,
-                                              Traversal', Wrapped (..), failing,
-                                              iso, over, prism, traverseOf, _1,
-                                              _Wrapped)
+                                              Traversal', Wrapped (..), iso,
+                                              prism, traverseOf, _Wrapped)
 
 import           Control.Monad               (Monad)
 
@@ -50,6 +47,7 @@ import           Data.Bool                   (Bool (..))
 import           Data.Distributive           (distribute)
 import           Data.Either                 (Either (..))
 import           Data.Foldable               (Foldable (..), asum)
+import           Data.Function               (flip)
 import           Data.Functor                (Functor (..))
 import           Data.Monoid                 (Monoid (mappend))
 import           Data.Semigroup              ((<>))
@@ -62,11 +60,11 @@ import qualified Data.ByteString.Builder     as BB
 import           Text.Parser.Char            (CharParsing, text)
 
 import           Waargonaut.Types.JArray     (JArray (..), jArrayBuilder,
-                                              jarrayWS, parseJArray)
+                                              parseJArray)
 import           Waargonaut.Types.JNumber    (JNumber, jNumberBuilder,
                                               parseJNumber)
 import           Waargonaut.Types.JObject    (JObject (..), jObjectBuilder,
-                                              jobjectWS, parseJObject)
+                                              parseJObject)
 import           Waargonaut.Types.JString    (JString, jStringBuilder,
                                               parseJString)
 import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
@@ -92,30 +90,30 @@ data JType ws a
 
 instance Bifunctor JType where
   bimap f g jt = case jt of
-    JNull ws -> JNull (f ws)
+    JNull ws   -> JNull (f ws)
     JBool b ws -> JBool b (f ws)
-    JNum n ws -> JNum n (f ws)
-    JStr s ws -> JStr s (f ws)
-    JArr a ws -> JArr (bimap f g a) (f ws)
-    JObj o ws -> JObj (bimap f g o) (f ws)
+    JNum n ws  -> JNum n (f ws)
+    JStr s ws  -> JStr s (f ws)
+    JArr a ws  -> JArr (bimap f g a) (f ws)
+    JObj o ws  -> JObj (bimap f g o) (f ws)
 
 instance Bifoldable JType where
   bifoldMap f g jt = case jt of
-    JNull ws -> f ws
+    JNull ws   -> f ws
     JBool _ ws -> f ws
-    JNum _ ws -> f ws
-    JStr _ ws -> f ws
-    JArr a ws -> bifoldMap f g a `mappend` f ws
-    JObj o ws -> bifoldMap f g o `mappend` f ws
+    JNum _ ws  -> f ws
+    JStr _ ws  -> f ws
+    JArr a ws  -> bifoldMap f g a `mappend` f ws
+    JObj o ws  -> bifoldMap f g o `mappend` f ws
 
 instance Bitraversable JType where
   bitraverse f g jt = case jt of
-    JNull ws -> JNull <$> f ws
+    JNull ws   -> JNull <$> f ws
     JBool b ws -> JBool b <$> f ws
-    JNum n ws -> JNum n <$> f ws
-    JStr s ws -> JStr s <$> f ws
-    JArr a ws -> JArr <$> bitraverse f g a <*> f ws
-    JObj o ws -> JObj <$> bitraverse f g o <*> f ws
+    JNum n ws  -> JNum n <$> f ws
+    JStr s ws  -> JStr s <$> f ws
+    JArr a ws  -> JArr <$> bitraverse f g a <*> f ws
+    JObj o ws  -> JObj <$> bitraverse f g o <*> f ws
 
 -- | Typeclass for things that can represent a 'JType'
 class AsJType r ws a | r -> ws a where
@@ -184,39 +182,20 @@ instance AsJType Json WS Json where
   _JType = _Wrapped . _JType
 
 -- | Ignoring whitespace, traverse a 'Json' structure.
-json :: Traversal' Json Json
-json = traverseOf (_Wrapped . failing (_JObj . _1 . traverse) (_JArr . _1 . _Wrapped . traverse))
+jsonTraversal :: Traversal' Json Json
+jsonTraversal = traverseOf (_Wrapped . jtypeTraversal)
 
 -- | Traverse the trailing whitespace of this 'Json' structure.
-jsonWS :: Traversal Json Json WS WS
-jsonWS f (Json jt) = Json <$> case jt of
-  JNull ws   -> JNull   <$> f ws
-  JBool b ws -> JBool b <$> f ws
-  JNum n ws  -> JNum n  <$> f ws
-  JStr s ws  -> JStr s  <$> f ws
-  JArr a ws  -> JArr a  <$> f ws
-  JObj o ws  -> JObj o  <$> f ws
+jsonWSTraversal :: Traversal Json Json WS WS
+jsonWSTraversal = traverseOf (_Wrapped . jtypeWSTraversal)
 
 -- | Traverse all of the whitespace of this 'Json' structure and every element
 -- in the tree.
-jtypeWS :: Traversal a a' ws ws' -> Traversal (JType ws a) (JType ws' a') ws ws'
-jtypeWS _ f (JNull ws)   = JNull   <$> f ws
-jtypeWS _ f (JBool b ws) = JBool b <$> f ws
-jtypeWS _ f (JNum n ws)  = JNum n  <$> f ws
-jtypeWS _ f (JStr s ws)  = JStr s  <$> f ws
-jtypeWS g f (JArr a ws)  = liftA2 JArr (jarrayWS g f a) (f ws)
-jtypeWS g f (JObj o ws)  = liftA2 JObj (jobjectWS g f o) (f ws)
+jtypeWSTraversal :: Traversal (JType ws a) (JType ws' a) ws ws'
+jtypeWSTraversal = flip bitraverse pure
 
--- | This function combines the 'Json' whitespace traversal functions so that
--- modifications can be made to every piece of whitespace in a given 'Json' data
--- structure.
---
-editWhitespace
-  :: (WS -> WS)
-  -> Json
-  -> Json
-editWhitespace =
-  over (_Wrapped . jtypeWS jsonWS)
+jtypeTraversal :: Traversal (JType ws a) (JType ws a') a a'
+jtypeTraversal = bitraverse pure
 
 -- | Using the provided whitespace builder, create a builder for a given 'JType'.
 jTypesBuilder

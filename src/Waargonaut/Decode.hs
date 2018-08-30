@@ -278,7 +278,7 @@ down
   -> JCursor h Json
   -> DecodeResult f (JCursor (JCursor h Json) Json)
 down tgt =
-  into tgt WT.json
+  into tgt WT.jsonTraversal
 
 -- | Attempt to step one level "up" from the current cursor location.
 up
@@ -449,7 +449,7 @@ arrayOfCons
   -> JCursor h Json
   -> DecodeResult f s
 arrayOfCons elemD c =
-  moveAndKeepHistory D (Z.within WT.json c)
+  moveAndKeepHistory D (Z.within WT.jsonTraversal c)
   >>= consumeRightward elemD
 
 -- | 'arrayOfCons' specialised to '[]'.

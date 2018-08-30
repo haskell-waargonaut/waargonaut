@@ -37,12 +37,6 @@ module Waargonaut.Types.CommaSep
     -- * Cons / Uncons
   , consCommaSep
   , unconsCommaSep
-
-
-  -- * Traversals
-  , elemWS
-  , elemsWS
-  , commaSeparatedWS
   ) where
 
 import           Prelude                 (Eq, Int, Show (showsPrec), otherwise,
@@ -130,9 +124,6 @@ data Elem f ws a = Elem
   }
   deriving (Functor, Foldable, Traversable)
 
-elemWS :: Traversable f => Traversal a a' ws ws' -> Traversal (Elem f ws a) (Elem f ws' a') ws ws'
-elemWS g f (Elem e tws) = liftA2 Elem (g f e) ((traverse . _2) f tws)
-
 instance (Monoid ws, Applicative f) => Applicative (Elem f ws) where
   pure a = Elem a (pure (Comma, mempty))
   (Elem atob _) <*> (Elem a t') = Elem (atob a) t'
@@ -201,9 +192,6 @@ instance Bifoldable Elems where
 instance Bitraversable Elems where
   bitraverse f g (Elems es el) = Elems <$> traverse (bitraverse f g) es <*> bitraverse f g el
 
-elemsWS :: Traversal a a' ws ws' -> Traversal (Elems ws a) (Elems ws' a') ws ws'
-elemsWS g f (Elems es el) = liftA2 Elems ((traverse . elemWS g) f es) (elemWS g f el)
-
 -- | Typeclass for things that contain an 'Elems' structure.
 class HasElems c ws a | c -> ws a where
   elems      :: Lens' c (Elems ws a)
@@ -233,9 +221,6 @@ instance Monoid ws => Semigroup (Elems ws a) where
 -- the rest of the elements in an 'Elems' type.
 data CommaSeparated ws a = CommaSeparated ws (Maybe (Elems ws a))
   deriving (Eq, Show, Functor, Foldable, Traversable)
-
-commaSeparatedWS :: Traversal a a' ws ws' -> Traversal (CommaSeparated ws a) (CommaSeparated ws' a') ws ws'
-commaSeparatedWS g f (CommaSeparated ws c) = liftA2 CommaSeparated (f ws) ((traverse . elemsWS g) f c)
 
 instance Bifunctor CommaSeparated where
   bimap f g (CommaSeparated ws c) = CommaSeparated (f ws) (fmap (bimap f g) c)
