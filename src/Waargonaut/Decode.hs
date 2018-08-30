@@ -78,6 +78,7 @@ import qualified Control.Zipper                as Z
 
 import           Data.Functor.Identity         (Identity, runIdentity)
 
+import           Data.Bool                     (bool)
 import           Data.Text                     (Text)
 
 import           Data.Scientific               (Scientific)
@@ -344,14 +345,15 @@ moveToKey
   -> JCursor h s
   -> DecodeResult f (h :>> s :>> Elems ws (JAssoc ws s) :>> JAssoc ws s :>> s)
 moveToKey k =
-  moveAndKeepHistory (DAt k) . ( Z.within intoElems
-                                 >=> Z.within traverse
-                                 >=> shuffleToKey
-                                 >=> Z.within WT.jsonAssocVal
-                               )
+  moveAndKeepHistory (DAt k)
+  . ( Z.within intoElems
+      >=> Z.within traverse
+      >=> shuffleToKey
+      >=> Z.within WT.jsonAssocVal
+    )
   where
     shuffleToKey cu = Z.within WT.jsonAssocKey cu ^? L._Just . Z.focus . L.re WT._JString
-      >>= \k' -> if k' /= k then Z.rightward cu >>= shuffleToKey else Just cu
+      >>= bool (Just cu) (Z.rightward cu >>= shuffleToKey) . (/=k)
 
     intoElems = WT._JObj . L._1 . L._Wrapped . WT._CommaSeparated . L._2 . L._Just
 
@@ -398,9 +400,13 @@ text = atCursor "Text" DR.text'
 string :: Monad f => Decoder f String
 string = atCursor "String" DR.string'
 
+-- | Decoder for a 'Char' value that cannot contain values in the range U+D800
+-- to U+DFFF. This decoder will fail if the 'Char' is outside of this range.
 boundedChar :: Monad f => Decoder f Char
 boundedChar = atCursor "Bounded Char" DR.boundedChar'
 
+-- | Decoder for a Haskell 'Char' value whose values represent Unicode
+-- (or equivalently ISO/IEC 10646) characters
 unboundedChar :: Monad f => Decoder f Char
 unboundedChar = atCursor "Bounded Char" DR.unboundedChar'
 

@@ -90,7 +90,7 @@ instance Wrapped (Encoder a) where
   type Unwrapped (Encoder a) = Encoder' Identity a
   _Wrapped' = iso unEncoder Encoder
 
--- | Create an 'Encodere'' for 'a' by providing a function from 'a -> f Json'.
+-- | Create an 'Encoder'' for 'a' by providing a function from 'a -> f Json'.
 encodeA :: (a -> f Json) -> Encoder' f a
 encodeA = Encoder'
 

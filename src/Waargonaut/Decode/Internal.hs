@@ -7,9 +7,11 @@
 -- | Internal types and functions for building Decoder infrastructure.
 module Waargonaut.Decode.Internal
   ( CursorHistory' (..)
+  , prettyCursorHistory
   , DecodeResultT (..)
   , DecodeError (..)
   , Mv (..)
+  , prettyMv
   , Decoder' (..)
 
   , withCursor'
@@ -99,10 +101,7 @@ data Mv
   | Item Text
   | L Natural
   | R Natural
-  deriving Eq
-
-instance Show Mv where
-  show = WL.display . WL.renderPrettyDefault . prettyMv
+  deriving (Show, Eq)
 
 prettyMv :: Mv -> Doc a
 prettyMv m = case m of
@@ -122,17 +121,19 @@ prettyMv m = case m of
 -- Track the history of the cursor as we move around the zipper.
 --
 -- It is indexed over the type of the index used to navigate the zipper.
-newtype CursorHistory' i = CursorHistory' (Seq (Mv, i))
-  deriving Eq
+newtype CursorHistory' i = CursorHistory'
+  { unCursorHistory' :: Seq (Mv, i)
+  }
+  deriving (Show, Eq)
 
-instance Show i => Show (CursorHistory' i) where
-  show = WL.display . WL.renderPrettyDefault . prettyCursorHistory
-
-prettyCursorHistory :: Show i => CursorHistory' i -> Doc a
-prettyCursorHistory (CursorHistory' s) =
-  foldr (<+>) mempty $ prettyTooth <$> s
-  where
-    prettyTooth (mv, _ix) = WL.text (show mv)
+prettyCursorHistory
+  :: Show i
+  => CursorHistory' i
+  -> Doc a
+prettyCursorHistory =
+  foldr (<+>) mempty
+  . fmap (prettyMv . fst)
+  . unCursorHistory'
 
 instance CursorHistory' i ~ t => Rewrapped (CursorHistory' i) t
 
@@ -229,10 +230,13 @@ text' = L.preview (_JStr . _1 . L.re _JString)
 string' :: AsJType a digit ws a => a -> Maybe String
 string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map (_JChar L.#)))
 
--- | Try to decode a "safe" utf8 acceptable Char value
+-- | Decoder for a 'Char' value that cannot contain values in the range U+D800
+-- to U+DFFF. This decoder will fail if the 'Char' is outside of this range.
 boundedChar' :: AsJType a digit ws a => a -> Maybe Char
 boundedChar' = L.preview (_JStr . _1 . _Wrapped . L._head) >=> jCharToUtf8Char
 
+-- | Decoder for a Haskell 'Char' value whose values represent Unicode
+-- (or equivalently ISO/IEC 10646) characters
 unboundedChar' :: AsJType a digit ws a => a -> Maybe Char
 unboundedChar' = L.preview (_JStr . _1 . _Wrapped . L._head . L.re _JChar)
 

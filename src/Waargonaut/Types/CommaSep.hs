@@ -54,8 +54,8 @@ import           Control.Category        (id, (.))
 
 import           Control.Lens            (AsEmpty (..), Cons (..), Index, Iso,
                                           Iso', IxValue, Ixed (..), Lens',
-                                          Traversal, cons, isn't, iso, mapped,
-                                          nearly, over, prism, snoc, to,
+                                          Traversal, cons, from, isn't, iso,
+                                          mapped, nearly, over, prism, snoc, to,
                                           traverse, unsnoc, (%%~), (%~), (.~),
                                           (^.), (^..), (^?), _1, _2, _Cons,
                                           _Nothing)
@@ -159,12 +159,17 @@ instance (Show1 f, Show ws, Show a) => Show (Elem f ws a) where
 instance (Eq1 f, Eq ws, Eq a) => Eq (Elem f ws a) where
   Elem v1 t1 == Elem v2 t2 = v1 == v2 && eq1 t1 t2
 
--- These should probably be disappeared, but I don't know of a better way to do this yet.
-flipGInLast :: Monoid ws => Elem Identity ws a -> Elem Maybe ws a
-flipGInLast (Elem a t) = Elem a (Just $ runIdentity t)
+floopId :: Monoid ws => Iso' (Identity (Comma,ws)) (Maybe (Comma,ws))
+floopId = iso (Just . runIdentity) (pure . fromMaybe (Comma, mempty))
 
-flipFInLast :: Monoid ws => Elem Maybe ws a -> Elem Identity ws a
-flipFInLast (Elem a t) = Elem a (Identity $ fromMaybe (Comma, mempty) t)
+_ElemTrailingIso
+  :: ( Monoid ws
+     , Monoid ws'
+     )
+  => Iso (Elem Identity ws a) (Elem Identity ws' a') (Elem Maybe ws a) (Elem Maybe ws' a')
+_ElemTrailingIso = iso
+  (\(Elem a t) -> Elem a (t ^. floopId))
+  (\(Elem a t) -> Elem a (t ^. from floopId))
 
 -- | This type represents a non-empty list of elements, enforcing that the any
 -- element but the last must be followed by a trailing comma and supporting option
@@ -200,7 +205,7 @@ instance Monoid ws => Applicative (Elems ws) where
   Elems atobs atob <*> Elems as a = Elems (liftA2 (<*>) atobs as) (atob <*> a)
 
 instance Monoid ws => Semigroup (Elems ws a) where
-  (<>) (Elems as alast) (Elems bs blast) = Elems (snoc as (flipFInLast alast) <> bs) blast
+  (<>) (Elems as alast) (Elems bs blast) = Elems (snoc as (alast ^. from _ElemTrailingIso) <> bs) blast
 
 -- | This type is our possibly empty comma-separated list of values. It carries
 -- information about any leading whitespace before the first element, as well as a
@@ -240,7 +245,8 @@ instance Monoid ws => Filterable (CommaSeparated ws) where
   mapMaybe f (CommaSeparated ws (Just (Elems es el))) = CommaSeparated ws newElems
     where
       newElems = case traverse f el of
-        Nothing -> (\(v,l) -> Elems v (flipGInLast l)) <$> unsnoc (mapMaybe (traverse f) es)
+        Nothing -> (\(v,l) -> Elems v (l ^. _ElemTrailingIso)) <$> unsnoc (mapMaybe (traverse f) es)
+        -- Nothing -> (\(v,l) -> Elems v (flipGInLast l)) <$> unsnoc (mapMaybe (traverse f) es)
         Just l' -> Just $ Elems (mapMaybe (traverse f) es) l'
 
 instance Monoid ws => Witherable (CommaSeparated ws) where
