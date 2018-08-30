@@ -1,8 +1,8 @@
-{ mkDerivation, base, bytestring, Cabal, cabal-doctest, containers
-, contravariant, criterion, digit, directory, distributive, doctest
-, errors, filepath, hedgehog, hoist-error, lens, mtl, nats, parsec
-, parsers, scientific, semigroups, stdenv, tasty
-, tasty-expected-failure, tasty-hedgehog, tasty-hunit
+{ mkDerivation, base, bifunctors, bytestring, Cabal, cabal-doctest
+, containers, contravariant, criterion, digit, directory
+, distributive, doctest, errors, filepath, hedgehog, hoist-error
+, lens, mtl, nats, parsec, parsers, scientific, semigroups, stdenv
+, tasty, tasty-expected-failure, tasty-hedgehog, tasty-hunit
 , template-haskell, text, transformers, vector, witherable
 , wl-pprint-annotated, zippers
 }:
@@ -12,9 +12,10 @@ mkDerivation {
   src = ./.;
   setupHaskellDepends = [ base Cabal cabal-doctest ];
   libraryHaskellDepends = [
-    base bytestring containers contravariant digit distributive errors
-    hoist-error lens mtl nats parsers scientific semigroups text
-    transformers vector witherable wl-pprint-annotated zippers
+    base bifunctors bytestring containers contravariant digit
+    distributive errors hoist-error lens mtl nats parsers scientific
+    semigroups text transformers vector witherable wl-pprint-annotated
+    zippers
   ];
   testHaskellDepends = [
     base bytestring digit directory doctest filepath hedgehog lens

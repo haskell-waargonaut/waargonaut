@@ -112,6 +112,7 @@ library
                      , containers   >= 0.5.6 && < 0.7
                      , witherable   >= 0.2 && < 0.3
                      , transformers
+                     , bifunctors
                      , contravariant
                      , wl-pprint-annotated
 
