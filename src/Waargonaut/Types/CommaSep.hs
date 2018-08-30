@@ -8,7 +8,6 @@
 {-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE RankNTypes             #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
-{-# LANGUAGE StandaloneDeriving     #-}
 {-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE TypeFamilies           #-}
 -- | Both arrays and objects in JSON allow for an optional trailing comma on the
@@ -46,8 +45,8 @@ module Waargonaut.Types.CommaSep
   , commaSeparatedWS
   ) where
 
-import           Prelude                 (Eq, Int, Show, otherwise, (&&), (<=),
-                                          (==))
+import           Prelude                 (Eq, Int, Show (showsPrec), otherwise,
+                                          shows, showString, (&&), (<=), (==))
 
 import           Control.Applicative     (Applicative (..), liftA2, pure, (*>),
                                           (<*), (<*>))
@@ -69,6 +68,7 @@ import           Data.Foldable           (Foldable, asum, foldMap, foldr,
                                           length)
 import           Data.Function           (const, ($), (&))
 import           Data.Functor            (Functor, fmap, (<$), (<$>))
+import           Data.Functor.Classes    (Eq1, Show1, eq1, showsPrec1)
 import           Data.Maybe              (Maybe (..), fromMaybe, maybe)
 import           Data.Monoid             (Monoid (..), mempty)
 import           Data.Semigroup          (Semigroup ((<>)))
@@ -151,11 +151,13 @@ instance HasElem (Elem f ws a) f ws a where
  elemTrailing f (Elem x1 x2) = Elem x1 <$> f x2
  elemVal f (Elem x1 x2) = (`Elem` x2) <$> f x1
 
-deriving instance (Show ws, Show a) => Show (Elem Identity ws a)
-deriving instance (Show ws, Show a) => Show (Elem Maybe ws a)
+instance (Show1 f, Show ws, Show a) => Show (Elem f ws a) where
+  showsPrec _ (Elem v t) =
+    showString "Elem {_elemVal = " . shows v .
+      showString ", _elemTrailing = " . showsPrec1 0 t . showString "}"
 
-deriving instance (Eq ws, Eq a) => Eq (Elem Identity ws a)
-deriving instance (Eq ws, Eq a) => Eq (Elem Maybe ws a)
+instance (Eq1 f, Eq ws, Eq a) => Eq (Elem f ws a) where
+  Elem v1 t1 == Elem v2 t2 = v1 == v2 && eq1 t1 t2
 
 -- These should probably be disappeared, but I don't know of a better way to do this yet.
 flipGInLast :: Monoid ws => Elem Identity ws a -> Elem Maybe ws a
