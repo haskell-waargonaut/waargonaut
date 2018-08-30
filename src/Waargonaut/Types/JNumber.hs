@@ -64,7 +64,7 @@ import           Data.Digit              (DecDigit)
 import qualified Data.Digit              as D
 
 import           Text.Parser.Char        (CharParsing, char)
-import           Text.Parser.Combinators (many, optional, try)
+import           Text.Parser.Combinators (many, optional)
 
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as BB
@@ -273,7 +273,7 @@ parseJInt ::
   f JInt
 parseJInt =
   asum [
-    JZero <$ try (char '0')
+    JZero <$ char '0'
   , JIntInt <$> D.parseDecimalNoZero <*> many D.parseDecimal
   ]
 
@@ -304,7 +304,7 @@ parseE ::
   f E
 parseE =
   asum [
-    Ee <$ try (char 'e')
+    Ee <$ char 'e'
   , EE <$ char 'E'
   ]
 
