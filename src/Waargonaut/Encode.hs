@@ -3,6 +3,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
 -- | Types and functions to encode your data types to 'Json'.
 module Waargonaut.Encode
@@ -19,6 +20,7 @@ module Waargonaut.Encode
     -- * Premade Encoders
   , encodeInt
   , encodeBool
+  , encodeBool'
   , encodeText
   , encodeNull
   , encodeEither
@@ -38,7 +40,7 @@ module Waargonaut.Encode
 
 import           Prelude                    hiding ((.))
 
-import Control.Applicative (Applicative (..))
+import           Control.Applicative        (Applicative (..))
 import           Control.Category           ((.))
 import           Control.Lens               (At, Index, IxValue, Rewrapped,
                                              Wrapped (..), at, cons, iso, ( # ),
@@ -120,6 +122,9 @@ encodeInt = encodeIdentityA $ \i -> _JNum # (_JNumberInt # i, mempty)
 -- | Encode a 'Bool'
 encodeBool :: Encoder Bool
 encodeBool = encodeIdentityA $ \b -> _JBool # (b,mempty)
+
+encodeBool' :: Applicative f => Encoder' f Bool
+encodeBool' = encodeA $ pure . (_JBool #) . (,mempty)
 
 -- | Encode a 'Text'
 encodeText :: Encoder Text

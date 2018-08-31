@@ -37,6 +37,7 @@ module Waargonaut.Decode
   , moveRightN
   , moveRight1
   , moveToKey
+  , try
 
     -- * Decode at Cursor
   , fromKey
