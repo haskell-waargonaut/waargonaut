@@ -42,6 +42,7 @@ build-type:          Custom
 -- README.
 extra-source-files:  changelog.md
                    , test/json-data/jp100.json
+                   , test/json-data/numbers.json
                    , test/json-data/test1.json
                    , test/json-data/test2.json
                    , test/json-data/test3.json
