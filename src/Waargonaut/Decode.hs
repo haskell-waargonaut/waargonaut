@@ -113,7 +113,7 @@ newtype CursorHistory = CursorHist
 -- zipper and decode our JSON input.
 --
 newtype DecodeResult f a = DecodeResult
-  { unDecodeResult :: DecodeResultT Int f DecodeError a
+  { unDecodeResult :: DecodeResultT Int DecodeError f a
   }
   deriving ( Functor
            , Applicative
@@ -144,7 +144,7 @@ type JCursor h a =
 -- convert 'Json' structures to other data types.
 --
 type Decoder f a =
-  forall h. Decoder' (JCursor h Json) Int f DecodeError a
+  forall h. Decoder' (JCursor h Json) Int DecodeError f a
 
 -- | Function to define a 'Decoder' for a specific data type.
 --

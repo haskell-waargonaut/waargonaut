@@ -51,6 +51,7 @@ import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (ExceptT (..), MonadError (..),
                                                 runExceptT)
 import           Control.Monad.State           (MonadState (..), StateT (..))
+import           Control.Monad.Trans.Class     (MonadTrans (lift))
 
 import           Data.Bifunctor                (first)
 import           Data.Functor                  (Functor, ($>))
@@ -154,7 +155,7 @@ instance Wrapped (CursorHistory' i) where
 -- need to care about this type. It is provided so that you're not limited to
 -- how we decide you should be running your decoder.
 --
-newtype DecodeResultT i f e a = DecodeResultT
+newtype DecodeResultT i e f a = DecodeResultT
   { runDecodeResult :: ExceptT e (StateT (CursorHistory' i) f) a
   }
   deriving ( Functor
@@ -164,22 +165,28 @@ newtype DecodeResultT i f e a = DecodeResultT
            , MonadError e
            )
 
+instance MonadTrans (DecodeResultT i e) where
+  lift = DecodeResultT . lift . lift
+
 -- |
 -- Wrapper type to describe a "Decoder" from something that has a 'Json'ish
 -- value @c@, to some representation of @a@.
 --
-newtype Decoder' c i f e a = Decoder'
-  { runDecoder' :: c -> DecodeResultT i f e a
+newtype Decoder' c i e f a = Decoder'
+  { runDecoder' :: c -> DecodeResultT i e f a
   }
   deriving Functor
 
-instance Monad f => Applicative (Decoder' c i f e) where
+instance Monad f => Applicative (Decoder' c i e f) where
   pure       = pure
   aToB <*> a = Decoder' $ \c -> runDecoder' aToB c <*> runDecoder' a c
 
-instance Monad f => Monad (Decoder' c i f e) where
+instance Monad f => Monad (Decoder' c i e f) where
   return      = pure
   a >>= aToFb = Decoder' $ \c -> runDecoder' a c >>= ($ c) . runDecoder' . aToFb
+
+instance MonadTrans (Decoder' c i e) where
+  lift = Decoder' . const . lift
 
 -- |
 -- Helper function for constructing a 'Decoder''.
@@ -195,8 +202,8 @@ instance Monad f => Monad (Decoder' c i f e) where
 --
 withCursor'
   :: Monad f
-  => (c -> DecodeResultT i f e a)
-  -> Decoder' c i f e a
+  => (c -> DecodeResultT i e f a)
+  -> Decoder' c i e f a
 withCursor' =
   Decoder'
 
@@ -210,7 +217,7 @@ runDecoderResultT
   :: ( Num i
      , Monad f
      )
-  => DecodeResultT i f DecodeError a
+  => DecodeResultT i DecodeError f a
   -> f (Either (DecodeError, CursorHistory' i) a)
 runDecoderResultT =
   fmap (\(e, hist) -> first (,hist) e)
