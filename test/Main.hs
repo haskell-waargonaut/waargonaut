@@ -142,6 +142,7 @@ unitTests =
       , "test/json-data/test7.json"
       , "test/json-data/twitter100.json"
       , "test/json-data/jp100.json"
+      , "test/json-data/numbers.json"
       ]
 
 regressionTests :: TestTree

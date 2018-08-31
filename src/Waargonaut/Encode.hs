@@ -1,8 +1,9 @@
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoImplicitPrelude     #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE TypeFamilies               #-}
 -- | Types and functions to encode your data types to 'Json'.
 module Waargonaut.Encode
   (
@@ -19,6 +20,10 @@ module Waargonaut.Encode
   , encodeInt
   , encodeBool
   , encodeText
+  , encodeNull
+  , encodeEither
+  , encodeMaybe
+  , encodeMaybeToNull
   , encodeArray
   , encodeMapToObj
 
@@ -33,6 +38,7 @@ module Waargonaut.Encode
 
 import           Prelude                    hiding ((.))
 
+import Control.Applicative (Applicative (..))
 import           Control.Category           ((.))
 import           Control.Lens               (At, Index, IxValue, Rewrapped,
                                              Wrapped (..), at, cons, iso, ( # ),
@@ -81,6 +87,7 @@ instance Contravariant (Encoder' f) where
 newtype Encoder a = Encoder
   { unEncoder :: Encoder' Identity a
   }
+  deriving (Contravariant)
 
 instance (Encoder a) ~ t => Rewrapped (Encoder a) t
 
@@ -97,12 +104,14 @@ encodeA = Encoder'
 encodeIdentityA :: (a -> Json) -> Encoder a
 encodeIdentityA f = Encoder $ encodeA (Identity . f)
 
+encodeWith :: Encoder a -> a -> Json
+encodeWith e i = runIdentity (runEncoder (unEncoder e) i)
+
 -- | Run the given 'Encoder' to produce a lazy 'ByteString'.
 runPureEncoder :: Encoder a -> a -> ByteString
 runPureEncoder enc = BB.toLazyByteString
   . waargonautBuilder wsRemover
-  . runIdentity
-  . runEncoder (unEncoder enc)
+  . encodeWith enc
 
 -- | Encode an 'Int'
 encodeInt :: Encoder Int
@@ -115,6 +124,34 @@ encodeBool = encodeIdentityA $ \b -> _JBool # (b,mempty)
 -- | Encode a 'Text'
 encodeText :: Encoder Text
 encodeText = encodeIdentityA $ \t -> _JStr # (textToJString t, mempty)
+
+encodeNull :: Applicative f => Encoder' f ()
+encodeNull = encodeA $ const (pure $ _JNull # mempty)
+
+encodeMaybe
+  :: Applicative f
+  => Encoder' f ()
+  -> Encoder' f a
+  -> Encoder' f (Maybe a)
+encodeMaybe encN encJ =
+  encodeA $ maybe (runEncoder encN ()) (runEncoder encJ)
+
+-- | Encode a 'Maybe a' to either 'Encoder a' or 'null'
+encodeMaybeToNull
+  :: Applicative f
+  => Encoder' f a
+  -> Encoder' f (Maybe a)
+encodeMaybeToNull =
+  encodeMaybe encodeNull
+
+encodeEither
+  :: Applicative f
+  => Encoder' f a
+  -> Encoder' f b
+  -> Encoder' f (Either a b)
+encodeEither eA eB = encodeA $ either
+  (runEncoder eA)
+  (runEncoder eB)
 
 -- | Encode some 'a' that is contained with another 't' structure.
 encodeWithInner

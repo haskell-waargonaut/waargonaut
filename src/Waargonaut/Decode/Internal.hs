@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE DeriveFunctor #-}
 -- | Internal types and functions for building Decoder infrastructure.
 module Waargonaut.Decode.Internal
   ( CursorHistory' (..)
@@ -170,6 +171,15 @@ newtype DecodeResultT i f e a = DecodeResultT
 newtype Decoder' c i f e a = Decoder'
   { runDecoder' :: c -> DecodeResultT i f e a
   }
+  deriving Functor
+
+instance Monad f => Applicative (Decoder' c i f e) where
+  pure       = pure
+  aToB <*> a = Decoder' $ \c -> runDecoder' aToB c <*> runDecoder' a c
+
+instance Monad f => Monad (Decoder' c i f e) where
+  return      = pure
+  a >>= aToFb = Decoder' $ \c -> runDecoder' a c >>= ($ c) . runDecoder' . aToFb
 
 -- |
 -- Helper function for constructing a 'Decoder''.

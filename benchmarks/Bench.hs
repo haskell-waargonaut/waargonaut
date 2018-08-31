@@ -12,5 +12,6 @@ main = C.defaultMain
     , C.bench "test2.json" $ C.nfIO (W.simpleParse "test2.json")
     , C.bench "jp100"      $ C.nfIO (W.simpleParse "jp100.json")
     , C.bench "twitter100" $ C.nfIO (W.simpleParse "twitter100.json")
+    , C.bench "numbers"    $ C.nfIO (W.simpleParse "numbers.json")
     ]
   ]
