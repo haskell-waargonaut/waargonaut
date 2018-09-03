@@ -164,6 +164,13 @@ instance Wrapped (JObject ws a) where
 type instance IxValue (JObject ws a) = a
 type instance Index (JObject ws a)   = Int
 
+instance (Semigroup ws, Monoid ws) => Semigroup (JObject ws a) where
+  (JObject a) <> (JObject b) = JObject (a <> b)
+
+instance (Semigroup ws, Monoid ws) => Monoid (JObject ws a) where
+  mempty = JObject mempty
+  mappend = (<>)
+
 instance Bifunctor JObject where
   bimap f g (JObject c) = JObject (bimap f (bimap f g) c)
 

@@ -28,12 +28,12 @@ encoderTests = testGroup "Encoder"
   ]
 
 encodeImage :: Encoder Image
-encodeImage = E.encodeAsMapLikeObj $ \img ->
-  E.intAt "Width" (_imageW img) .
-  E.intAt "Height" (_imageH img) .
-  E.textAt "Title" (_imageTitle img) .
-  E.boolAt "Animated" (_imageAnimated img) .
-  E.arrayAt E.encodeInt "IDs" (_imageIDs img)
+encodeImage = E.mapLikeObj $ \img ->
+    E.intAt "Width" (_imageW img)
+  . E.intAt "Height" (_imageH img)
+  . E.textAt "Title" (_imageTitle img)
+  . E.boolAt "Animated" (_imageAnimated img)
+  . E.arrayAt E.int "IDs" (_imageIDs img)
 
 -- kv :: (At s, IxValue s ~ Json) => Encoder a -> Index s -> a -> h :>> s -> h :>> s
 -- kv enc k v z = z & Z.downward (at k) & Z.focus ?~ runEncoder enc v & Z.upward

@@ -33,8 +33,8 @@ import           Data.Bitraversable        (Bitraversable (bitraverse))
 import           Data.Foldable             (Foldable)
 import           Data.Function             (($))
 import           Data.Functor              (Functor, (<$>))
-import           Data.Monoid               (Monoid, mempty)
-import           Data.Semigroup            (Semigroup)
+import           Data.Monoid               (Monoid (..), mempty)
+import           Data.Semigroup            (Semigroup (..))
 import           Data.Traversable          (Traversable)
 
 import           Data.ByteString.Builder   (Builder)
@@ -76,6 +76,13 @@ instance Monoid ws => Cons (JArray ws a) (JArray ws a) a a where
 instance (Semigroup ws, Monoid ws) => AsEmpty (JArray ws a) where
   _Empty = nearly (JArray mempty) (^. _Wrapped . to (isn't _Empty))
   {-# INLINE _Empty #-}
+
+instance (Monoid ws, Semigroup ws) => Semigroup (JArray ws a) where
+  (JArray a) <> (JArray b) = JArray (a <> b)
+
+instance (Semigroup ws, Monoid ws) => Monoid (JArray ws a) where
+  mempty = JArray mempty
+  mappend = (<>)
 
 instance Bifunctor JArray where
   bimap f g (JArray cs) = JArray (bimap f g cs)

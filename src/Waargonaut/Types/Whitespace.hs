@@ -78,15 +78,15 @@ instance Wrapped WS where
   _Wrapped' = iso (\(WS x) -> x) WS
   {-# INLINE _Wrapped' #-}
 
+instance Semigroup WS where
+  (WS a) <> (WS b) = WS (a <> b)
+  {-# INLINE (<>) #-}
+
 instance Monoid WS where
   mempty = WS V.empty
   {-# INLINE mempty #-}
-  mappend (WS a) (WS b) = WS (a <> b)
+  mappend = (<>)
   {-# INLINE mappend #-}
-
-instance Semigroup WS where
-  (<>) = mappend
-  {-# INLINE (<>) #-}
 
 -- | Handy 'Prism'' between a 'Char' its possible 'Whitespace' representation.
 _WhitespaceChar :: Prism' Char Whitespace

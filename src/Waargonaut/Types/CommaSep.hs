@@ -40,19 +40,18 @@ module Waargonaut.Types.CommaSep
   ) where
 
 import           Prelude                 (Eq, Int, Show (showsPrec), otherwise,
-                                          shows, showString, (&&), (<=), (==))
+                                          showString, shows, (&&), (<=), (==))
 
 import           Control.Applicative     (Applicative (..), liftA2, pure, (*>),
                                           (<*), (<*>))
 import           Control.Category        (id, (.))
 
 import           Control.Lens            (AsEmpty (..), Cons (..), Index, Iso,
-                                          Iso', IxValue, Ixed (..), Lens',
-                                          Traversal, cons, from, isn't, iso,
-                                          mapped, nearly, over, prism, snoc, to,
-                                          traverse, unsnoc, (%%~), (%~), (.~),
-                                          (^.), (^..), (^?), _1, _2, _Cons,
-                                          _Nothing)
+                                          Iso', IxValue, Ixed (..), Lens', cons,
+                                          from, isn't, iso, mapped, nearly,
+                                          over, prism, snoc, to, traverse,
+                                          unsnoc, (%%~), (%~), (.~), (^.),
+                                          (^..), (^?), _1, _2, _Cons, _Nothing)
 
 import           Control.Error.Util      (note)
 import           Control.Monad           (Monad)
@@ -214,7 +213,8 @@ instance Monoid ws => Applicative (Elems ws) where
   Elems atobs atob <*> Elems as a = Elems (liftA2 (<*>) atobs as) (atob <*> a)
 
 instance Monoid ws => Semigroup (Elems ws a) where
-  (<>) (Elems as alast) (Elems bs blast) = Elems (snoc as (alast ^. from _ElemTrailingIso) <> bs) blast
+  (<>) (Elems as alast) (Elems bs blast) =
+    Elems (snoc as (alast ^. from _ElemTrailingIso) <> bs) blast
 
 -- | This type is our possibly empty comma-separated list of values. It carries
 -- information about any leading whitespace before the first element, as well as a
@@ -249,7 +249,7 @@ unconsElems e = maybe (e', Nothing) (\(em, ems) -> (idT em, Just $ e & elemsElem
 {-# INLINE unconsElems #-}
 
 instance (Monoid ws, Semigroup ws) => Semigroup (CommaSeparated ws a) where
-  CommaSeparated wsA a <> CommaSeparated wsB b = CommaSeparated (wsA <> wsB) (a <> b)
+  (CommaSeparated wsA a) <> (CommaSeparated wsB b) = CommaSeparated (wsA <> wsB) (a <> b)
 
 instance (Monoid ws, Semigroup ws) => Monoid (CommaSeparated ws a) where
   mempty = CommaSeparated mempty Nothing
@@ -261,7 +261,6 @@ instance Monoid ws => Filterable (CommaSeparated ws) where
     where
       newElems = case traverse f el of
         Nothing -> (\(v,l) -> Elems v (l ^. _ElemTrailingIso)) <$> unsnoc (mapMaybe (traverse f) es)
-        -- Nothing -> (\(v,l) -> Elems v (flipGInLast l)) <$> unsnoc (mapMaybe (traverse f) es)
         Just l' -> Just $ Elems (mapMaybe (traverse f) es) l'
 
 instance Monoid ws => Witherable (CommaSeparated ws) where

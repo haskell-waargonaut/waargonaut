@@ -109,15 +109,8 @@ prop_maybe_maybe = property $ do
   b <- forAll (Gen.maybe (Gen.maybe Gen.bool))
   tripping b (E.runPureEncoder enc') (D.simpleDecode parseBS dec . BSL8.toStrict)
   where
-    inObj = E.encodeAsMapLikeObj
-    orNull = E.Encoder . E.encodeMaybeToNull
-
-    enc' :: E.Encoder (Maybe (Maybe Bool))
-    enc' = orNull . E.unEncoder .
-      inObj $
-      ( inObj $
-        (orNull E.encodeBool') `E.atKey` "beep"
-      ) `E.atKey` "boop"
+    enc' = E.maybeOrNull . E.mapLikeObj
+      $ E.atKey (E.mapLikeObj $ E.atKey (E.maybeOrNull E.bool) "beep") "boop"
 
     dec :: Monad f => D.Decoder f (Maybe (Maybe Bool))
     dec = D.withCursor $ D.try . D.moveToKey "boop"

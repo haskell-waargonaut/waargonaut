@@ -14,44 +14,61 @@ module Waargonaut.Encode
 
     -- * Creation
   , encodeA
-  , encodeIdentityA
+  , encodePureA
   , runPureEncoder
 
-    -- * Premade Encoders
-  , encodeInt
-  , encodeBool
-  , encodeBool'
-  , encodeText
-  , encodeNull
-  , encodeEither
-  , encodeMaybe
-  , encodeMaybeToNull
-  , encodeArray
-  , encodeMapToObj
+    -- * Pure Encoders
+  , int
+  , bool
+  , text
+  , null
+  , either
+  , maybe
+  , maybeOrNull
+  , array
+  , mapToObj
 
     -- * Object encoder helpers
-  , encodeAsMapLikeObj
+  , mapLikeObj
   , atKey
   , intAt
   , textAt
   , boolAt
   , arrayAt
-  ) where
 
-import           Prelude                    hiding ((.))
+    -- * Applicative Encoders
+  , int'
+  , bool'
+  , text'
+  , null'
+  , either'
+  , maybe'
+  , maybeOrNull'
+  , array'
+  , mapToObj'
+
+  ) where
 
 import           Control.Applicative        (Applicative (..))
 import           Control.Category           ((.))
 import           Control.Lens               (At, Index, IxValue, Rewrapped,
                                              Wrapped (..), at, cons, iso, ( # ),
                                              (?~), _Empty, _Wrapped)
+import           Prelude                    (Bool, Int)
 
-import           Data.Traversable           (traverse)
-
+import           Data.Foldable              (Foldable, foldr)
+import           Data.Function              (const, ($))
+import           Data.Functor               (fmap)
 import           Data.Functor.Contravariant (Contravariant (..))
 import           Data.Functor.Identity      (Identity (..))
+import           Data.Traversable           (Traversable, traverse)
 
-import           Data.Monoid                (mempty)
+import           Data.Either                (Either)
+import qualified Data.Either                as Either
+import           Data.Maybe                 (Maybe)
+import qualified Data.Maybe                 as Maybe
+
+import           Data.Monoid                (Monoid, mempty)
 import           Data.Semigroup             (Semigroup)
 
 import qualified Data.ByteString.Builder    as BB
@@ -103,60 +120,90 @@ encodeA = Encoder'
 
 -- | As 'encodeA' but specialised to 'Identity' when the additional flexibility
 -- isn't needed.
-encodeIdentityA :: (a -> Json) -> Encoder a
-encodeIdentityA f = Encoder $ encodeA (Identity . f)
-
-encodeWith :: Encoder a -> a -> Json
-encodeWith e i = runIdentity (runEncoder (unEncoder e) i)
+encodePureA :: (a -> Json) -> Encoder a
+encodePureA f = Encoder $ encodeA (Identity . f)
 
 -- | Run the given 'Encoder' to produce a lazy 'ByteString'.
 runPureEncoder :: Encoder a -> a -> ByteString
 runPureEncoder enc = BB.toLazyByteString
   . waargonautBuilder wsRemover
-  . encodeWith enc
+  . runIdentity
+  . runEncoder (unEncoder enc)
 
 -- | Encode an 'Int'
-encodeInt :: Encoder Int
-encodeInt = encodeIdentityA $ \i -> _JNum # (_JNumberInt # i, mempty)
+int' :: Applicative f => Encoder' f Int
+int' = encodeA $ pure . (_JNum #) . (,mempty) . (_JNumberInt #)
 
 -- | Encode a 'Bool'
-encodeBool :: Encoder Bool
-encodeBool = encodeIdentityA $ \b -> _JBool # (b,mempty)
-
-encodeBool' :: Applicative f => Encoder' f Bool
-encodeBool' = encodeA $ pure . (_JBool #) . (,mempty)
+bool' :: Applicative f => Encoder' f Bool
+bool' = encodeA $ pure . (_JBool #) . (,mempty)
 
 -- | Encode a 'Text'
-encodeText :: Encoder Text
-encodeText = encodeIdentityA $ \t -> _JStr # (textToJString t, mempty)
+text' :: Applicative f => Encoder' f Text
+text' = encodeA $ pure . (_JStr #) . (,mempty) . textToJString
 
-encodeNull :: Applicative f => Encoder' f ()
-encodeNull = encodeA $ const (pure $ _JNull # mempty)
+null' :: Applicative f => Encoder' f ()
+null' = encodeA $ const (pure $ _JNull # mempty)
 
-encodeMaybe
+maybe'
   :: Applicative f
   => Encoder' f ()
   -> Encoder' f a
   -> Encoder' f (Maybe a)
-encodeMaybe encN encJ =
-  encodeA $ maybe (runEncoder encN ()) (runEncoder encJ)
+maybe' encN = encodeA
+  . Maybe.maybe (runEncoder encN ())
+  . runEncoder
 
 -- | Encode a 'Maybe a' to either 'Encoder a' or 'null'
-encodeMaybeToNull
+maybeOrNull'
   :: Applicative f
   => Encoder' f a
   -> Encoder' f (Maybe a)
-encodeMaybeToNull =
-  encodeMaybe encodeNull
+maybeOrNull' =
+  maybe' null'
 
-encodeEither
+either'
   :: Applicative f
   => Encoder' f a
   -> Encoder' f b
   -> Encoder' f (Either a b)
-encodeEither eA eB = encodeA $ either
-  (runEncoder eA)
-  (runEncoder eB)
+either' eA = encodeA
+  . Either.either (runEncoder eA)
+  . runEncoder
+
+int :: Encoder Int
+int = Encoder int'
+
+bool :: Encoder Bool
+bool = Encoder bool'
+
+text :: Encoder Text
+text = Encoder text'
+
+null :: Encoder ()
+null = Encoder null'
+
+maybe
+  :: Encoder ()
+  -> Encoder a
+  -> Encoder (Maybe a)
+maybe a = Encoder
+  . maybe' (unEncoder a)
+  . unEncoder
+
+maybeOrNull
+  :: Encoder a
+  -> Encoder (Maybe a)
+maybeOrNull =
+  maybe null
+
+either
+  :: Encoder a
+  -> Encoder b
+  -> Encoder (Either a b)
+either a = Encoder
+  . either' (unEncoder a)
+  . unEncoder
 
 -- | Encode some 'a' that is contained with another 't' structure.
 encodeWithInner
@@ -170,26 +217,41 @@ encodeWithInner f g =
   Encoder' $ fmap f . traverse (runEncoder g)
 
 -- | Encode some 'Traversable' of 'a' into a JSON array.
-encodeArray
+array'
   :: ( Applicative f
      , Traversable t
      )
   => Encoder' f a
   -> Encoder' f (t a)
-encodeArray = encodeWithInner
+array' = encodeWithInner
   (\xs -> _JArr # (_Wrapped # foldr cons mempty xs, mempty))
 
+array
+  :: Traversable t
+  => Encoder a
+  -> Encoder (t a)
+array = Encoder
+  . array'
+  . unEncoder
+
 -- | Encode a 'Map' in a JSON object.
-encodeMapToObj
+mapToObj'
   :: Applicative f
   => Encoder' f a
   -> (k -> Text)
   -> Encoder' f (Map k a)
-encodeMapToObj encodeVal kToText =
+mapToObj' encodeVal kToText =
   let
     mapToCS = Map.foldrWithKey (\k v -> at (kToText k) ?~ v) (_Empty # ())
   in
     encodeWithInner (\xs -> _JObj # (fromMapLikeObj $ mapToCS xs, mempty)) encodeVal
+
+mapToObj
+  :: Encoder a
+  -> (k -> Text)
+  -> Encoder (Map k a)
+mapToObj e = Encoder
+  . mapToObj' (unEncoder e)
 
 -- | Encode an 'a' at the given index on the JSON object.
 atKey
@@ -211,7 +273,7 @@ intAt
   -> MapLikeObj WS Json
   -> MapLikeObj WS Json
 intAt =
-  atKey encodeInt
+  atKey int
 
 -- | Encode a 'Text' value at the given 'Text' key.
 textAt
@@ -220,7 +282,7 @@ textAt
   -> MapLikeObj WS Json
   -> MapLikeObj WS Json
 textAt =
-  atKey encodeText
+  atKey text
 
 -- | Encode a 'Bool' at the given 'Text' key.
 boolAt
@@ -229,7 +291,7 @@ boolAt
   -> MapLikeObj WS Json
   -> MapLikeObj WS Json
 boolAt =
-  atKey encodeBool
+  atKey bool
 
 -- | Encode a 'Foldable' of 'a' at the given index on a JSON object.
 arrayAt
@@ -244,7 +306,7 @@ arrayAt
   -> t
   -> t
 arrayAt enc =
-  atKey (Encoder $ encodeArray (unEncoder enc))
+  atKey (array enc)
 
 -- | Apply a function to update a 'MapLikeObj' and encode that as a JSON object.
 --
@@ -264,7 +326,7 @@ arrayAt enc =
 -- update functions to set the keys and values as desired.
 --
 -- @
--- encodeImage :: Encoder Image
+-- encodeImage :: Applicative f => Encoder' f Image
 -- encodeImage = encodeAsMapLikeObj $ \\img ->
 --   intAt \"Width\" (_imageW img) .           -- ^ Set an 'Int' value at the \"Width\" key.
 --   intAt \"Height\" (_imageH img) .
@@ -273,12 +335,12 @@ arrayAt enc =
 --   arrayAt encodeInt \"IDs\" (_imageIDs img) -- ^ Set an @[Int]@ value at the \"IDs\" key.
 -- @
 --
-encodeAsMapLikeObj
+mapLikeObj
   :: ( AsJType Json ws a
      , Semigroup ws
      , Monoid ws
      )
   => (i -> MapLikeObj ws a -> MapLikeObj ws a)
   -> Encoder i
-encodeAsMapLikeObj f = encodeIdentityA $ \a ->
+mapLikeObj f = encodePureA $ \a ->
   _JObj # (fromMapLikeObj $ f a (_Empty # ()), mempty)
