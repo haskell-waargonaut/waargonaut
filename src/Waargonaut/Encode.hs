@@ -50,8 +50,8 @@ module Waargonaut.Encode
   ) where
 
 import           Control.Applicative        (Applicative (..))
-import           Control.Category           ((.))
-import           Control.Lens               (At, Index, IxValue, Rewrapped,
+import           Control.Category           ((.),id)
+import           Control.Lens               (At, Index, IxValue, Rewrapped, AReview,
                                              Wrapped (..), at, cons, iso, ( # ),
                                              (?~), _Empty, _Wrapped)
 import           Prelude                    (Bool, Int)
@@ -130,17 +130,27 @@ runPureEncoder enc = BB.toLazyByteString
   . runIdentity
   . runEncoder (unEncoder enc)
 
+encJ
+  :: ( Monoid t
+     , Applicative f
+     )
+  => AReview Json (b, t)
+  -> (a -> b)
+  -> Encoder' f a
+encJ c f =
+  encodeA (pure . (c #) . (,mempty) . f)
+
 -- | Encode an 'Int'
 int' :: Applicative f => Encoder' f Int
-int' = encodeA $ pure . (_JNum #) . (,mempty) . (_JNumberInt #)
+int' = encJ _JNum (_JNumberInt #)
 
 -- | Encode a 'Bool'
 bool' :: Applicative f => Encoder' f Bool
-bool' = encodeA $ pure . (_JBool #) . (,mempty)
+bool' = encJ _JBool id
 
 -- | Encode a 'Text'
 text' :: Applicative f => Encoder' f Text
-text' = encodeA $ pure . (_JStr #) . (,mempty) . textToJString
+text' = encJ _JStr textToJString
 
 null' :: Applicative f => Encoder' f ()
 null' = encodeA $ const (pure $ _JNull # mempty)
