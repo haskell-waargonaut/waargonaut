@@ -411,7 +411,7 @@ boundedChar = atCursor "Bounded Char" DR.boundedChar'
 -- | Decoder for a Haskell 'Char' value whose values represent Unicode
 -- (or equivalently ISO/IEC 10646) characters
 unboundedChar :: Monad f => Decoder f Char
-unboundedChar = atCursor "Bounded Char" DR.unboundedChar'
+unboundedChar = atCursor "Unbounded Char" DR.unboundedChar'
 
 -- | Try to decode the value at the current focus
 focus
