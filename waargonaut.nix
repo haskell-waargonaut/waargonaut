@@ -18,9 +18,9 @@ mkDerivation {
     zippers
   ];
   testHaskellDepends = [
-    base bytestring digit directory doctest filepath hedgehog lens
-    parsec semigroups tasty tasty-expected-failure tasty-hedgehog
-    tasty-hunit template-haskell text vector zippers
+    base bytestring digit directory distributive doctest filepath
+    hedgehog lens parsec semigroups tasty tasty-expected-failure
+    tasty-hedgehog tasty-hunit template-haskell text vector zippers
   ];
   benchmarkHaskellDepends = [
     base criterion lens parsec semigroups text

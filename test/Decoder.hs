@@ -38,7 +38,7 @@ parseBS :: ByteString -> Either P.ParseError WT.Json
 parseBS = P.parse WT.parseWaargonaut "ByteString"
 
 decodeTest2Json :: Either (Err P.ParseError) [Int]
-decodeTest2Json = D.simpleDecode parseBS (D.arrayOf D.int) "[23,44]"
+decodeTest2Json = D.simpleDecode parseBS (D.list D.int) "[23,44]"
 
 decodeTest3Json :: Either (Err P.ParseError) (Char,String,[Int])
 decodeTest3Json = D.simpleDecode parseBS decoder "[\"a\",\"fred\",1,2,3,4]"
@@ -48,7 +48,7 @@ decodeTest3Json = D.simpleDecode parseBS decoder "[\"a\",\"fred\",1,2,3,4]"
       liftA3 (,,)
         (D.focus D.unboundedChar fstElem)
         (D.moveRight1 fstElem >>= D.focus D.string)
-        (D.moveRightN 2 fstElem >>= D.consumeRightward D.int)
+        (D.moveRightN 2 fstElem >>= D.rightwardSnoc [] D.int)
 
 imageDecoder :: Monad f => Decoder f Image
 imageDecoder = D.withCursor $ \curs -> do
@@ -60,7 +60,7 @@ imageDecoder = D.withCursor $ \curs -> do
     <*> D.fromKey "Height" D.int o
     <*> D.fromKey "Title" D.text o
     <*> D.fromKey "Animated" D.boolean o
-    <*> D.fromKey "IDs" (D.arrayOf D.int) o
+    <*> D.fromKey "IDs" (D.list D.int) o
 
 
 decodeTest1Json :: IO (Either (Err P.ParseError) Image)

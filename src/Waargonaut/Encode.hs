@@ -342,7 +342,7 @@ arrayAt enc =
 --   intAt \"Height\" (_imageH img) .
 --   textAt \"Title\" (_imageTitle img) .
 --   boolAt \"Animated\" (_imageAnimated img) .
---   arrayAt encodeInt \"IDs\" (_imageIDs img) -- ^ Set an @[Int]@ value at the \"IDs\" key.
+--   arrayAt int \"IDs\" (_imageIDs img) -- ^ Set an @[Int]@ value at the \"IDs\" key.
 -- @
 --
 mapLikeObj

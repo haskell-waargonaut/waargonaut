@@ -32,6 +32,7 @@ module Waargonaut.Decode.Internal
   , integral'
   , scientific'
   , objTuples'
+  , directedConsumption'
 
   -- * JSON Object to Map Functions
   , mapKeepingF
@@ -308,6 +309,34 @@ objTuples' kF vF a =
       (ja L.^. jsonAssocKey . L.to kF)
       (ja L.^. jsonAssocVal . L.to vF)
 
+-- | Generalised moving decoder function.
+--
+-- Starting from the given cursor position, try to move in the direction
+-- specified by the given cursor function. Attempting to decode each item at each
+-- position using the given 'Decoder', until the movement is unsuccessful.
+--
+-- The following could be used to leverage the 'Snoc' instance of '[]' to build '[Int]'.
+--
+-- @
+-- intList :: Monad f => JCurs -> DecodeResult f [Int]
+-- intList = directedConsumption' snoc moveRight1 int
+-- @
+--
+directedConsumption'
+  :: Monad f
+  => b
+  -> (b -> a -> b)
+  -> (c -> DecodeResultT i e f c)
+  -> Decoder' c i e f a
+  -> c
+  -> DecodeResultT i e f b
+directedConsumption' empty scons mvCurs elemD =
+  go empty
+  where
+    go acc cur = do
+      r <- scons acc <$> runDecoder' elemD cur
+      try (mvCurs cur) >>= maybe (pure r) (go r)
+
 -- |
 -- Provide a generalised and low level way of turning a JSON object into a
 -- 'Map', without enforcing a choice of how we select keys.
@@ -317,11 +346,11 @@ mapKeepingF
      , Applicative f
      , AsJType a ws a
      )
-  => (t -> Maybe a1 -> Maybe a1)
+  => (t -> Maybe v -> Maybe v)
   -> (JString -> f k)
   -> (a -> f t)
   -> a
-  -> f (Map k a1)
+  -> f (Map k v)
 mapKeepingF f kF vF a =
   foldr (\(k,v) -> Map.alter (f v) k) Map.empty <$> objTuples' kF vF a
 

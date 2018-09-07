@@ -34,35 +34,3 @@ encodeImage = E.mapLikeObj $ \img ->
   . E.textAt "Title" (_imageTitle img)
   . E.boolAt "Animated" (_imageAnimated img)
   . E.arrayAt E.int "IDs" (_imageIDs img)
-
--- kv :: (At s, IxValue s ~ Json) => Encoder a -> Index s -> a -> h :>> s -> h :>> s
--- kv enc k v z = z & Z.downward (at k) & Z.focus ?~ runEncoder enc v & Z.upward
-
--- intAt :: Text -> Int -> h :>> MapLikeObj WS Json -> h :>> MapLikeObj WS Json
--- intAt = kv encodeInt
-
--- textAt :: Text -> Text -> h :>> MapLikeObj WS Json -> h :>> MapLikeObj WS Json
--- textAt = kv encodeText
-
--- boolAt :: Text -> Bool -> h :>> MapLikeObj WS Json -> h :>> MapLikeObj WS Json
--- boolAt = kv encodeBool
-
--- arrayAt :: (At s, Foldable f, IxValue s ~ Json) => Encoder a -> Index s -> f a -> h :>> s -> h :>> s
--- arrayAt enc = kv (encodeArray enc)
-
--- obj :: (Z.Zipped h a ~ MapLikeObj WS Json, Z.Zipping h a) => Zipper h i a -> Json
--- obj o = _JObj # (fromMapLikeObj $ Z.rezip o, mempty)
-
--- encodeImageZip :: Image -> Z.Top :>> MapLikeObj WS Json
--- encodeImageZip i = mapLikeObj
---   & intAt "Width" (_imageW i)
---   & intAt "Height" (_imageH i)
---   & textAt "Title" (_imageTitle i)
---   & boolAt "Animated" (_imageAnimated i)
---   & arrayAt encodeInt "IDs" (_imageIDs i)
-
--- encodeSomething :: Image -> [Int] -> Json
--- encodeSomething i xs = mapLikeObj
---   & Z.downward (at "image") & Z.focus ?~ obj (encodeImageZip i) & Z.upward
---   & Z.downward (at "ints") & Z.focus ?~ runEncoder (encodeArray encodeInt) xs
---   & obj

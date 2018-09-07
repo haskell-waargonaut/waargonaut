@@ -53,9 +53,11 @@ module Waargonaut.Decode
   , string
   , boundedChar
   , unboundedChar
-  , consumeRightward
-  , arrayOfCons
-  , arrayOf
+  , directedConsumption
+  , leftwardCons
+  , rightwardSnoc
+  , listAt
+  , list
 
   ) where
 
@@ -66,8 +68,8 @@ import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (MonadError)
 import           Control.Monad.State           (MonadState)
 
-import           Control.Lens                  (AsEmpty (..), Bazaar', Cons,
-                                                LensLike', (^.), (^?))
+import           Control.Lens                  (Bazaar', Cons, LensLike', Snoc,
+                                                (^.), (^?))
 import qualified Control.Lens                  as L
 import           Control.Lens.Internal.Indexed (Indexed, Indexing)
 
@@ -420,39 +422,57 @@ focus
 focus =
   runDecoder
 
--- | From the current cursor position, given an element 'Decoder', consume
--- rightward until unable to move further and combine the results into a 'Cons'
--- satisfying structure.
-consumeRightward
-  :: ( Monad f
-     , AsEmpty s
-     , Cons s s a a
-     )
-  => Decoder f a
+directedConsumption
+  :: Monad f
+  => s
+  -> (s -> a -> s)
+  -> (JCursor h Json -> DecodeResult f (JCursor h Json))
+  -> Decoder f a
   -> JCursor h Json
   -> DecodeResult f s
-consumeRightward elemD =
-  go (_Empty L.# ())
-  where
-    go acc cur = do
-      r <- (`L.cons` acc) <$> runDecoder elemD cur
-      try (moveRight1 cur) >>= maybe (pure r) (go r)
+directedConsumption s sas mvCurs elemD = DecodeResult
+  . DR.directedConsumption'
+    s
+    sas
+    (unDecodeResult . mvCurs)
+    elemD
 
--- | Lean on the 'Cons' and 'AsEmpty' instances from lens to let you provide a
--- 'Decoder' function and collect it into any data structure that has an
--- instance of those typeclasses.
-arrayOfCons
+leftwardCons
   :: ( Monad f
-     , AsEmpty s
      , Cons s s a a
      )
-  => Decoder f a
+  => s
+  -> Decoder f a
   -> JCursor h Json
   -> DecodeResult f s
-arrayOfCons elemD c =
+leftwardCons s elemD = DecodeResult
+  . DR.directedConsumption' s
+    (flip L.cons)
+    (unDecodeResult . moveLeft1)
+    elemD
+
+rightwardSnoc
+  :: ( Monad f
+     , Snoc s s a a
+     )
+  => s
+  -> Decoder f a
+  -> JCursor h Json
+  -> DecodeResult f s
+rightwardSnoc s elemD = DecodeResult
+  . DR.directedConsumption' s
+    L.snoc
+    (unDecodeResult . moveRight1)
+    elemD
+
+listAt
+  :: Monad f
+  => Decoder f a
+  -> JCursor h Json
+  -> DecodeResult f [a]
+listAt elemD c =
   moveAndKeepHistory D (Z.within WT.jsonTraversal c)
-  >>= consumeRightward elemD
+  >>= rightwardSnoc mempty elemD
 
--- | 'arrayOfCons' specialised to '[]'.
-arrayOf :: Monad f => Decoder f b -> Decoder f [b]
-arrayOf d = withCursor (arrayOfCons d)
+list :: Monad f => Decoder f b -> Decoder f [b]
+list d = withCursor (listAt d)

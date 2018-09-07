@@ -107,12 +107,11 @@ parseBS = P.parse W.parseWaargonaut "ByteString"
 prop_maybe_maybe :: Property
 prop_maybe_maybe = property $ do
   b <- forAll (Gen.maybe (Gen.maybe Gen.bool))
-  tripping b (E.runPureEncoder enc') (D.simpleDecode parseBS dec . BSL8.toStrict)
+  tripping b (E.runPureEncoder enc) (D.simpleDecode parseBS dec . BSL8.toStrict)
   where
-    enc' = E.maybeOrNull . E.mapLikeObj
+    enc = E.maybeOrNull . E.mapLikeObj
       $ E.atKey (E.mapLikeObj $ E.atKey (E.maybeOrNull E.bool) "beep") "boop"
 
-    dec :: Monad f => D.Decoder f (Maybe (Maybe Bool))
     dec = D.withCursor $ D.try . D.moveToKey "boop"
       >=> traverse (D.try . D.fromKey "beep" D.boolean)
 
@@ -121,7 +120,7 @@ prism_properties = testGroup "Round trip some prisms"
   [ testProperty "CommaSeparated: cons . uncons = id" prop_uncons_consCommaSep
   , testProperty "CommaSeparated (disregard WS): cons . uncons = id" prop_uncons_consCommaSepVal
   , testProperty "Char -> JChar Digit -> Maybe Char = Just id" prop_jchar
-  , testProperty "(Maybe (Maybe a)) - Round trip" prop_maybe_maybe
+  , testProperty "(Maybe (Maybe Bool)) - Round trip" prop_maybe_maybe
   ]
 
 parser_properties :: TestTree
