@@ -25,7 +25,9 @@ module Waargonaut.Encode
   , either
   , maybe
   , maybeOrNull
-  , array
+  , traversable
+  , list
+  , nonempty
   , mapToObj
 
     -- * Object encoder helpers
@@ -34,7 +36,9 @@ module Waargonaut.Encode
   , intAt
   , textAt
   , boolAt
-  , arrayAt
+  , foldableAt
+  , listAt
+  , nonemptyAt
 
     -- * Applicative Encoders
   , int'
@@ -44,16 +48,18 @@ module Waargonaut.Encode
   , either'
   , maybe'
   , maybeOrNull'
-  , array'
+  , traversable'
+  , nonempty'
+  , list'
   , mapToObj'
 
   ) where
 
 import           Control.Applicative        (Applicative (..))
-import           Control.Category           ((.),id)
-import           Control.Lens               (At, Index, IxValue, Rewrapped, AReview,
-                                             Wrapped (..), at, cons, iso, ( # ),
-                                             (?~), _Empty, _Wrapped)
+import           Control.Category           (id, (.))
+import           Control.Lens               (AReview, At, Index, IxValue,
+                                             Rewrapped, Wrapped (..), at, cons,
+                                             iso, ( # ), (?~), _Empty, _Wrapped)
 import           Prelude                    (Bool, Int)
 
 import           Data.Foldable              (Foldable, foldr)
@@ -65,6 +71,7 @@ import           Data.Traversable           (Traversable, traverse)
 
 import           Data.Either                (Either)
 import qualified Data.Either                as Either
+import           Data.List.NonEmpty         (NonEmpty)
 import           Data.Maybe                 (Maybe)
 import qualified Data.Maybe                 as Maybe
 
@@ -181,6 +188,20 @@ either' eA = encodeA
   . Either.either (runEncoder eA)
   . runEncoder
 
+nonempty'
+  :: Applicative f
+  => Encoder' f a
+  -> Encoder' f (NonEmpty a)
+nonempty' =
+  traversable'
+
+list'
+  :: Applicative f
+  => Encoder' f a
+  -> Encoder' f [a]
+list' =
+  traversable'
+
 int :: Encoder Int
 int = Encoder int'
 
@@ -215,6 +236,18 @@ either a = Encoder
   . either' (unEncoder a)
   . unEncoder
 
+nonempty
+  :: Encoder a
+  -> Encoder (NonEmpty a)
+nonempty =
+  traversable
+
+list
+  :: Encoder a
+  -> Encoder [a]
+list =
+  traversable
+
 -- | Encode some 'a' that is contained with another 't' structure.
 encodeWithInner
   :: ( Applicative f
@@ -227,21 +260,21 @@ encodeWithInner f g =
   Encoder' $ fmap f . traverse (runEncoder g)
 
 -- | Encode some 'Traversable' of 'a' into a JSON array.
-array'
+traversable'
   :: ( Applicative f
      , Traversable t
      )
   => Encoder' f a
   -> Encoder' f (t a)
-array' = encodeWithInner
+traversable' = encodeWithInner
   (\xs -> _JArr # (_Wrapped # foldr cons mempty xs, mempty))
 
-array
+traversable
   :: Traversable t
   => Encoder a
   -> Encoder (t a)
-array = Encoder
-  . array'
+traversable = Encoder
+  . traversable'
   . unEncoder
 
 -- | Encode a 'Map' in a JSON object.
@@ -304,7 +337,7 @@ boolAt =
   atKey bool
 
 -- | Encode a 'Foldable' of 'a' at the given index on a JSON object.
-arrayAt
+foldableAt
   :: ( At t
      , Traversable f
      , Foldable f
@@ -315,8 +348,32 @@ arrayAt
   -> f a
   -> t
   -> t
-arrayAt enc =
-  atKey (array enc)
+foldableAt enc =
+  atKey (traversable enc)
+
+listAt
+  :: ( At t
+     , IxValue t ~ Json
+     )
+  => Encoder a
+  -> Index t
+  -> [a]
+  -> t
+  -> t
+listAt =
+  foldableAt
+
+nonemptyAt
+  :: ( At t
+     , IxValue t ~ Json
+     )
+  => Encoder a
+  -> Index t
+  -> NonEmpty a
+  -> t
+  -> t
+nonemptyAt =
+  foldableAt
 
 -- | Apply a function to update a 'MapLikeObj' and encode that as a JSON object.
 --

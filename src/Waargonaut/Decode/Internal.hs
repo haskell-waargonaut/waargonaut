@@ -1,26 +1,23 @@
+{-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE DeriveFunctor #-}
 -- | Internal types and functions for building Decoder infrastructure.
 module Waargonaut.Decode.Internal
   ( CursorHistory' (..)
-  , prettyCursorHistory
+  , ppCursorHistory
   , DecodeResultT (..)
-  , DecodeError (..)
-  , Mv (..)
-  , prettyMv
   , Decoder' (..)
 
   , withCursor'
   , runDecoderResultT
   , try
-  , recordMv
+  , recordZipperMove
 
-  -- * Generalised Decoder Functions
+    -- * Generalised Decoder Functions
   , null'
   , int'
   , text'
@@ -34,14 +31,15 @@ module Waargonaut.Decode.Internal
   , objTuples'
   , directedConsumption'
 
-  -- * JSON Object to Map Functions
+    -- * JSON Object to Map Functions
   , mapKeepingF
   , mapKeepingFirst
   , mapKeepingLast
-  ) where
 
-import           GHC.Word                      (Word64)
-import           Numeric.Natural               (Natural)
+    -- * Re-exports
+  , module Waargonaut.Decode.Error
+  , module Waargonaut.Decode.ZipperMove
+  ) where
 
 import           Control.Applicative           (liftA2, (<|>))
 import           Control.Lens                  (Rewrapped, Wrapped (..), (%=),
@@ -59,7 +57,6 @@ import           Data.Functor                  (Functor, ($>))
 import           Data.Sequence                 (Seq)
 
 import           Data.Text                     (Text)
-import qualified Data.Text                     as Text
 
 import           Data.Map                      (Map)
 import qualified Data.Map                      as Map
@@ -71,7 +68,7 @@ import qualified Data.Witherable               as Wither
 import           Data.Scientific               (Scientific)
 import qualified Data.Scientific               as Sci
 
-import           Waargonaut.Types              (AsJType (..), JNumber, JString,
+import           Waargonaut.Types              (AsJType (..), JString,
                                                 jNumberToScientific,
                                                 jsonAssocKey, jsonAssocVal,
                                                 _JChar, _JString)
@@ -79,69 +76,34 @@ import           Waargonaut.Types.CommaSep     (toList)
 import           Waargonaut.Types.JChar        (jCharToUtf8Char)
 
 import           Text.PrettyPrint.Annotated.WL (Doc, (<+>))
-import qualified Text.PrettyPrint.Annotated.WL as WL
 
--- |
--- Set of errors that may occur during the decode phase.
---
-data DecodeError
-  = ConversionFailure Text
-  | KeyDecodeFailed Text
-  | KeyNotFound Text
-  | FailedToMove Mv
-  | NumberOutOfBounds JNumber
-  | InputOutOfBounds Word64
-  | ParseFailed Text
-  deriving (Show, Eq)
+import           Waargonaut.Decode.Error       (AsDecodeError (..),
+                                                DecodeError (..))
+import           Waargonaut.Decode.ZipperMove  (ZipperMove (..), ppZipperMove)
 
--- |
--- Set of moves that may be executed on a zipper.
---
-data Mv
-  = U
-  | D
-  | DAt Text
-  | Item Text
-  | L Natural
-  | R Natural
-  deriving (Show, Eq)
-
-prettyMv :: Mv -> Doc a
-prettyMv m = case m of
-  U        -> WL.text "up/"
-  D        -> WL.text "into\\"
-
-  (L n)    -> WL.text "->-" <+> ntxt n
-  (R n)    -> WL.text "-<-" <+> ntxt n
-
-  (DAt k)  -> WL.text "into\\" <+> itxt "key" k
-  (Item t) -> WL.text "-::" <+> itxt "item" t
-  where
-    itxt t k' = WL.parens (WL.text t <+> WL.colon <+> WL.text (Text.unpack k'))
-    ntxt n'   = WL.parens (WL.char 'i' <+> WL.char '+' <+> WL.text (show n'))
 
 -- |
 -- Track the history of the cursor as we move around the zipper.
 --
 -- It is indexed over the type of the index used to navigate the zipper.
 newtype CursorHistory' i = CursorHistory'
-  { unCursorHistory' :: Seq (Mv, i)
+  { unCursorHistory' :: Seq (ZipperMove, i)
   }
   deriving (Show, Eq)
 
-prettyCursorHistory
+ppCursorHistory
   :: Show i
   => CursorHistory' i
   -> Doc a
-prettyCursorHistory =
+ppCursorHistory =
   foldr (<+>) mempty
-  . fmap (prettyMv . fst)
+  . fmap (ppZipperMove . fst)
   . unCursorHistory'
 
 instance CursorHistory' i ~ t => Rewrapped (CursorHistory' i) t
 
 instance Wrapped (CursorHistory' i) where
-  type Unwrapped (CursorHistory' i) = Seq (Mv, i)
+  type Unwrapped (CursorHistory' i) = Seq (ZipperMove, i)
   _Wrapped' = L.iso (\(CursorHistory' x) -> x) CursorHistory'
   {-# INLINE _Wrapped' #-}
 
@@ -230,8 +192,8 @@ runDecoderResultT =
 -- Record a move on the zipper and the index of the position where the move
 -- occured.
 --
-recordMv :: MonadState (CursorHistory' i) m => Mv -> i -> m ()
-recordMv dir i = L._Wrapped %= (`L.snoc` (dir, i))
+recordZipperMove :: MonadState (CursorHistory' i) m => ZipperMove -> i -> m ()
+recordZipperMove dir i = L._Wrapped %= (`L.snoc` (dir, i))
 
 -- |
 -- Attempt a 'Decoder' action that might fail and return a 'Maybe' value
@@ -334,8 +296,12 @@ directedConsumption' empty scons mvCurs elemD =
   go empty
   where
     go acc cur = do
-      r <- scons acc <$> runDecoder' elemD cur
-      try (mvCurs cur) >>= maybe (pure r) (go r)
+      me <- fmap (scons acc) <$> try (runDecoder' elemD cur)
+      maybe (pure acc)
+        (\r -> try (mvCurs cur) >>= maybe (pure r) (go r))
+        me
+      -- r <- scons acc <$> runDecoder' elemD cur
+      -- try (mvCurs cur) >>= maybe (pure r) (go r)
 
 -- |
 -- Provide a generalised and low level way of turning a JSON object into a

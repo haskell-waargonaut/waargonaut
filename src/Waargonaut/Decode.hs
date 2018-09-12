@@ -56,6 +56,8 @@ module Waargonaut.Decode
   , directedConsumption
   , leftwardCons
   , rightwardSnoc
+  , nonEmptyAt
+  , nonempty
   , listAt
   , list
 
@@ -81,6 +83,8 @@ import qualified Control.Zipper                as Z
 
 import           Data.Functor.Identity         (Identity, runIdentity)
 
+import Data.List.NonEmpty (NonEmpty ((:|)))
+
 import           Data.Bool                     (bool)
 import           Data.Text                     (Text)
 
@@ -92,7 +96,7 @@ import qualified Waargonaut.Types              as WT
 
 import           Waargonaut.Decode.Internal    (CursorHistory' (..),
                                                 DecodeError (..), DecodeResultT,
-                                                Decoder' (..), Mv (..),
+                                                Decoder' (..), ZipperMove (..),
                                                 runDecoderResultT, try)
 
 import qualified Waargonaut.Decode.Internal    as DR
@@ -240,12 +244,12 @@ simpleDecode p dec =
 -- position and returning the new position.
 moveAndKeepHistory
   :: Monad f
-  => Mv
+  => ZipperMove
   -> Maybe (JCursor h s)
   -> DecodeResult f (JCursor h s)
 moveAndKeepHistory dir mCurs = do
   a <- mCurs <?> FailedToMove dir
-  a <$ DR.recordMv dir (Z.tooth a)
+  a <$ DR.recordZipperMove dir (Z.tooth a)
 
 -- | Using a given 'LensLike', try to step down into the 'Json' data structure
 -- to the location targeted by the lens.
@@ -335,7 +339,7 @@ atCursor
   -> Decoder f b
 atCursor t f = withCursor $ \c -> do
   b <- c ^. Z.focus . L.to (note t . f) <%?> ConversionFailure
-  b <$ DR.recordMv (Item t) (Z.tooth c)
+  b <$ DR.recordZipperMove (Item t) (Z.tooth c)
 
 -- | From the current cursor position, try to move to the value for the first
 -- occurence of that key. This move expects that you've positioned the cursor on an
@@ -465,14 +469,29 @@ rightwardSnoc s elemD = DecodeResult
     (unDecodeResult . moveRight1)
     elemD
 
+nonEmptyAt
+  :: Monad f
+  => Decoder f a
+  -> JCursor h Json
+  -> DecodeResult f (NonEmpty a)
+nonEmptyAt elemD c =
+  moveAndKeepHistory D (Z.within WT.jsonTraversal c)
+  >>= \curs -> do
+    h <- focus elemD curs
+    moveRight1 curs >>= fmap (h:|) . rightwardSnoc [] elemD
+
+nonempty :: Monad f => Decoder f b -> Decoder f (NonEmpty b)
+nonempty d = withCursor (nonEmptyAt d)
+
 listAt
   :: Monad f
   => Decoder f a
   -> JCursor h Json
   -> DecodeResult f [a]
 listAt elemD c =
-  moveAndKeepHistory D (Z.within WT.jsonTraversal c)
-  >>= rightwardSnoc mempty elemD
+  try (moveAndKeepHistory D (Z.within WT.jsonTraversal c))
+  >>= maybe (pure mempty) (rightwardSnoc mempty elemD)
 
 list :: Monad f => Decoder f b -> Decoder f [b]
 list d = withCursor (listAt d)
+

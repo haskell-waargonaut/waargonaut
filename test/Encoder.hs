@@ -33,4 +33,4 @@ encodeImage = E.mapLikeObj $ \img ->
   . E.intAt "Height" (_imageH img)
   . E.textAt "Title" (_imageTitle img)
   . E.boolAt "Animated" (_imageAnimated img)
-  . E.arrayAt E.int "IDs" (_imageIDs img)
+  . E.listAt E.int "IDs" (_imageIDs img)

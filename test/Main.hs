@@ -19,6 +19,7 @@ import qualified Data.Text.Encoding          as Text
 
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
+import qualified Hedgehog.Range                as Range
 import           Text.Parsec                 (ParseError)
 
 import           Test.Tasty
@@ -92,6 +93,13 @@ prop_jchar = property $ do
   c <- forAll Gen.unicodeAll
   Just c === ((JChar._JChar #) <$> (c ^? JChar._JChar))
 
+prop_trippingSimpleIntList :: Property
+prop_trippingSimpleIntList = property $ do
+  xs <- forAll . Gen.list (Range.linear 0 100) $ Gen.int (Range.linear 0 9999)
+  tripping xs
+    (E.runPureEncoder (E.traversable E.int))
+    (D.simpleDecode parseBS (D.list D.int) . BSL8.toStrict)
+
 prop_tripping :: Property
 prop_tripping = withTests 200 . property $
   forAll J.genJson >>= (\j -> tripping j encodeText decode)
@@ -121,6 +129,7 @@ prism_properties = testGroup "Round trip some prisms"
   , testProperty "CommaSeparated (disregard WS): cons . uncons = id" prop_uncons_consCommaSepVal
   , testProperty "Char -> JChar Digit -> Maybe Char = Just id" prop_jchar
   , testProperty "(Maybe (Maybe Bool)) - Round trip" prop_maybe_maybe
+  , testProperty "[Int] - round trip" prop_trippingSimpleIntList
   ]
 
 parser_properties :: TestTree

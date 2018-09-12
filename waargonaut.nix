@@ -1,10 +1,10 @@
 { mkDerivation, base, bifunctors, bytestring, Cabal, cabal-doctest
 , containers, contravariant, criterion, digit, directory
-, distributive, doctest, errors, filepath, hedgehog, hoist-error
-, lens, mtl, nats, parsec, parsers, scientific, semigroups, stdenv
-, tasty, tasty-expected-failure, tasty-hedgehog, tasty-hunit
-, template-haskell, text, transformers, vector, witherable
-, wl-pprint-annotated, zippers
+, distributive, doctest, errors, filepath, generics-sop, hedgehog
+, hoist-error, lens, mtl, nats, parsec, parsers, scientific
+, semigroups, stdenv, tasty, tasty-expected-failure, tasty-hedgehog
+, tasty-hunit, template-haskell, text, transformers, vector
+, witherable, wl-pprint-annotated, zippers
 }:
 mkDerivation {
   pname = "waargonaut";
@@ -13,9 +13,9 @@ mkDerivation {
   setupHaskellDepends = [ base Cabal cabal-doctest ];
   libraryHaskellDepends = [
     base bifunctors bytestring containers contravariant digit
-    distributive errors hoist-error lens mtl nats parsers scientific
-    semigroups text transformers vector witherable wl-pprint-annotated
-    zippers
+    distributive errors generics-sop hoist-error lens mtl nats parsers
+    scientific semigroups text transformers vector witherable
+    wl-pprint-annotated zippers
   ];
   testHaskellDepends = [
     base bytestring digit directory distributive doctest filepath
@@ -26,6 +26,6 @@ mkDerivation {
     base criterion lens parsec semigroups text
   ];
   homepage = "https://github.com/qfpl/waargonaut";
-  description = "JSON Mangling";
+  description = "JSON wrangling";
   license = stdenv.lib.licenses.bsd3;
 }
