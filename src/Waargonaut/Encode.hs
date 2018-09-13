@@ -16,6 +16,7 @@ module Waargonaut.Encode
   , encodeA
   , encodePureA
   , runPureEncoder
+  , encodeToJson
 
     -- * Pure Encoders
   , int
@@ -29,6 +30,7 @@ module Waargonaut.Encode
   , list
   , nonempty
   , mapToObj
+  , json
 
     -- * Object encoder helpers
   , mapLikeObj
@@ -52,6 +54,7 @@ module Waargonaut.Encode
   , nonempty'
   , list'
   , mapToObj'
+  , json'
 
   ) where
 
@@ -59,8 +62,8 @@ import           Control.Applicative        (Applicative (..))
 import           Control.Category           (id, (.))
 import           Control.Lens               (AReview, At, Index, IxValue,
                                              Rewrapped, Wrapped (..), at, cons,
-                                             iso, ( # ), (?~), _Empty, _Wrapped)
-import           Prelude                    (Bool, Int)
+                                             iso, ( # ), (?~), _Empty, _Wrapped, (^.))
+import           Prelude                    (Bool, Int, String)
 
 import           Data.Foldable              (Foldable, foldr)
 import           Data.Function              (const, ($))
@@ -89,7 +92,7 @@ import           Data.Text                  (Text)
 import           Waargonaut                 (waargonautBuilder)
 import           Waargonaut.Types           (AsJType (..), Json,
                                              MapLikeObj (..), WS, textToJString,
-                                             wsRemover, _JNumberInt)
+                                             wsRemover, _JNumberInt, _JString)
 
 -- |
 -- Define an "encoder" as a function from some @a@ to some 'Json' with the
@@ -130,12 +133,20 @@ encodeA = Encoder'
 encodePureA :: (a -> Json) -> Encoder a
 encodePureA f = Encoder $ encodeA (Identity . f)
 
+encodeToJson :: Encoder a -> a -> Json
+encodeToJson enc = runIdentity . runEncoder (unEncoder enc)
+
 -- | Run the given 'Encoder' to produce a lazy 'ByteString'.
 runPureEncoder :: Encoder a -> a -> ByteString
 runPureEncoder enc = BB.toLazyByteString
   . waargonautBuilder wsRemover
-  . runIdentity
-  . runEncoder (unEncoder enc)
+  . encodeToJson enc
+
+json' :: Applicative f => Encoder' f Json
+json' = encodeA pure
+
+json :: Encoder Json
+json = Encoder json'
 
 encJ
   :: ( Monoid t

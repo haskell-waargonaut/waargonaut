@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Types.Common
   ( genDecimalDigit
@@ -16,7 +17,10 @@ module Types.Common
   , HasImage (..)
   ) where
 
-import Control.Lens (makeClassy)
+import           Generics.SOP                (Generic, HasDatatypeInfo)
+import qualified GHC.Generics                as GHC
+
+import           Control.Lens                (makeClassy)
 
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Text                   (Text)
@@ -30,6 +34,7 @@ import qualified Data.Digit                  as D
 
 import           Waargonaut.Types.Whitespace (Whitespace (..))
 
+import           Waargonaut.Generic          (JsonEncode)
 
 data Image = Image
   { _imageW        :: Int
@@ -38,8 +43,16 @@ data Image = Image
   , _imageAnimated :: Bool
   , _imageIDs      :: [Int]
   }
-  deriving Show
+  deriving (Show, GHC.Generic)
 makeClassy ''Image
+
+instance Generic Image
+instance HasDatatypeInfo Image
+
+-- | You can just 'generics-sop' to automatically create an Encoder for you,
+-- however it is not a very clever system and may not behave precisely as you
+-- require. Be sure to check your outputs!
+instance JsonEncode Image
 
 genDecimalDigit :: Gen DecDigit
 genDecimalDigit = Gen.element decimalDigit
