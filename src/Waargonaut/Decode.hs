@@ -53,6 +53,7 @@ module Waargonaut.Decode
   , string
   , boundedChar
   , unboundedChar
+  , json
   , directedConsumption
   , leftwardCons
   , rightwardSnoc
@@ -60,15 +61,19 @@ module Waargonaut.Decode
   , nonempty
   , listAt
   , list
+  , maybe
+  , either
 
   ) where
 
+import           Prelude                       hiding (either, maybe)
 
 import           Numeric.Natural               (Natural)
 
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (MonadError)
 import           Control.Monad.State           (MonadState)
+import           Control.Monad.Trans.Class     (MonadTrans (..))
 
 import           Control.Lens                  (Bazaar', Cons, LensLike', Snoc,
                                                 (^.), (^?))
@@ -82,8 +87,9 @@ import           Control.Zipper                ((:>>))
 import qualified Control.Zipper                as Z
 
 import           Data.Functor.Identity         (Identity, runIdentity)
+import qualified Data.Maybe                    as Maybe
 
-import Data.List.NonEmpty (NonEmpty ((:|)))
+import           Data.List.NonEmpty            (NonEmpty ((:|)))
 
 import           Data.Bool                     (bool)
 import           Data.Text                     (Text)
@@ -128,6 +134,9 @@ newtype DecodeResult f a = DecodeResult
            , MonadState (CursorHistory' Int)
            , MonadError DecodeError
            )
+
+instance MonadTrans DecodeResult where
+  lift = DecodeResult . lift
 
 -- | Type alias to describe the lens that may be given to a zipper movement
 -- function to more directly target something within the 'Json' data structure.
@@ -417,6 +426,9 @@ boundedChar = atCursor "Bounded Char" DR.boundedChar'
 unboundedChar :: Monad f => Decoder f Char
 unboundedChar = atCursor "Unbounded Char" DR.unboundedChar'
 
+json :: Monad f => Decoder f Json
+json = atCursor "JSON" pure
+
 -- | Try to decode the value at the current focus
 focus
   :: Monad f
@@ -490,8 +502,23 @@ listAt
   -> DecodeResult f [a]
 listAt elemD c =
   try (moveAndKeepHistory D (Z.within WT.jsonTraversal c))
-  >>= maybe (pure mempty) (rightwardSnoc mempty elemD)
+  >>= Maybe.maybe (pure mempty) (rightwardSnoc mempty elemD)
 
 list :: Monad f => Decoder f b -> Decoder f [b]
 list d = withCursor (listAt d)
 
+maybe
+  :: Monad f
+  => Decoder f a
+  -> Decoder f (Maybe a)
+maybe hasD =
+  withCursor (try . focus hasD)
+
+either
+  :: Monad f
+  => Decoder f a
+  -> Decoder f b
+  -> Decoder f (Either a b)
+either leftD rightD = withCursor $ \c -> do
+  r' <- try (focus (Right <$> rightD) c)
+  Maybe.maybe (focus (Left <$> leftD) c) pure r'

@@ -21,9 +21,9 @@ import           Data.ByteString.Lazy (ByteString)
 
 import           Types.Common         (Image (..))
 
-import           Waargonaut.Generic   (EncodeOptions (..), JsonEncode,
-                                       NewtypeEncodeName (..),
-                                       defaultEncodeOpts, gEncoder, mkEncoder)
+import           Waargonaut.Generic   (JsonDecode, JsonEncode, NewtypeName (..),
+                                       Options (..), defaultOpts, gDecoder,
+                                       gEncoder, mkDecoder, mkEncoder)
 
 testImageDataType :: Image
 testImageDataType = Image 800 600 "View from 15th Floor" False [116, 943, 234, 38793]
@@ -50,9 +50,10 @@ instance HasDatatypeInfo Fudge
 -- instance JsonEncode Fudge
 
 instance JsonEncode Fudge where
-  mkEncoder = gEncoder
-    (defaultEncodeOpts { _encodeNewtypeWithConstructorName = ConstructorNameAsKey
-                       })
+  mkEncoder = gEncoder (defaultOpts { _optionsNewtypeWithConsName = ConstructorNameAsKey})
+
+instance JsonDecode Fudge where
+  mkDecoder = gDecoder (defaultOpts { _optionsNewtypeWithConsName = ConstructorNameAsKey})
 
 testFudge :: Fudge
 testFudge = Fudge "Chocolate"

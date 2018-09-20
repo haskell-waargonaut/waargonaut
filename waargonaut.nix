@@ -1,6 +1,6 @@
 { mkDerivation, base, bifunctors, bytestring, Cabal, cabal-doctest
-, containers, contravariant, criterion, digit, directory
-, distributive, doctest, errors, filepath, generics-sop, hedgehog
+, containers, contravariant, digit, directory, distributive
+, doctest, errors, filepath, gauge, generics-sop, hedgehog
 , hoist-error, lens, mtl, nats, parsec, parsers, scientific
 , semigroups, stdenv, tasty, tasty-expected-failure, tasty-hedgehog
 , tasty-hunit, template-haskell, text, transformers, vector
@@ -19,11 +19,12 @@ mkDerivation {
   ];
   testHaskellDepends = [
     base bytestring digit directory distributive doctest filepath
-    hedgehog lens parsec semigroups tasty tasty-expected-failure
-    tasty-hedgehog tasty-hunit template-haskell text vector zippers
+    generics-sop hedgehog lens parsec semigroups tasty
+    tasty-expected-failure tasty-hedgehog tasty-hunit template-haskell
+    text vector zippers
   ];
   benchmarkHaskellDepends = [
-    base criterion lens parsec semigroups text
+    base gauge lens parsec semigroups text
   ];
   homepage = "https://github.com/qfpl/waargonaut";
   description = "JSON wrangling";

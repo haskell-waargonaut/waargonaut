@@ -14,6 +14,8 @@ import           Data.Either           (isLeft)
 import           Data.ByteString       (ByteString)
 import qualified Data.ByteString.Char8 as BS8
 
+import Waargonaut.Generic (mkDecoder)
+
 import           Waargonaut.Decode     (Decoder, Err)
 import qualified Waargonaut.Decode     as D
 import qualified Waargonaut.Types      as WT
@@ -38,7 +40,7 @@ parseBS :: ByteString -> Either P.ParseError WT.Json
 parseBS = P.parse WT.parseWaargonaut "ByteString"
 
 decodeTest2Json :: Either (Err P.ParseError) [Int]
-decodeTest2Json = D.simpleDecode parseBS (D.list D.int) "[23,44]"
+decodeTest2Json = D.simpleDecode parseBS mkDecoder "[23,44]"
 
 decodeTest3Json :: Either (Err P.ParseError) (Char,String,[Int])
 decodeTest3Json = D.simpleDecode parseBS decoder "[\"a\",\"fred\",1,2,3,4]"
