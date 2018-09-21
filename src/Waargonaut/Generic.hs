@@ -18,7 +18,12 @@ module Waargonaut.Generic
 
 import           Generics.SOP
 
+import           Control.Lens               (findOf, folded, isn't, _Left)
+
 import           Control.Monad.Except       (lift, throwError)
+import           Control.Monad.State        (modify)
+
+import           Data.Maybe                 (fromMaybe)
 
 import           Data.List.NonEmpty         (NonEmpty)
 import           Data.Text                  (Text)
@@ -135,20 +140,6 @@ jsonInfo opts pa =
     tag (_ :* Nil) = const NoTag
     tag _          = Tag
 
-gEncoder
-  :: forall a.
-     ( Generic a
-     , HasDatatypeInfo a
-     , All2 JsonEncode (Code a)
-     )
-  => Options
-  -> Encoder a
-gEncoder opts = E.encodePureA $ \a -> hcollapse $ hcliftA2
-  (Proxy :: Proxy (All JsonEncode))
-  (gEncoder' opts)
-  (jsonInfo opts (Proxy :: Proxy a))
-  (unSOP $ from a)
-
 pJEnc :: Proxy JsonEncode
 pJEnc = Proxy
 
@@ -157,6 +148,26 @@ pJDec = Proxy
 
 pAllJDec :: Proxy (All JsonDecode)
 pAllJDec = Proxy
+
+modFieldName
+  :: Options
+  -> String
+  -> Text
+modFieldName opts =
+ Text.pack . _optionsFieldName opts
+
+gEncoder
+  :: forall a.
+     ( Generic a
+     , HasDatatypeInfo a
+     , All2 JsonEncode (Code a)
+     )
+  => Options
+  -> Encoder a
+gEncoder opts = E.encodePureA $ \a -> hcollapse $ hcliftA2 (Proxy :: Proxy (All JsonEncode))
+  (gEncoder' opts)
+  (jsonInfo opts (Proxy :: Proxy a))
+  (unSOP $ from a)
 
 gEncoder' :: forall xs. All JsonEncode xs => Options -> JsonInfo xs -> NP I xs -> K Json xs
 gEncoder' _ (JsonZero n) Nil           = K (E.encodeToJson mkEncoder (Text.pack n))
@@ -167,7 +178,7 @@ gEncoder' _ (JsonMul tag) cs           =
 
 gEncoder' opts (JsonRec tag fields) cs    = tagVal tag
   . (E.encodeToJson (E.mapToObj E.json id) . Map.fromList) . hcollapse
-  $ hcliftA2 pJEnc (\f a -> K (Text.pack (_optionsFieldName opts $ unK f), E.encodeToJson mkEncoder (unI a))) fields cs
+  $ hcliftA2 pJEnc (\f a -> K (modFieldName opts $ unK f, E.encodeToJson mkEncoder (unI a))) fields cs
 
 gDecoder
   :: forall f a.
@@ -195,15 +206,14 @@ gDecoderConstructor opts cursor ninfo =
   where
     err = Left (ConversionFailure "Generic Decoder has failed", D.CursorHist (CursorHistory' mempty))
 
-    foldForRight :: [D.DecodeResult f (SOP I xss)] -> D.DecodeResult f (SOP I xss)
-    foldForRight xs = do
-      ys' <- lift . sequence $ D.runDecoderResult <$> xs
-      either (throwError . fst) pure (foldr keepFirstRight err ys')
+    failure (e,h) = modify (const $ D.unCursorHist h) >> throwError e
 
-    keepFirstRight :: Either e a -> Either e a -> Either e a
-    keepFirstRight _           l@(Left _)  = l
-    keepFirstRight r@(Right _) _           = r
-    keepFirstRight _           r@(Right _) = r
+    -- Pretty sure there is a better way to manage this, as my intuition about
+    -- generic-sop says that I will only have one successful result for any
+    -- given type. But I'm not 100% sure that this is actually the case.
+    foldForRight :: [D.DecodeResult f (SOP I xss)] -> D.DecodeResult f (SOP I xss)
+    foldForRight xs = (lift . sequence $ D.runDecoderResult <$> xs)
+      >>= either failure pure . fromMaybe err . findOf folded (isn't _Left)
 
     injs :: NP (Injection (NP I) xss) xss
     injs = injections
@@ -221,8 +231,7 @@ mkGDecoder
   -> K (D.DecodeResult f (SOP I xss)) xs
 mkGDecoder opts cursor info (Fn inj) = K $ do
   val <- mkGDecoder2 opts cursor info
-  prod <- hsequence $ hcliftA pJDec aux val
-  pure $ SOP . unK . inj $ prod
+  SOP . unK . inj <$> hsequence (hcliftA pJDec aux val)
   where
     aux :: JsonDecode a => K Json a -> D.DecodeResult f a
     aux (K _) = D.runDecoder mkDecoder cursor
@@ -236,8 +245,6 @@ mkGDecoder2
   => Options
   -> D.JCursor h Json
   -> JsonInfo xs
-  -- -> NP (K (f (Either (DecodeError, D.CursorHistory) Json))) xs
-  -- -> K (f (Either (DecodeError, D.CursorHistory) (NP (K Json) xs))) xs
   -> D.DecodeResult f (NP (K Json) xs)
 mkGDecoder2 _ cursor (JsonZero _) =
   Nil <$ unTagVal NoTag D.json cursor
@@ -251,51 +258,9 @@ mkGDecoder2 _ cursor (JsonMul tag) = do
   where
     err = throwError (ConversionFailure "Generic List")
 
--- mkGDecoder2 opts cursor (JsonMul tag) =
---   let
---     vols :: D.DecodeResult f [Json]
---     vols = unTagVal tag (D.list D.json) cursor
-
---     vals :: D.DecodeResult f (NP (K Json) xs)
---     vals = do
---       xs <- vols
---       case fromList xs of
---         Just v -> pure v
---         Nothing -> throwError (ConversionFailure "Generic List")
---   in
---     case fromList vols of
---       Just v  -> v
---       Nothing ->
---         let
---           err = Left (ConversionFailure "Generic List", D.CursorHist (CursorHistory' mempty))
---         in
---           hpure $ K (return err)
-
 mkGDecoder2 opts cursor (JsonRec tag fields) =
-  hsequenceK $ hcliftA pJDec (mapKK (kdec cursor)) fields
+  hsequenceK $ hcliftA pJDec (mapKK (decodeAtKey cursor)) fields
   where
-    modFieldName = Text.pack . _optionsFieldName opts
-
-    kdec :: D.JCursor h Json -> String -> D.DecodeResult f Json
-    kdec c k = unTagVal tag (D.withCursor $ \c' -> D.fromKey (modFieldName k) D.json c') c
-
--- mkGDecoder'
---   :: forall (xss :: [[*]]) (xs :: [*]) f h a.
---      ( All JsonDecode xs
---      , SListI xs
---      , Monad f
---     )
---   => Options
---   -> D.JCursor h Json
---   -> JsonInfo xs
---   -> D.DecodeResult f (NP (K a) xs)
--- mkGDecoder' opts cursor (JsonZero _)  = Nil                <$  unTagVal NoTag mkDecoder cursor
--- mkGDecoder' opts cursor (JsonOne tag) = (\v -> K v :* Nil) <$> unTagVal tag mkDecoder cursor
--- mkGDecoder' opts cursor (JsonMul tag) = do
---   xs <- unTagVal tag (D.list mkDecoder) cursor
---   case fromList xs of
---     Just v  -> pure v
---     Nothing -> throwError (ConversionFailure "Attempted list decode")
-
--- mkGDecoder' opts cursor (JsonRec tag fields) =
---   hsequenceK $ hcliftA (Proxy @JsonDecode) (mapKK (\k -> D.fromKey (Text.pack k) mkDecoder cursor)) fields
+    decodeAtKey c k = unTagVal tag
+      (D.withCursor $ D.fromKey (modFieldName opts k) D.json)
+      c
