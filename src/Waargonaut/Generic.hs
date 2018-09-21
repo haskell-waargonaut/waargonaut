@@ -22,6 +22,7 @@ import           Control.Lens               (findOf, folded, isn't, _Left)
 
 import           Control.Monad.Except       (lift, throwError)
 import           Control.Monad.State        (modify)
+import qualified Control.Zipper             as Z
 
 import           Data.Maybe                 (fromMaybe)
 
@@ -82,6 +83,7 @@ instance JsonDecode Bool                                         where mkDecoder
 type JTag = String
 
 data Tag = NoTag | Tag JTag
+  deriving Show
 
 data JsonInfo :: [*] -> * where
   JsonZero :: ConstructorName -> JsonInfo '[]
@@ -234,7 +236,7 @@ mkGDecoder opts cursor info (Fn inj) = K $ do
   SOP . unK . inj <$> hsequence (hcliftA pJDec aux val)
   where
     aux :: JsonDecode a => K Json a -> D.DecodeResult f a
-    aux (K _) = D.runDecoder mkDecoder cursor
+    aux = D.runDecoder mkDecoder . Z.zipper . unK
 
 mkGDecoder2
   :: forall (xs :: [*]) f h.
@@ -259,8 +261,8 @@ mkGDecoder2 _ cursor (JsonMul tag) = do
     err = throwError (ConversionFailure "Generic List")
 
 mkGDecoder2 opts cursor (JsonRec tag fields) =
-  hsequenceK $ hcliftA pJDec (mapKK (decodeAtKey cursor)) fields
+  hsequenceK $ hcliftA pJDec (mapKK decodeAtKey) fields
   where
-    decodeAtKey c k = unTagVal tag
-      (D.withCursor $ D.fromKey (modFieldName opts k) D.json)
-      c
+    decodeAtKey k = unTagVal tag (
+      D.withCursor $ D.fromKey (modFieldName opts k) D.json
+      ) cursor

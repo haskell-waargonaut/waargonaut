@@ -89,11 +89,10 @@ library
                      , Waargonaut.Decode.ZipperMove
                      , Waargonaut.Decode.Error
 
-                     , Waargonaut.Generic
-
                      , Waargonaut.Decode
-
                      , Waargonaut.Encode
+
+                     , Waargonaut.Generic
 
                      , Waargonaut
 

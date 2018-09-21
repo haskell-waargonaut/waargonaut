@@ -19,14 +19,13 @@ import qualified Data.Text.Encoding          as Text
 
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
-import qualified Hedgehog.Range                as Range
+import qualified Hedgehog.Range              as Range
 import           Text.Parsec                 (ParseError)
 
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Test.Tasty.HUnit
 
-import qualified Text.Parsec                 as P
 
 import           Waargonaut                  (Json)
 import qualified Waargonaut                  as W
@@ -38,13 +37,13 @@ import qualified Waargonaut.Decode           as D
 import qualified Waargonaut.Encode           as E
 
 import qualified Types.CommaSep              as CS
+import qualified Types.Common                as Common
 import qualified Types.Json                  as J
 import qualified Types.Whitespace            as WS
 
-import qualified Utils
-
 import qualified Decoder
 import qualified Encoder
+import qualified Utils
 
 encodeText
   :: Json
@@ -98,7 +97,20 @@ prop_trippingSimpleIntList = property $ do
   xs <- forAll . Gen.list (Range.linear 0 100) $ Gen.int (Range.linear 0 9999)
   tripping xs
     (E.runPureEncoder (E.traversable E.int))
-    (D.simpleDecode parseBS (D.list D.int) . BSL8.toStrict)
+    (D.simpleDecode Common.parseBS (D.list D.int) . BSL8.toStrict)
+
+prop_tripping_image_record_generic :: Property
+prop_tripping_image_record_generic = withTests 1 . property $
+  Common.prop_generic_tripping Common.testImageDataType
+
+prop_tripping_maybe_bool_generic :: Property
+prop_tripping_maybe_bool_generic = property $
+  forAll (Gen.maybe Gen.bool) >>= Common.prop_generic_tripping
+
+prop_tripping_int_list_generic :: Property
+prop_tripping_int_list_generic = property $ do
+  xs <- forAll . Gen.list (Range.linear 0 100) $ Gen.int (Range.linear 0 9999)
+  Common.prop_generic_tripping xs
 
 prop_tripping :: Property
 prop_tripping = withTests 200 . property $
@@ -109,13 +121,10 @@ prop_print_parse_print_id = withTests 200 . property $ do
   printedA <- forAll $ encodeText <$> J.genJson
   Right printedA === (encodeText <$> decode printedA)
 
-parseBS :: ByteString -> Either P.ParseError Json
-parseBS = P.parse W.parseWaargonaut "ByteString"
-
 prop_maybe_maybe :: Property
 prop_maybe_maybe = property $ do
   b <- forAll (Gen.maybe (Gen.maybe Gen.bool))
-  tripping b (E.runPureEncoder enc) (D.simpleDecode parseBS dec . BSL8.toStrict)
+  tripping b (E.runPureEncoder enc) (D.simpleDecode Common.parseBS dec . BSL8.toStrict)
   where
     enc = E.maybeOrNull . E.mapLikeObj
       $ E.atKey (E.mapLikeObj $ E.atKey (E.maybeOrNull E.bool) "beep") "boop"
@@ -123,13 +132,16 @@ prop_maybe_maybe = property $ do
     dec = D.withCursor $ D.try . D.moveToKey "boop"
       >=> traverse (D.try . D.fromKey "beep" D.boolean)
 
-prism_properties :: TestTree
-prism_properties = testGroup "Round trip some prisms"
+tripping_properties :: TestTree
+tripping_properties = testGroup "Round Trip"
   [ testProperty "CommaSeparated: cons . uncons = id" prop_uncons_consCommaSep
   , testProperty "CommaSeparated (disregard WS): cons . uncons = id" prop_uncons_consCommaSepVal
   , testProperty "Char -> JChar Digit -> Maybe Char = Just id" prop_jchar
   , testProperty "(Maybe (Maybe Bool)) - Round trip" prop_maybe_maybe
-  , testProperty "[Int] - round trip" prop_trippingSimpleIntList
+  , testProperty "[Int]" prop_trippingSimpleIntList
+  , testProperty "[Int] (generic)" prop_tripping_int_list_generic
+  , testProperty "Maybe Bool (generic)" prop_tripping_maybe_bool_generic
+  , testProperty "Image record (generic)" prop_tripping_image_record_generic
   ]
 
 parser_properties :: TestTree
@@ -185,7 +197,7 @@ regressionTests = testGroup
 main :: IO ()
 main = defaultMain $ testGroup "Waargonaut All Tests"
   [ parser_properties
-  , prism_properties
+  , tripping_properties
   , unitTests
   , regressionTests
 

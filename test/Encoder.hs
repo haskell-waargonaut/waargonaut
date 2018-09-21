@@ -19,24 +19,24 @@ import qualified Waargonaut.Encode    as E
 
 import           Data.ByteString.Lazy (ByteString)
 
-import           Types.Common         (Image (..))
+import           Types.Common         (Image (..), testImageDataType)
 
 import           Waargonaut.Generic   (JsonDecode, JsonEncode, NewtypeName (..),
                                        Options (..), defaultOpts, gDecoder,
                                        gEncoder, mkDecoder, mkEncoder)
 
-testImageDataType :: Image
-testImageDataType = Image 800 600 "View from 15th Floor" False [116, 943, 234, 38793]
-
 testImageEncodedNoSpaces :: ByteString
 testImageEncodedNoSpaces = "{\"Width\":800,\"Height\":600,\"Title\":\"View from 15th Floor\",\"Animated\":false,\"IDs\":[116,943,234,38793]}"
+
+testImageGenericEncode :: ByteString
+testImageGenericEncode = "{\"Animated\":false,\"Height\":600,\"IDs\":[116,943,234,38793],\"Title\":\"View from 15th Floor\",\"Width\":800}"
 
 -- | The recommended way of defining an Encoder is to be explicit, the 'Generic'
 -- Encoder isn't very clever and may not always behave as you like.
 encodeImage :: Encoder Image
 encodeImage = E.mapLikeObj $ \img ->
-    E.intAt "Width" (_imageW img)
-  . E.intAt "Height" (_imageH img)
+    E.intAt "Width" (_imageWidth img)
+  . E.intAt "Height" (_imageHeight img)
   . E.textAt "Title" (_imageTitle img)
   . E.boolAt "Animated" (_imageAnimated img)
   . E.listAt E.int "IDs" (_imageIDs img)
@@ -75,8 +75,8 @@ tCase nm enc a =
 
 encoderTests :: TestTree
 encoderTests = testGroup "Encoder"
-  [ tCase"Encode Image (No whitespace - default)" encodeImage testImageDataType testImageEncodedNoSpaces
-  -- , tCase "Encode newtype - unwrapped" mkEncoder testFudge testFudgeEncodedUnwrapped
+  [ tCase "Encode Image" encodeImage testImageDataType testImageEncodedNoSpaces
+  , tCase "Encode Image (Generic)" mkEncoder testImageDataType testImageGenericEncode
   , tCase "Encode newtype - with constructor name" mkEncoder testFudge testFudgeEncodedWithConsName
   ]
 
