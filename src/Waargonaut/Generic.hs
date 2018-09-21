@@ -6,7 +6,6 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
 module Waargonaut.Generic
   ( JsonEncode (..)
   , JsonDecode (..)
@@ -145,9 +144,9 @@ gEncoder
   => Options
   -> Encoder a
 gEncoder opts = E.encodePureA $ \a -> hcollapse $ hcliftA2
-  (Proxy @(All JsonEncode))
+  (Proxy :: Proxy (All JsonEncode))
   (gEncoder' opts)
-  (jsonInfo opts (Proxy @a))
+  (jsonInfo opts (Proxy :: Proxy a))
   (unSOP $ from a)
 
 pJEnc :: Proxy JsonEncode
@@ -180,7 +179,7 @@ gDecoder
   => Options
   -> Decoder f a
 gDecoder opts = D.withCursor $ \cursor ->
-  to <$> gDecoderConstructor opts cursor (jsonInfo opts (Proxy @a))
+  to <$> gDecoderConstructor opts cursor (jsonInfo opts (Proxy :: Proxy a))
 
 gDecoderConstructor
   :: forall (xss :: [[*]]) f h.
