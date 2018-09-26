@@ -24,7 +24,7 @@ module Waargonaut.Decode.Internal
   , string'
   , unboundedChar'
   , boundedChar'
-  , boolean'
+  , bool'
   , array'
   , integral'
   , scientific'
@@ -233,8 +233,8 @@ int' :: AsJType a ws a => a -> Maybe Int
 int' = integral'
 
 -- | Try to decode a 'Bool' from some 'Json' value
-boolean' :: AsJType a ws a => a -> Maybe Bool
-boolean' = L.preview (_JBool . _1)
+bool' :: AsJType a ws a => a -> Maybe Bool
+bool' = L.preview (_JBool . _1)
 
 -- | Try to decode a 'null' value from some 'Json' value
 null' :: AsJType a ws a => a -> Maybe ()

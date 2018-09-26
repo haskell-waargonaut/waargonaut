@@ -62,11 +62,11 @@ import           Control.Applicative        (Applicative (..))
 import           Control.Category           (id, (.))
 import           Control.Lens               (AReview, At, Index, IxValue,
                                              Rewrapped, Wrapped (..), at, cons,
-                                             iso, ( # ), (?~), _Empty, _Wrapped, (^.))
-import           Prelude                    (Bool, Int, String)
+                                             iso, ( # ), (?~), _Empty, _Wrapped)
+import           Prelude                    (Bool, Int)
 
 import           Data.Foldable              (Foldable, foldr)
-import           Data.Function              (const, ($))
+import           Data.Function              (const, flip, ($))
 import           Data.Functor               (fmap)
 import           Data.Functor.Contravariant (Contravariant (..))
 import           Data.Functor.Identity      (Identity (..))
@@ -92,7 +92,7 @@ import           Data.Text                  (Text)
 import           Waargonaut                 (waargonautBuilder)
 import           Waargonaut.Types           (AsJType (..), Json,
                                              MapLikeObj (..), WS, textToJString,
-                                             wsRemover, _JNumberInt, _JString)
+                                             wsRemover, _JNumberInt)
 
 -- |
 -- Define an "encoder" as a function from some @a@ to some 'Json' with the
@@ -312,12 +312,12 @@ atKey
   :: ( At t
      , IxValue t ~ Json
      )
-  => Encoder a
-  -> Index t
+  => Index t
+  -> Encoder a
   -> a
   -> t
   -> t
-atKey enc k v =
+atKey k enc v =
   at k ?~ runIdentity (runEncoder (unEncoder enc) v)
 
 -- | Encode an 'Int' at the given 'Text' key.
@@ -327,7 +327,7 @@ intAt
   -> MapLikeObj WS Json
   -> MapLikeObj WS Json
 intAt =
-  atKey int
+  flip atKey int
 
 -- | Encode a 'Text' value at the given 'Text' key.
 textAt
@@ -336,7 +336,7 @@ textAt
   -> MapLikeObj WS Json
   -> MapLikeObj WS Json
 textAt =
-  atKey text
+  flip atKey text
 
 -- | Encode a 'Bool' at the given 'Text' key.
 boolAt
@@ -345,7 +345,7 @@ boolAt
   -> MapLikeObj WS Json
   -> MapLikeObj WS Json
 boolAt =
-  atKey bool
+  flip atKey bool
 
 -- | Encode a 'Foldable' of 'a' at the given index on a JSON object.
 foldableAt
@@ -360,7 +360,7 @@ foldableAt
   -> t
   -> t
 foldableAt enc =
-  atKey (traversable enc)
+  flip atKey (traversable enc)
 
 listAt
   :: ( At t

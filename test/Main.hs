@@ -3,7 +3,6 @@ module Main where
 
 import           Control.Lens                (( # ), (^.), (^?), _2)
 import qualified Control.Lens                as L
-import           Control.Monad               ((>=>))
 
 import           Data.Either                 (isLeft)
 
@@ -92,8 +91,8 @@ prop_jchar = property $ do
   c <- forAll Gen.unicodeAll
   Just c === ((JChar._JChar #) <$> (c ^? JChar._JChar))
 
-prop_trippingSimpleIntList :: Property
-prop_trippingSimpleIntList = property $ do
+prop_tripping_int_list :: Property
+prop_tripping_int_list = property $ do
   xs <- forAll . Gen.list (Range.linear 0 100) $ Gen.int (Range.linear 0 9999)
   tripping xs
     (E.runPureEncoder (E.traversable E.int))
@@ -106,6 +105,10 @@ prop_tripping_image_record_generic = withTests 1 . property $
 prop_tripping_maybe_bool_generic :: Property
 prop_tripping_maybe_bool_generic = property $
   forAll (Gen.maybe Gen.bool) >>= Common.prop_generic_tripping
+
+prop_tripping_maybe_maybe_bool_generic :: Property
+prop_tripping_maybe_maybe_bool_generic = property $
+  forAll (Gen.maybe (Gen.maybe Gen.bool)) >>= Common.prop_generic_tripping
 
 prop_tripping_int_list_generic :: Property
 prop_tripping_int_list_generic = property $ do
@@ -122,23 +125,41 @@ prop_print_parse_print_id = withTests 200 . property $ do
   Right printedA === (encodeText <$> decode printedA)
 
 prop_maybe_maybe :: Property
-prop_maybe_maybe = property $ do
-  b <- forAll (Gen.maybe (Gen.maybe Gen.bool))
-  tripping b (E.runPureEncoder enc) (D.simpleDecode Common.parseBS dec . BSL8.toStrict)
-  where
-    enc = E.maybeOrNull . E.mapLikeObj
-      $ E.atKey (E.mapLikeObj $ E.atKey (E.maybeOrNull E.bool) "beep") "boop"
+prop_maybe_maybe = withTests 1 . property $ do
+  let
+    n   = Nothing
+    jn  = Just Nothing
+    jjt = Just (Just True)
+    jjf = Just (Just False)
 
-    dec = D.withCursor $ D.try . D.moveToKey "boop"
-      >=> traverse (D.try . D.fromKey "beep" D.boolean)
+  trippin' n
+  trippin' jn
+  trippin' jjt
+  trippin' jjf
+  where
+    trippin' a = tripping a
+      (E.runPureEncoder enc)
+      (D.simpleDecode Common.parseBS dec . BSL8.toStrict)
+
+    enc = E.maybeOrNull . E.mapLikeObj . E.atKey "boop"
+      -- $ E.mapLikeObj (E.atKey "beep" (E.maybeOrNull E.bool))
+      $ E.maybeOrNull (E.mapLikeObj (E.atKey "beep" E.bool))
+
+    dec = D.maybeOrNull $ D.atKey "boop"
+      $ D.maybeOrNull (D.atKey "beep" D.bool)
+      -- $ D.atKey "beep" (D.maybeOrNull D.bool)
 
 tripping_properties :: TestTree
 tripping_properties = testGroup "Round Trip"
   [ testProperty "CommaSeparated: cons . uncons = id" prop_uncons_consCommaSep
   , testProperty "CommaSeparated (disregard WS): cons . uncons = id" prop_uncons_consCommaSepVal
   , testProperty "Char -> JChar Digit -> Maybe Char = Just id" prop_jchar
-  , testProperty "(Maybe (Maybe Bool)) - Round trip" prop_maybe_maybe
-  , testProperty "[Int]" prop_trippingSimpleIntList
+  , testProperty "(Maybe (Maybe Bool))" prop_maybe_maybe
+  , testProperty "[Int]" prop_tripping_int_list
+
+  -- Cannot work because there isn't enough structure provided in the encoding for this to be able to be decoded.
+  -- , testProperty "(Maybe (Maybe Bool)) (generic)" prop_tripping_maybe_maybe_bool_generic
+
   , testProperty "[Int] (generic)" prop_tripping_int_list_generic
   , testProperty "Maybe Bool (generic)" prop_tripping_maybe_bool_generic
   , testProperty "Image record (generic)" prop_tripping_image_record_generic
@@ -162,7 +183,6 @@ testFileFailure :: FilePath -> Assertion
 testFileFailure fp = do
   s <- BS8.readFile fp
   assertBool (fp <> " should fail to parse!") (isLeft $ parsePrint s)
-
 
 unitTests :: TestTree
 unitTests =

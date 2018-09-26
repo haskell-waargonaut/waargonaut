@@ -41,6 +41,7 @@ module Waargonaut.Decode
 
     -- * Decode at Cursor
   , fromKey
+  , atKey
   , atCursor
   , focus
 
@@ -48,11 +49,12 @@ module Waargonaut.Decode
   , scientific
   , integral
   , int
-  , boolean
+  , bool
   , text
   , string
   , boundedChar
   , unboundedChar
+  , null
   , json
   , directedConsumption
   , leftwardCons
@@ -62,13 +64,17 @@ module Waargonaut.Decode
   , listAt
   , list
   , maybe
+  , maybeOrNull
+  , withDefault
   , either
 
   ) where
 
-import           Prelude                       hiding (either, maybe)
+import           Prelude                       hiding (either, maybe, null)
 
 import           Numeric.Natural               (Natural)
+
+import Control.Applicative ((<|>), liftA2)
 
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (MonadError)
@@ -91,7 +97,7 @@ import qualified Data.Maybe                    as Maybe
 
 import           Data.List.NonEmpty            (NonEmpty ((:|)))
 
-import           Data.Bool                     (bool)
+import qualified Data.Bool                     as Bool
 import           Data.Text                     (Text)
 
 import           Data.Scientific               (Scientific)
@@ -185,7 +191,7 @@ type Decoder f a =
 --   \<$> D.fromKey \"Width\" D.int curs
 --   \<*> D.fromKey \"Height\" D.int curs
 --   \<*> D.fromKey \"Title\" D.text curs
---   \<*> D.fromKey \"Animated\" D.boolean curs
+--   \<*> D.fromKey \"Animated\" D.bool curs
 --   \<*> D.fromKey \"IDs\" intArray curs
 -- @
 --
@@ -369,7 +375,7 @@ moveToKey k =
     )
   where
     shuffleToKey cu = Z.within WT.jsonAssocKey cu ^? L._Just . Z.focus . L.re WT._JString
-      >>= bool (Just cu) (Z.rightward cu >>= shuffleToKey) . (/=k)
+      >>= Bool.bool (Just cu) (Z.rightward cu >>= shuffleToKey) . (/=k)
 
     intoElems = WT._JObj . L._1 . L._Wrapped . WT._CommaSeparated . L._2 . L._Just
 
@@ -392,6 +398,14 @@ fromKey
 fromKey k d =
   moveToKey k >=> runDecoder d
 
+atKey
+  :: Monad f
+  => Text
+  -> Decoder f a
+  -> Decoder f a
+atKey k d =
+  withCursor (fromKey k d)
+
 -- | Decoder for 'Scientific'
 scientific :: Monad f => Decoder f Scientific
 scientific = atCursor "Scientific" DR.scientific'
@@ -405,8 +419,8 @@ int :: Monad f => Decoder f Int
 int = atCursor "Int" DR.int'
 
 -- | Decoder for 'Bool'
-boolean :: Monad f => Decoder f Bool
-boolean = atCursor "Bool" DR.boolean'
+bool :: Monad f => Decoder f Bool
+bool = atCursor "Bool" DR.bool'
 
 -- | Decoder for 'Text', as per the 'Text' documentation any unacceptable utf8 characters will be replaced.
 text :: Monad f => Decoder f Text
@@ -415,6 +429,10 @@ text = atCursor "Text" DR.text'
 -- | Decoder for 'String'
 string :: Monad f => Decoder f String
 string = atCursor "String" DR.string'
+
+-- | Decoder for 'null'
+null :: Monad f => Decoder f ()
+null = atCursor "null" DR.null'
 
 -- | Decoder for a 'Char' value that cannot contain values in the range U+D800
 -- to U+DFFF. This decoder will fail if the 'Char' is outside of this range.
@@ -507,11 +525,28 @@ listAt elemD c =
 list :: Monad f => Decoder f b -> Decoder f [b]
 list d = withCursor (listAt d)
 
+withDefault
+  :: Monad f
+  => Decoder f a
+  -> a
+  -> Decoder f a
+withDefault hasD def =
+  withCursor (fmap (Maybe.fromMaybe def) . try . focus hasD)
+
 maybe
   :: Monad f
   => Decoder f a
+  -> Decoder f a
   -> Decoder f (Maybe a)
-maybe hasD =
+maybe hasD def =
+  withCursor $ \c ->
+    liftA2 (<|>) (try (focus hasD c)) (try (focus def c))
+
+maybeOrNull
+  :: Monad f
+  => Decoder f a
+  -> Decoder f (Maybe a)
+maybeOrNull hasD =
   withCursor (try . focus hasD)
 
 either

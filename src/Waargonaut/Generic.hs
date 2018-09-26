@@ -45,6 +45,7 @@ import           Waargonaut.Decode.Internal (CursorHistory' (..))
 data NewtypeName
   = Unwrap
   | ConstructorNameAsKey
+  deriving (Show, Eq)
 
 data Options = Options
   { _optionsFieldName           :: String -> String
@@ -72,17 +73,19 @@ class JsonDecode a where
   default mkDecoder :: (Monad f, Generic a, HasDatatypeInfo a, All2 JsonDecode (Code a)) => Decoder f a
   mkDecoder = gDecoder defaultOpts
 
-instance JsonDecode a                 => JsonDecode (Maybe a)    where mkDecoder = D.maybe mkDecoder
+instance JsonDecode a                 => JsonDecode (Maybe a)    where mkDecoder = D.maybeOrNull mkDecoder
 instance (JsonDecode a, JsonDecode b) => JsonDecode (Either a b) where mkDecoder = D.either mkDecoder mkDecoder
 instance (JsonDecode a)               => JsonDecode [a]          where mkDecoder = D.list mkDecoder
 instance (JsonDecode a)               => JsonDecode (NonEmpty a) where mkDecoder = D.nonempty mkDecoder
 instance JsonDecode Text                                         where mkDecoder = D.text
 instance JsonDecode Int                                          where mkDecoder = D.int
-instance JsonDecode Bool                                         where mkDecoder = D.boolean
+instance JsonDecode Bool                                         where mkDecoder = D.bool
 
 type JTag = String
 
-data Tag = NoTag | Tag JTag
+data Tag
+  = NoTag
+  | Tag JTag
   deriving Show
 
 data JsonInfo :: [*] -> * where
@@ -91,14 +94,27 @@ data JsonInfo :: [*] -> * where
   JsonMul  :: SListI xs => Tag -> JsonInfo xs
   JsonRec  :: SListI xs => Tag -> NP (K String) xs -> JsonInfo xs
 
-inObj :: Encoder a -> String -> Encoder a
-inObj en t = E.mapLikeObj (E.atKey en (Text.pack t))
+inObj
+  :: Encoder a
+  -> String
+  -> Encoder a
+inObj en t =
+  E.mapLikeObj (E.atKey (Text.pack t) en)
 
-tagVal :: SListI xs => Tag -> Json -> K Json xs
+tagVal
+  :: SListI xs
+  => Tag
+  -> Json
+  -> K Json xs
 tagVal  NoTag  v = K v
 tagVal (Tag t) v = K (E.encodeToJson (inObj E.json t) v)
 
-unTagVal :: Monad f => Tag -> Decoder f a -> D.JCursor h Json -> D.DecodeResult f a
+unTagVal
+  :: Monad f
+  => Tag
+  -> Decoder f a
+  -> D.JCursor h Json
+  -> D.DecodeResult f a
 unTagVal NoTag   d = D.focus d
 unTagVal (Tag n) d = D.fromKey (Text.pack n) d
 
@@ -119,7 +135,7 @@ jInfoFor opts _ tag (Record n fs) =
   JsonRec (tag n) (hliftA fname fs)
   where
     fname :: FieldInfo a -> K String a
-    fname (FieldInfo name) = K (_optionsFieldName opts name)
+    fname (FieldInfo name) = K $ _optionsFieldName opts name
 
 jsonInfo
   :: forall a.
@@ -166,21 +182,40 @@ gEncoder
      )
   => Options
   -> Encoder a
-gEncoder opts = E.encodePureA $ \a -> hcollapse $ hcliftA2 (Proxy :: Proxy (All JsonEncode))
+gEncoder opts = E.encodePureA $ \a -> hcollapse $ hcliftA2
+  (Proxy :: Proxy (All JsonEncode))
   (gEncoder' opts)
   (jsonInfo opts (Proxy :: Proxy a))
   (unSOP $ from a)
 
-gEncoder' :: forall xs. All JsonEncode xs => Options -> JsonInfo xs -> NP I xs -> K Json xs
-gEncoder' _ (JsonZero n) Nil           = K (E.encodeToJson mkEncoder (Text.pack n))
-gEncoder' _ (JsonOne tag) (I a :* Nil) = tagVal tag (E.encodeToJson mkEncoder a)
+gEncoder'
+  :: forall xs.
+     All JsonEncode xs
+  => Options
+  -> JsonInfo xs
+  -> NP I xs
+  -> K Json xs
+gEncoder' _ (JsonZero n) Nil           =
+  K (E.encodeToJson mkEncoder (Text.pack n))
+
+gEncoder' _ (JsonOne tag) (I a :* Nil) =
+  tagVal tag (E.encodeToJson mkEncoder a)
 
 gEncoder' _ (JsonMul tag) cs           =
-  tagVal tag (E.encodeToJson (E.list E.json) (hcollapse $ hcliftA pJEnc (K . E.encodeToJson mkEncoder . unI) cs))
+  tagVal tag . enc . hcollapse $ hcliftA pJEnc ik cs
+  where
+    ik :: JsonEncode a => I a -> K Json a
+    ik = K . E.encodeToJson mkEncoder . unI
 
-gEncoder' opts (JsonRec tag fields) cs    = tagVal tag
-  . (E.encodeToJson (E.mapToObj E.json id) . Map.fromList) . hcollapse
-  $ hcliftA2 pJEnc (\f a -> K (modFieldName opts $ unK f, E.encodeToJson mkEncoder (unI a))) fields cs
+    enc = E.encodeToJson (E.list E.json)
+
+gEncoder' opts (JsonRec tag fields) cs    =
+  tagVal tag . enc . hcollapse $ hcliftA2 pJEnc tup fields cs
+  where
+    tup :: JsonEncode a => K String a -> I a -> K (Text, Json) a
+    tup f a = K (modFieldName opts (unK f), E.encodeToJson mkEncoder (unI a))
+
+    enc = E.encodeToJson (E.mapToObj E.json id) . Map.fromList
 
 gDecoder
   :: forall f a.
@@ -215,7 +250,9 @@ gDecoderConstructor opts cursor ninfo =
     -- given type. But I'm not 100% sure that this is actually the case.
     foldForRight :: [D.DecodeResult f (SOP I xss)] -> D.DecodeResult f (SOP I xss)
     foldForRight xs = (lift . sequence $ D.runDecoderResult <$> xs)
-      >>= either failure pure . fromMaybe err . findOf folded (isn't _Left)
+      >>= either failure pure
+      . fromMaybe err
+      . findOf folded (isn't _Left)
 
     injs :: NP (Injection (NP I) xss) xss
     injs = injections

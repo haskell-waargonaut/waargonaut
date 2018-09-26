@@ -61,7 +61,7 @@ imageDecoder = D.withCursor $ \curs -> do
     <$> D.fromKey "Width" D.int o
     <*> D.fromKey "Height" D.int o
     <*> D.fromKey "Title" D.text o
-    <*> D.fromKey "Animated" D.boolean o
+    <*> D.fromKey "Animated" D.bool o
     <*> D.fromKey "IDs" (D.list D.int) o
 
 
