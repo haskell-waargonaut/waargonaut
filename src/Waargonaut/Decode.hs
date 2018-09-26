@@ -63,7 +63,8 @@ module Waargonaut.Decode
   , nonempty
   , listAt
   , list
-  , maybe
+  , oneOf
+  , maybeOneOf
   , maybeOrNull
   , withDefault
   , either
@@ -74,8 +75,7 @@ import           Prelude                       hiding (either, maybe, null)
 
 import           Numeric.Natural               (Natural)
 
-import Control.Applicative ((<|>), liftA2)
-
+import           Control.Applicative           (liftA2, (<|>))
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (MonadError)
 import           Control.Monad.State           (MonadState)
@@ -398,6 +398,20 @@ fromKey
 fromKey k d =
   moveToKey k >=> runDecoder d
 
+-- | A simplified version of 'fromKey' that takes a 'Text' value indicating a
+-- key to be moved to and decoded using the given 'Decoder f a'. If you don't
+-- need any special cursor movements to reach the list of keys you require, you
+-- could use this function to build a trivial 'Decoder' for a record type:
+--
+-- @
+-- data MyRec = MyRec { fieldA :: Text, fieldB :: Int }
+--
+-- myRecDecoder :: Decoder f MyRec
+-- myRecDecoder = MyRec
+--   <$> atKey "field_a" text
+--   <*> atKey "field_b" int
+-- @
+--
 atKey
   :: Monad f
   => Text
@@ -522,25 +536,40 @@ listAt elemD c =
   try (moveAndKeepHistory D (Z.within WT.jsonTraversal c))
   >>= Maybe.maybe (pure mempty) (rightwardSnoc mempty elemD)
 
-list :: Monad f => Decoder f b -> Decoder f [b]
-list d = withCursor (listAt d)
+list
+  :: Monad f
+  => Decoder f b
+  -> Decoder f [b]
+list d =
+  withCursor (listAt d)
 
 withDefault
   :: Monad f
-  => Decoder f a
-  -> a
+  => a
+  -> Decoder f (Maybe a)
   -> Decoder f a
-withDefault hasD def =
-  withCursor (fmap (Maybe.fromMaybe def) . try . focus hasD)
+withDefault def hasD =
+  withCursor (fmap (Maybe.fromMaybe def) . focus hasD)
 
-maybe
+oneOf
+  :: Monad f
+  => Decoder f a
+  -> Decoder f a
+  -> Decoder f a
+oneOf a b =
+  withCursor $ \c -> do
+    a' <- try (focus a c)
+    Maybe.maybe (focus b c) pure a'
+
+maybeOneOf
   :: Monad f
   => Decoder f a
   -> Decoder f a
   -> Decoder f (Maybe a)
-maybe hasD def =
-  withCursor $ \c ->
-    liftA2 (<|>) (try (focus hasD c)) (try (focus def c))
+maybeOneOf a b =
+  withCursor $ \c -> liftA2 (<|>)
+    (try (focus a c))
+    (try (focus b c))
 
 maybeOrNull
   :: Monad f
@@ -554,6 +583,5 @@ either
   => Decoder f a
   -> Decoder f b
   -> Decoder f (Either a b)
-either leftD rightD = withCursor $ \c -> do
-  r' <- try (focus (Right <$> rightD) c)
-  Maybe.maybe (focus (Left <$> leftD) c) pure r'
+either leftD rightD =
+  oneOf (Left <$> leftD) (Right <$> rightD)
