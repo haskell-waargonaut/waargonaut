@@ -63,8 +63,6 @@ module Waargonaut.Decode
   , nonempty
   , listAt
   , list
-  , oneOf
-  , maybeOneOf
   , maybeOrNull
   , withDefault
   , either
@@ -75,7 +73,6 @@ import           Prelude                       hiding (either, maybe, null)
 
 import           Numeric.Natural               (Natural)
 
-import           Control.Applicative           (liftA2, (<|>))
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (MonadError)
 import           Control.Monad.State           (MonadState)
@@ -551,26 +548,6 @@ withDefault
 withDefault def hasD =
   withCursor (fmap (Maybe.fromMaybe def) . focus hasD)
 
-oneOf
-  :: Monad f
-  => Decoder f a
-  -> Decoder f a
-  -> Decoder f a
-oneOf a b =
-  withCursor $ \c -> do
-    a' <- try (focus a c)
-    Maybe.maybe (focus b c) pure a'
-
-maybeOneOf
-  :: Monad f
-  => Decoder f a
-  -> Decoder f a
-  -> Decoder f (Maybe a)
-maybeOneOf a b =
-  withCursor $ \c -> liftA2 (<|>)
-    (try (focus a c))
-    (try (focus b c))
-
 maybeOrNull
   :: Monad f
   => Decoder f a
@@ -584,4 +561,6 @@ either
   -> Decoder f b
   -> Decoder f (Either a b)
 either leftD rightD =
-  oneOf (Left <$> leftD) (Right <$> rightD)
+  withCursor $ \c -> do
+    a' <- try (focus (Right <$> rightD) c)
+    Maybe.maybe (focus (Left <$> leftD) c) pure a'
