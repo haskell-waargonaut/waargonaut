@@ -16,4 +16,6 @@ in
 
   hedgehog       = self.callCabal2nix "hedgehog" "${sources.hedgehog}/hedgehog" {};
   tasty-hunit    = self.callCabal2nix "tasty-hunit" "${sources.tasty}/hunit" {};
+
+  generics-sop   = self.callHackage "generics-sop" "0.3.2.0" {};
 })
