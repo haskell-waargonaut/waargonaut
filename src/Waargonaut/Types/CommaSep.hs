@@ -46,8 +46,8 @@ import           Control.Applicative     (Applicative (..), liftA2, pure, (*>),
                                           (<*), (<*>))
 import           Control.Category        (id, (.))
 
-import           Control.Lens            (AsEmpty (..), Cons (..), Index, Iso,
-                                          Iso', IxValue, Ixed (..), Lens', cons,
+import           Control.Lens            (AsEmpty (..), Cons (..), Index, Iso, Snoc (..),
+                                          Iso', IxValue, Ixed (..), Lens', cons, _Just,
                                           from, isn't, iso, mapped, nearly,
                                           over, prism, snoc, to, traverse,
                                           unsnoc, (%%~), (%~), (.~), (^.),
@@ -62,11 +62,12 @@ import           Data.Bitraversable      (Bitraversable (bitraverse))
 import           Data.Char               (Char)
 import           Data.Foldable           (Foldable, asum, foldMap, foldr,
                                           length)
-import           Data.Function           (const, ($), (&))
+import           Data.Function           (const, ($), (&), flip)
 import           Data.Functor            (Functor, fmap, (<$), (<$>))
 import           Data.Functor.Classes    (Eq1, Show1, eq1, showsPrec1)
 import           Data.Maybe              (Maybe (..), fromMaybe, maybe)
 import           Data.Monoid             (Monoid (..), mempty)
+import Data.Either (Either (..))
 import           Data.Semigroup          (Semigroup ((<>)))
 import           Data.Traversable        (Traversable)
 import           Data.Tuple              (snd, uncurry)
@@ -235,6 +236,27 @@ instance Bitraversable CommaSeparated where
 instance Monoid ws => Cons (CommaSeparated ws a) (CommaSeparated ws a) a a where
   _Cons = prism (\(a,cs) -> consCommaSep ((Comma,mempty), a) cs) (\c -> note c . over (mapped . _1) (^. _2) $ unconsCommaSep c)
   {-# INLINE _Cons #-}
+
+instance Monoid ws => Snoc (CommaSeparated ws a) (CommaSeparated ws a) a a where
+  _Snoc = prism f g
+    where
+      f :: (CommaSeparated ws a, a) -> CommaSeparated ws a
+      f (cs,a) = over (_CommaSeparated . _2 . _Just)
+        (\es -> es
+          & elemsElems %~ flip snoc (es ^. elemsLast . from _ElemTrailingIso)
+          & elemsLast . elemVal .~ a
+        ) cs
+
+      g :: CommaSeparated ws a -> Either (CommaSeparated ws a) (CommaSeparated ws a, a)
+      g c@(CommaSeparated _   Nothing) = Left c
+      g   (CommaSeparated w (Just es)) = Right
+        ( CommaSeparated w $ createNewElems <$> es ^? elemsElems . _Snoc
+        , es ^. elemsLast . elemVal
+        )
+        where
+          createNewElems (newEs, newL) = es
+            & elemsElems .~ newEs
+            & elemsLast .~ newL ^. _ElemTrailingIso
 
 consElems :: Monoid ws => ((Comma,ws), a) -> Elems ws a -> Elems ws a
 consElems (ews,a) e = e & elemsElems %~ cons (Elem a (Identity ews))

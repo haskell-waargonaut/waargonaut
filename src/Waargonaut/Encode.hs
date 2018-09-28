@@ -3,6 +3,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
 -- | Types and functions to encode your data types to 'Json'.
@@ -142,6 +143,7 @@ runPureEncoder enc = BB.toLazyByteString
   . waargonautBuilder wsRemover
   . encodeToJson enc
 
+-- | 'Encoder'' for a Waargonaut 'Json' data structure
 json' :: Applicative f => Encoder' f Json
 json' = encodeA pure
 
@@ -170,9 +172,12 @@ bool' = encJ _JBool id
 text' :: Applicative f => Encoder' f Text
 text' = encJ _JStr textToJString
 
+-- | Encode an explicit 'null'.
 null' :: Applicative f => Encoder' f ()
 null' = encodeA $ const (pure $ _JNull # mempty)
 
+-- | Encode a 'Maybe' value, using the provided 'Encoder''s to handle the
+-- different choices.
 maybe'
   :: Applicative f
   => Encoder' f ()
@@ -190,6 +195,7 @@ maybeOrNull'
 maybeOrNull' =
   maybe' null'
 
+-- | Encode an 'Either' value using the given 'Encoder's
 either'
   :: Applicative f
   => Encoder' f a
@@ -199,6 +205,7 @@ either' eA = encodeA
   . Either.either (runEncoder eA)
   . runEncoder
 
+-- | Encode a 'NonEmpty' list
 nonempty'
   :: Applicative f
   => Encoder' f a
@@ -206,6 +213,7 @@ nonempty'
 nonempty' =
   traversable'
 
+-- | Encode a standard Haskell list
 list'
   :: Applicative f
   => Encoder' f a
@@ -300,6 +308,8 @@ mapToObj' encodeVal kToText =
   in
     encodeWithInner (\xs -> _JObj # (fromMapLikeObj $ mapToCS xs, mempty)) encodeVal
 
+-- | Using the given function to convert the 'k' type keys to a 'Text' value,
+-- encode a 'Map' as a JSON object.
 mapToObj
   :: Encoder a
   -> (k -> Text)
@@ -362,6 +372,7 @@ foldableAt
 foldableAt enc =
   flip atKey (traversable enc)
 
+-- | Encode a standard Haskell list at the given index on a JSON object.
 listAt
   :: ( At t
      , IxValue t ~ Json
@@ -374,6 +385,7 @@ listAt
 listAt =
   foldableAt
 
+-- | Encode a 'NonEmpty' list at the given index on a JSON object.
 nonemptyAt
   :: ( At t
      , IxValue t ~ Json

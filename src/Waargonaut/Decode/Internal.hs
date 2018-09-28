@@ -29,7 +29,7 @@ module Waargonaut.Decode.Internal
   , integral'
   , scientific'
   , objTuples'
-  , directedConsumption'
+  , foldCursor'
 
     -- * JSON Object to Map Functions
   , mapKeepingF
@@ -284,7 +284,7 @@ objTuples' kF vF a =
 -- intList = directedConsumption' snoc moveRight1 int
 -- @
 --
-directedConsumption'
+foldCursor'
   :: Monad f
   => b
   -> (b -> a -> b)
@@ -292,7 +292,7 @@ directedConsumption'
   -> Decoder' c i e f a
   -> c
   -> DecodeResultT i e f b
-directedConsumption' empty scons mvCurs elemD =
+foldCursor' empty scons mvCurs elemD =
   go empty
   where
     go acc cur = do

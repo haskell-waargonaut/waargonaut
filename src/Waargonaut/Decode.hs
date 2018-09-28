@@ -56,7 +56,7 @@ module Waargonaut.Decode
   , unboundedChar
   , null
   , json
-  , directedConsumption
+  , foldCursor
   , leftwardCons
   , rightwardSnoc
   , nonEmptyAt
@@ -451,14 +451,15 @@ boundedChar :: Monad f => Decoder f Char
 boundedChar = atCursor "Bounded Char" DR.boundedChar'
 
 -- | Decoder for a Haskell 'Char' value whose values represent Unicode
--- (or equivalently ISO/IEC 10646) characters
+-- (or equivalently ISO/IEC 10646) characters.
 unboundedChar :: Monad f => Decoder f Char
 unboundedChar = atCursor "Unbounded Char" DR.unboundedChar'
 
+-- | Decoder for pulling out the 'Json' Haskell data structure at the current cursor.
 json :: Monad f => Decoder f Json
 json = atCursor "JSON" pure
 
--- | Try to decode the value at the current focus
+-- | Try to decode the value at the current focus using the given 'Decoder'.
 focus
   :: Monad f
   => Decoder f a
@@ -467,7 +468,15 @@ focus
 focus =
   runDecoder
 
-directedConsumption
+-- | Allows for folding over the results of repeated cursor movements.
+--
+-- @
+-- intList :: Decoder f [String]
+-- intList = withCursor $ \curs ->
+--   foldCursor [] (\acc a -> acc <> [a]) moveRight1 string curs
+-- @
+--
+foldCursor
   :: Monad f
   => s
   -> (s -> a -> s)
@@ -475,13 +484,15 @@ directedConsumption
   -> Decoder f a
   -> JCursor h Json
   -> DecodeResult f s
-directedConsumption s sas mvCurs elemD = DecodeResult
-  . DR.directedConsumption'
+foldCursor s sas mvCurs elemD = DecodeResult
+  . DR.foldCursor'
     s
     sas
     (unDecodeResult . mvCurs)
     elemD
 
+-- | Use the 'Cons' typeclass and move leftwards from the current cursor
+-- position, 'consing' the values to the 's' as it moves.
 leftwardCons
   :: ( Monad f
      , Cons s s a a
@@ -491,11 +502,13 @@ leftwardCons
   -> JCursor h Json
   -> DecodeResult f s
 leftwardCons s elemD = DecodeResult
-  . DR.directedConsumption' s
+  . DR.foldCursor' s
     (flip L.cons)
     (unDecodeResult . moveLeft1)
     elemD
 
+-- | Use the 'Snoc' typeclass and move rightwards from the current cursor
+-- position, 'snocing' the values to the 's' as it moves.
 rightwardSnoc
   :: ( Monad f
      , Snoc s s a a
@@ -505,11 +518,12 @@ rightwardSnoc
   -> JCursor h Json
   -> DecodeResult f s
 rightwardSnoc s elemD = DecodeResult
-  . DR.directedConsumption' s
+  . DR.foldCursor' s
     L.snoc
     (unDecodeResult . moveRight1)
     elemD
 
+-- | Decode a 'NonEmpty' list of 'a' at the given cursor position.
 nonEmptyAt
   :: Monad f
   => Decoder f a
@@ -521,9 +535,11 @@ nonEmptyAt elemD c =
     h <- focus elemD curs
     moveRight1 curs >>= fmap (h:|) . rightwardSnoc [] elemD
 
+-- | Create a 'Decoder' for a 'NonEmpty' list.
 nonempty :: Monad f => Decoder f b -> Decoder f (NonEmpty b)
 nonempty d = withCursor (nonEmptyAt d)
 
+-- | Decode a '[a]' at the current cursor position.
 listAt
   :: Monad f
   => Decoder f a
@@ -533,6 +549,7 @@ listAt elemD c =
   try (moveAndKeepHistory D (Z.within WT.jsonTraversal c))
   >>= Maybe.maybe (pure mempty) (rightwardSnoc mempty elemD)
 
+-- | Create a 'Decoder' for a list of 'a'
 list
   :: Monad f
   => Decoder f b
@@ -540,6 +557,8 @@ list
 list d =
   withCursor (listAt d)
 
+-- | Try to decode an optional value, returning the given default value if
+-- 'Nothing' is returned.
 withDefault
   :: Monad f
   => a
@@ -548,6 +567,8 @@ withDefault
 withDefault def hasD =
   withCursor (fmap (Maybe.fromMaybe def) . focus hasD)
 
+-- | Named to match it's 'Encoder' counterpart, this function will decode an
+-- optional value.
 maybeOrNull
   :: Monad f
   => Decoder f a
@@ -555,12 +576,14 @@ maybeOrNull
 maybeOrNull hasD =
   withCursor (try . focus hasD)
 
+-- | Decode either an 'a' or a 'b', failing if neither 'Decoder' succeeds. The
+-- 'Right' decoder is attempted first.
 either
   :: Monad f
   => Decoder f a
   -> Decoder f b
   -> Decoder f (Either a b)
 either leftD rightD =
-  withCursor $ \c -> do
-    a' <- try (focus (Right <$> rightD) c)
-    Maybe.maybe (focus (Left <$> leftD) c) pure a'
+  withCursor $ \c ->
+    try (focus (Right <$> rightD) c) >>=
+    Maybe.maybe (focus (Left <$> leftD) c) pure
