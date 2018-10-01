@@ -26,6 +26,7 @@ import qualified Control.Zipper             as Z
 
 import           Data.Maybe                 (fromMaybe)
 
+import Data.Functor.Identity (runIdentity)
 import           Data.List.NonEmpty         (NonEmpty)
 import           Data.Text                  (Text)
 import qualified Data.Text                  as Text
@@ -34,7 +35,7 @@ import qualified Data.Map                   as Map
 
 import           Waargonaut                 (Json)
 
-import           Waargonaut.Encode          (Encoder)
+import           Waargonaut.Encode          (Encoder,Encoder')
 import qualified Waargonaut.Encode          as E
 
 import           Waargonaut.Decode          (Decoder)
@@ -56,8 +57,8 @@ defaultOpts :: Options
 defaultOpts = Options id Unwrap
 
 class JsonEncode a where
-  mkEncoder :: Encoder a
-  default mkEncoder :: (Generic a, HasDatatypeInfo a, All2 JsonEncode (Code a)) => Encoder a
+  mkEncoder :: Applicative f => Encoder f a
+  default mkEncoder :: (Applicative f, Generic a, HasDatatypeInfo a, All2 JsonEncode (Code a)) => Encoder f a
   mkEncoder = gEncoder defaultOpts
 
 instance JsonEncode a                 => JsonEncode (Maybe a)    where mkEncoder = E.maybeOrNull mkEncoder
@@ -95,19 +96,23 @@ data JsonInfo :: [*] -> * where
   JsonRec  :: SListI xs => Tag -> NP (K String) xs -> JsonInfo xs
 
 inObj
-  :: Encoder a
+  :: Encoder' a
   -> String
-  -> Encoder a
+  -> Encoder' a
 inObj en t =
-  E.mapLikeObj (E.atKey (Text.pack t) en)
+  E.mapLikeObj' (E.atKey' (Text.pack t) en)
 
 tagVal
-  :: SListI xs
+  :: ( Applicative f
+     , SListI xs
+     )
   => Tag
-  -> Json
-  -> K Json xs
-tagVal  NoTag  v = K v
-tagVal (Tag t) v = K (E.encodeToJson (inObj E.json t) v)
+  -> f Json
+  -> K (f Json) xs
+tagVal  NoTag  v =
+  K v
+tagVal (Tag t) v =
+  K $ runIdentity . E.runEncoder (inObj E.json' t) <$> v
 
 unTagVal
   :: Monad f
@@ -152,7 +157,7 @@ jsonInfo opts pa =
   where
     newtypename n = case _optionsNewtypeWithConsName opts of
       Unwrap               -> NoTag
-      ConstructorNameAsKey -> Tag n
+      ConstructorNameAsKey -> Tag (_optionsFieldName opts n)
 
     tag :: NP ConstructorInfo (Code a) -> ConstructorName -> Tag
     tag (_ :* Nil) = const NoTag
@@ -175,47 +180,50 @@ modFieldName opts =
  Text.pack . _optionsFieldName opts
 
 gEncoder
-  :: forall a.
+  :: forall a f.
      ( Generic a
+     , Applicative f
      , HasDatatypeInfo a
      , All2 JsonEncode (Code a)
      )
   => Options
-  -> Encoder a
-gEncoder opts = E.encodePureA $ \a -> hcollapse $ hcliftA2
+  -> Encoder f a
+gEncoder opts = E.encodeA $ \a -> hcollapse $ hcliftA2
   (Proxy :: Proxy (All JsonEncode))
   (gEncoder' opts)
   (jsonInfo opts (Proxy :: Proxy a))
   (unSOP $ from a)
 
 gEncoder'
-  :: forall xs.
-     All JsonEncode xs
+  :: forall xs f.
+     ( All JsonEncode xs
+     , Applicative f
+     )
   => Options
   -> JsonInfo xs
   -> NP I xs
-  -> K Json xs
+  -> K (f Json) xs
 gEncoder' _ (JsonZero n) Nil           =
-  K (E.encodeToJson mkEncoder (Text.pack n))
+  K (E.runEncoder mkEncoder (Text.pack n))
 
 gEncoder' _ (JsonOne tag) (I a :* Nil) =
-  tagVal tag (E.encodeToJson mkEncoder a)
+  tagVal tag (E.runEncoder mkEncoder a)
 
 gEncoder' _ (JsonMul tag) cs           =
   tagVal tag . enc . hcollapse $ hcliftA pJEnc ik cs
   where
     ik :: JsonEncode a => I a -> K Json a
-    ik = K . E.encodeToJson mkEncoder . unI
+    ik = K . runIdentity . E.runEncoder mkEncoder . unI
 
-    enc = E.encodeToJson (E.list E.json)
+    enc = E.runEncoder (E.list E.json)
 
 gEncoder' opts (JsonRec tag fields) cs    =
   tagVal tag . enc . hcollapse $ hcliftA2 pJEnc tup fields cs
   where
     tup :: JsonEncode a => K String a -> I a -> K (Text, Json) a
-    tup f a = K (modFieldName opts (unK f), E.encodeToJson mkEncoder (unI a))
+    tup f a = K (modFieldName opts (unK f), runIdentity $ E.runEncoder mkEncoder (unI a))
 
-    enc = E.encodeToJson (E.mapToObj E.json id) . Map.fromList
+    enc = E.runEncoder (E.mapToObj E.json id) . Map.fromList
 
 gDecoder
   :: forall f a.

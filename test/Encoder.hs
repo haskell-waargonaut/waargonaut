@@ -6,24 +6,17 @@ module Encoder
   , testImageDataType
   ) where
 
-import           Generics.SOP         (Generic, HasDatatypeInfo)
-import qualified GHC.Generics         as GHC
-
-import           Data.Text            (Text)
-
 import           Test.Tasty           (TestName, TestTree, testGroup)
 import           Test.Tasty.HUnit     (assertEqual, testCase)
 
-import           Waargonaut.Encode    (Encoder)
+import           Waargonaut.Encode    (Encoder, Encoder')
 import qualified Waargonaut.Encode    as E
 
 import           Data.ByteString.Lazy (ByteString)
 
-import           Types.Common         (Image (..), testImageDataType)
+import           Types.Common         (Image (..), testFudge, testImageDataType)
 
-import           Waargonaut.Generic   (JsonDecode, JsonEncode, NewtypeName (..),
-                                       Options (..), defaultOpts, gDecoder,
-                                       gEncoder, mkDecoder, mkEncoder)
+import           Waargonaut.Generic   (mkEncoder)
 
 testImageEncodedNoSpaces :: ByteString
 testImageEncodedNoSpaces = "{\"Width\":800,\"Height\":600,\"Title\":\"View from 15th Floor\",\"Animated\":false,\"IDs\":[116,943,234,38793]}"
@@ -31,9 +24,8 @@ testImageEncodedNoSpaces = "{\"Width\":800,\"Height\":600,\"Title\":\"View from 
 testImageGenericEncode :: ByteString
 testImageGenericEncode = "{\"Animated\":false,\"Height\":600,\"IDs\":[116,943,234,38793],\"Title\":\"View from 15th Floor\",\"Width\":800}"
 
--- | The recommended way of defining an Encoder is to be explicit, the 'Generic'
--- Encoder isn't very clever and may not always behave as you like.
-encodeImage :: Encoder Image
+-- | The recommended way of defining an Encoder is to be explicit.
+encodeImage :: Applicative f => Encoder f Image
 encodeImage = E.mapLikeObj $ \img ->
     E.intAt "Width" (_imageWidth img)
   . E.intAt "Height" (_imageHeight img)
@@ -41,32 +33,12 @@ encodeImage = E.mapLikeObj $ \img ->
   . E.boolAt "Animated" (_imageAnimated img)
   . E.listAt E.int "IDs" (_imageIDs img)
 
-newtype Fudge = Fudge Text
-  deriving (Show, GHC.Generic)
-
-instance Generic Fudge
-instance HasDatatypeInfo Fudge
-
--- instance JsonEncode Fudge
-
-instance JsonEncode Fudge where
-  mkEncoder = gEncoder (defaultOpts { _optionsNewtypeWithConsName = ConstructorNameAsKey})
-
-instance JsonDecode Fudge where
-  mkDecoder = gDecoder (defaultOpts { _optionsNewtypeWithConsName = ConstructorNameAsKey})
-
-testFudge :: Fudge
-testFudge = Fudge "Chocolate"
-
--- testFudgeEncodedUnwrapped :: ByteString
--- testFudgeEncodedUnwrapped = "\"Chocolate\""
-
 testFudgeEncodedWithConsName :: ByteString
-testFudgeEncodedWithConsName = "{\"Fudge\":\"Chocolate\"}"
+testFudgeEncodedWithConsName = "{\"fudgey\":\"Chocolate\"}"
 
 tCase
   :: TestName
-  -> Encoder a
+  -> Encoder' a
   -> a
   -> ByteString
   -> TestTree
