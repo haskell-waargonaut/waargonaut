@@ -110,7 +110,7 @@ into the first element.
 ```haskell
 fooDecoder :: Monad f => Decoder f Foo
 fooDecoder = D.withCursor $ \cursor -> do
-  firstElem <- D.down "array" cursor
+  fstElem <- D.down "array" cursor
 ```
 From the first element we can then decode the focus of the zipper using a
 specific decoder:
