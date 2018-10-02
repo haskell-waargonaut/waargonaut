@@ -27,6 +27,7 @@ module Waargonaut.Decode
   , runDecoderResult
   , runPureDecode
   , simpleDecode
+  , generaliseDecoder
 
     -- * Cursor movement
   , into
@@ -73,15 +74,17 @@ import           Prelude                       hiding (either, maybe, null)
 
 import           Numeric.Natural               (Natural)
 
-import           Control.Monad                 ((>=>))
-import           Control.Monad.Except          (MonadError)
-import           Control.Monad.State           (MonadState)
-import           Control.Monad.Trans.Class     (MonadTrans (..))
-
 import           Control.Lens                  (Bazaar', Cons, LensLike', Snoc,
                                                 (^.), (^?))
 import qualified Control.Lens                  as L
+
 import           Control.Lens.Internal.Indexed (Indexed, Indexing)
+import           Control.Monad                 ((>=>))
+import           Control.Monad.Except          (MonadError)
+import           Control.Monad.Morph           (MFunctor (..), MMonad (..),
+                                                generalize)
+import           Control.Monad.State           (MonadState)
+import           Control.Monad.Trans.Class     (MonadTrans (..))
 
 import           Control.Error.Util            (note)
 import           Control.Monad.Error.Hoist     ((<%?>), (<?>))
@@ -141,6 +144,12 @@ newtype DecodeResult f a = DecodeResult
 instance MonadTrans DecodeResult where
   lift = DecodeResult . lift
 
+instance MFunctor DecodeResult where
+  hoist nat (DecodeResult dr) = DecodeResult (hoist nat dr)
+
+instance MMonad DecodeResult where
+  embed f (DecodeResult dr) = DecodeResult (embed (unDecodeResult . f) dr)
+
 -- | Type alias to describe the lens that may be given to a zipper movement
 -- function to more directly target something within the 'Json' data structure.
 --
@@ -164,6 +173,11 @@ type JCursor h a =
 --
 type Decoder f a =
   forall h. Decoder' (JCursor h Json) Int DecodeError f a
+
+-- | Generalise a 'Decoder' that has been specialised to 'Identity' back to some 'Monad f'.
+generaliseDecoder :: Monad f => Decoder Identity a -> Decoder f a
+generaliseDecoder dr = Decoder' (embed generalize . runDecoder' dr)
+{-# INLINE generaliseDecoder #-}
 
 -- | Function to define a 'Decoder' for a specific data type.
 --

@@ -48,9 +48,11 @@ import qualified Control.Lens                  as L
 
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (ExceptT (..), MonadError (..),
-                                                runExceptT)
+                                                liftEither, runExceptT)
 import           Control.Monad.State           (MonadState (..), StateT (..))
 import           Control.Monad.Trans.Class     (MonadTrans (lift))
+
+import           Control.Monad.Morph           (MFunctor (..), MMonad (..))
 
 import           Data.Bifunctor                (first)
 import           Data.Functor                  (Functor, ($>))
@@ -131,6 +133,18 @@ newtype DecodeResultT i e f a = DecodeResultT
 instance MonadTrans (DecodeResultT i e) where
   lift = DecodeResultT . lift . lift
 
+instance MFunctor (DecodeResultT i e) where
+  hoist nat (DecodeResultT dr) = DecodeResultT (hoist (hoist nat) dr)
+
+instance MMonad (DecodeResultT i e) where
+  embed t dr = DecodeResultT $ do
+    (e, hist) <- runDecodeResult (t (runner dr))
+    put hist
+    liftEither e
+      where
+        runner = flip runStateT (CursorHistory' mempty)
+          . runExceptT . runDecodeResult
+
 -- |
 -- Wrapper type to describe a "Decoder" from something that has a 'Json'ish
 -- value @c@, to some representation of @a@.
@@ -150,6 +164,9 @@ instance Monad f => Monad (Decoder' c i e f) where
 
 instance MonadTrans (Decoder' c i e) where
   lift = Decoder' . const . lift
+
+instance MFunctor (Decoder' c i e) where
+  hoist nat (Decoder' f) = Decoder' (hoist nat . f)
 
 -- |
 -- Helper function for constructing a 'Decoder''.

@@ -128,6 +128,7 @@ instance MFunctor Encoder where
 -- | Generalise an 'Encoder' a' to 'Encoder f a'
 generaliseEncoder' :: Monad f => Encoder' a -> Encoder f a
 generaliseEncoder' = Encoder . fmap generalize . runEncoder
+{-# INLINE generaliseEncoder' #-}
 
 -- |
 -- As a convenience, this type is a pure Encoder over 'Identity' in place of the @f@.
