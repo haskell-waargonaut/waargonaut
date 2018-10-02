@@ -117,6 +117,8 @@ library
                      , containers   >= 0.5.6  && < 0.7
                      , witherable   >= 0.2    && < 0.3
                      , generics-sop >= 0.3.2  && < 4
+                     , mmorph
+
 
                      , transformers
                      , bifunctors

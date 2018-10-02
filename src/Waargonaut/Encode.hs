@@ -59,8 +59,12 @@ module Waargonaut.Encode
   , mapToObj'
   , keyValuesAsObj'
   , json'
+  , generaliseEncoder'
 
   ) where
+
+
+import           Control.Monad.Morph        (MFunctor (..), generalize)
 
 import           Control.Applicative        (Applicative (..), (<$>))
 import           Control.Category           (id, (.))
@@ -117,6 +121,13 @@ instance Wrapped (Encoder f a) where
 
 instance Contravariant (Encoder f) where
   contramap f (Encoder g) = Encoder (g . f)
+
+instance MFunctor Encoder where
+  hoist nat (Encoder eFn) = Encoder (nat . eFn)
+
+-- | Generalise an 'Encoder' a' to 'Encoder f a'
+generaliseEncoder' :: Monad f => Encoder' a -> Encoder f a
+generaliseEncoder' = Encoder . fmap generalize . runEncoder
 
 -- |
 -- As a convenience, this type is a pure Encoder over 'Identity' in place of the @f@.

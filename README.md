@@ -30,7 +30,7 @@ provides a plethora of tools for decoding, encoding, and manipulating JSON data.
 
 * BYO parsing library, the parser built into Waargonaut does not tie you to a
   particular parsing library. With the caveat that your parsing library must
-  have an instance of `CharParser` from the [parsers](https://hackage.haskell.org/package/parsers) package.
+  have an instance of `CharParsing` from the [parsers](https://hackage.haskell.org/package/parsers) package.
 
 * Generic functions are provided to make the creation of Encoders and Decoders
   are bit easier. However these _are_ tied to typeclasses, so they do come with
@@ -40,14 +40,13 @@ provides a plethora of tools for decoding, encoding, and manipulating JSON data.
   manipulate the JSON data structures to your hearts content, without breaking
   the invariants.
 
-
 * _Soon_ there will be a companion package for this library that leverages the awesome
   work on succinct data structures by John Ky and [Haskell Works](https://github.com/haskell-works/). 
 
   Providing the same zipper capabilities and property based guarantees, but with
   all the speed, efficiency, and streaming capabilities that succinct data
   structures have to offer. That's the idea, anyway.
-  
+
   **NB:** It exists for the keen and the brave [waargonaut-succinct-ds](https://github.com/qfpl/waargonaut-succinct-ds).
 
 ## Example
@@ -88,7 +87,7 @@ imageDecoder = D.withCursor $ \curs ->
 
 ### Zippers
 
-Waargonaut uses zippers for it's decoding which allows for precise control in
+Waargonaut uses zippers for its decoding which allows for precise control in
 how you interrogate your JSON input. Take JSON structures and decode them
 precisely as you require:
 
