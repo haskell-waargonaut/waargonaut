@@ -102,6 +102,10 @@ prop_tripping_image_record_generic :: Property
 prop_tripping_image_record_generic = withTests 1 . property $
   Common.prop_generic_tripping Common.testImageDataType
 
+prop_tripping_newtype_fudge_generic :: Property
+prop_tripping_newtype_fudge_generic = withTests 1 . property $
+  Common.prop_generic_tripping Common.testFudge
+
 prop_tripping_maybe_bool_generic :: Property
 prop_tripping_maybe_bool_generic = property $
   forAll (Gen.maybe Gen.bool) >>= Common.prop_generic_tripping
@@ -141,9 +145,9 @@ prop_maybe_maybe = withTests 1 . property $ do
       (E.runPureEncoder enc)
       (D.simpleDecode Common.parseBS dec . BSL8.toStrict)
 
-    enc = E.maybeOrNull . E.mapLikeObj . E.atKey "boop"
+    enc = E.maybeOrNull' . E.mapLikeObj' . E.atKey' "boop"
+      $ E.maybeOrNull' (E.mapLikeObj' (E.atKey' "beep" E.bool'))
       -- $ E.mapLikeObj (E.atKey "beep" (E.maybeOrNull E.bool))
-      $ E.maybeOrNull (E.mapLikeObj (E.atKey "beep" E.bool))
 
     dec = D.maybeOrNull $ D.atKey "boop"
       $ D.maybeOrNull (D.atKey "beep" D.bool)
@@ -163,6 +167,7 @@ tripping_properties = testGroup "Round Trip"
   , testProperty "[Int] (generic)" prop_tripping_int_list_generic
   , testProperty "Maybe Bool (generic)" prop_tripping_maybe_bool_generic
   , testProperty "Image record (generic)" prop_tripping_image_record_generic
+  , testProperty "Newtype with Options (generic)" prop_tripping_newtype_fudge_generic
   ]
 
 parser_properties :: TestTree
@@ -202,9 +207,8 @@ unitTests =
       ]
 
 regressionTests :: TestTree
-regressionTests = testGroup
-  "Regression Tests - Failure to parse = Success"
-  (toTestFail <$> fs)
+regressionTests =
+  testGroup "Regression Tests - Failure to parse = Success" (toTestFail <$> fs)
   where
     toTestFail (dsc, f) =
       testCase dsc (testFileFailure f)

@@ -46,12 +46,13 @@ import           Control.Applicative     (Applicative (..), liftA2, pure, (*>),
                                           (<*), (<*>))
 import           Control.Category        (id, (.))
 
-import           Control.Lens            (AsEmpty (..), Cons (..), Index, Iso, Snoc (..),
-                                          Iso', IxValue, Ixed (..), Lens', cons, _Just,
-                                          from, isn't, iso, mapped, nearly,
-                                          over, prism, snoc, to, traverse,
-                                          unsnoc, (%%~), (%~), (.~), (^.),
-                                          (^..), (^?), _1, _2, _Cons, _Nothing)
+import           Control.Lens            (AsEmpty (..), Cons (..), Index, Iso,
+                                          Iso', IxValue, Ixed (..), Lens',
+                                          Snoc (..), cons, from, isn't, iso,
+                                          mapped, nearly, over, prism, snoc, to,
+                                          traverse, unsnoc, (%%~), (%~), (.~),
+                                          (^.), (^..), (^?), _1, _2, _Cons,
+                                          _Just, _Nothing)
 
 import           Control.Error.Util      (note)
 import           Control.Monad           (Monad)
@@ -60,14 +61,14 @@ import           Data.Bifoldable         (Bifoldable (bifoldMap))
 import           Data.Bifunctor          (Bifunctor (bimap))
 import           Data.Bitraversable      (Bitraversable (bitraverse))
 import           Data.Char               (Char)
+import           Data.Either             (Either (..))
 import           Data.Foldable           (Foldable, asum, foldMap, foldr,
                                           length)
-import           Data.Function           (const, ($), (&), flip)
+import           Data.Function           (const, flip, ($), (&))
 import           Data.Functor            (Functor, fmap, (<$), (<$>))
 import           Data.Functor.Classes    (Eq1, Show1, eq1, showsPrec1)
 import           Data.Maybe              (Maybe (..), fromMaybe, maybe)
 import           Data.Monoid             (Monoid (..), mempty)
-import Data.Either (Either (..))
 import           Data.Semigroup          (Semigroup ((<>)))
 import           Data.Traversable        (Traversable)
 import           Data.Tuple              (snd, uncurry)

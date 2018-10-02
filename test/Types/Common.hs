@@ -17,9 +17,11 @@ module Types.Common
   , parseBS
 
   , testImageDataType
+  , testFudge
 
   -- * Some test types to be messed with
   , Image (..)
+  , Fudge (..)
   , HasImage (..)
   ) where
 
@@ -51,7 +53,7 @@ import qualified Waargonaut.Encode           as E
 import           Waargonaut.Types            (Json)
 import           Waargonaut.Types.Whitespace (Whitespace (..))
 
-import           Waargonaut.Generic          (JsonDecode (..), JsonEncode (..),
+import           Waargonaut.Generic          (JsonDecode (..), JsonEncode (..), NewtypeName (..),
                                               Options (..), defaultOpts,
                                               gDecoder, gEncoder)
 
@@ -73,15 +75,34 @@ instance HasDatatypeInfo Image
 
 imageOpts :: Options
 imageOpts = defaultOpts
-  { _optionsFieldName = \s -> fromMaybe s $ List.stripPrefix "_image" s
+  { _optionsFieldName = \s ->
+      fromMaybe s $ List.stripPrefix "_image" s
   }
 
--- | You can just 'generics-sop' to automatically create an Encoder for you,
--- however it is not a very clever system and may not behave precisely as you
--- require. Be sure to check your outputs!
+-- | You can just 'generics-sop' to automatically create an Encoder for you. Be
+-- sure to check your outputs as the Generic system must make some assumptions
+-- about how certain things are structured. These assumptions may not agree with
+-- your expectations so always check.
 instance JsonEncode Image where mkEncoder = gEncoder imageOpts
 instance JsonDecode Image where mkDecoder = gDecoder imageOpts
 
+newtype Fudge = Fudge Text
+  deriving (Eq, Show, GHC.Generic)
+
+instance Generic Fudge
+instance HasDatatypeInfo Fudge
+
+fudgeJsonOpts :: Options
+fudgeJsonOpts = defaultOpts
+  { _optionsNewtypeWithConsName = ConstructorNameAsKey
+  , _optionsFieldName           = const "fudgey"
+  }
+
+instance JsonEncode Fudge where mkEncoder = gEncoder fudgeJsonOpts
+instance JsonDecode Fudge where mkDecoder = gDecoder fudgeJsonOpts
+
+testFudge :: Fudge
+testFudge = Fudge "Chocolate"
 genDecimalDigit :: Gen DecDigit
 genDecimalDigit = Gen.element decimalDigit
 
