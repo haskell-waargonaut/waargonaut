@@ -76,7 +76,7 @@ encodeImage = E.mapLikeObj $ \img ->
 - Decoder:
 ```haskell
 imageDecoder :: Monad f => Decoder f Image
-imageDecoder = D.withCursor $ \curs ->
+imageDecoder = D.withCursor $ \curs -> 
   Image
     <$> D.fromKey "Width" D.int curs
     <*> D.fromKey "Height" D.int curs
@@ -100,7 +100,7 @@ precisely as you require:
 ##### Data Structure:
 
 ```haskell
-data Foo = (Char,String,[Int])
+data Foo = Foo (Char,String,[Int])
 ```
 
 ##### Decoder:
