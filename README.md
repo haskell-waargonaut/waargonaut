@@ -53,7 +53,7 @@ provides a plethora of tools for decoding, encoding, and manipulating JSON data.
 ## Example
 
 - Data Structure:
-```
+```haskell
 data Image = Image
   { _imageWidth    :: Int
   , _imageHeight   :: Int
@@ -64,7 +64,7 @@ data Image = Image
 ```
 
 - Encoder:
-```
+```haskell
 encodeImage :: Applicative f => Encoder f Image
 encodeImage = E.mapLikeObj $ \img ->
     E.intAt "Width" (_imageWidth img)
@@ -75,7 +75,7 @@ encodeImage = E.mapLikeObj $ \img ->
 ```
 
 - Decoder:
-```
+```haskell
 imageDecoder :: Monad f => Decoder f Image
 imageDecoder = D.withCursor $ \curs ->
   Image
@@ -100,7 +100,7 @@ precisely as you require:
 
 ##### Data Structure:
 
-```
+```haskell
 data Foo = (Char,String,[Int])
 ```
 
@@ -115,13 +115,13 @@ fooDecoder = D.withCursor $ \cursor -> do
 ```
 From the first element we can then decode the focus of the zipper using a
 specific decoder:
-```
+```haskell
   aChar <- D.focus D.unboundedChar fstElem
 ```
 The next thing we want to decode is the second element of the array, so we
 move right one step or tooth, and then attempt to decode a string at the
 focus.
-```
+```haskell
   aString <- D.moveRight1 fstElem >>= D.focus D.string
 ```
 Finally we want to take everything else in the list and combine them into a
@@ -129,11 +129,11 @@ single list of Int values. Starting from the first element, we move right
 two positions (over the char and the string elements), then we use one of
 the provided decoder functions that will repeatedly move in a direction and
 combine all of the elements it can until it can no longer move.
-```
+```haskell
   aIntList <- D.moveRightN 2 fstElem >>= D.rightwardSnoc [] D.int
 ```
 Lastly, we build the Foo using the decoded values.
-```
+```haskell
   pure $ Foo (aChar, aString, aIntList)
 ```
 
