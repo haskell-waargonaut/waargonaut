@@ -59,8 +59,8 @@ import           Waargonaut.Types.JChar  (JChar, jCharBuilder, parseJChar,
 -- >>> import Data.Either(Either (..), isLeft)
 -- >>> import Data.Digit (HeXDigit(..))
 -- >>> import qualified Data.Vector as V
--- >>> import Text.Parsec(ParseError)
 -- >>> import Utils
+-- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Waargonaut.Types.Whitespace
 -- >>> import Waargonaut.Types.JChar
 ----
@@ -115,7 +115,7 @@ instance AsJString ByteString where
 -- >>> testparse parseJString "\"a\\rbc\""
 -- Right (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')])
 --
--- >>> testparse parseJString "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError JString
+-- >>> testparse parseJString "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either DecodeError JString
 -- Right (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark])
 --
 -- >>> testparsethennoteof parseJString "\"a\"\\u"

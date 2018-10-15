@@ -74,7 +74,7 @@ import           Waargonaut.Types.JString
 -- >>> import Waargonaut.Types.Whitespace
 -- >>> import Control.Monad (return)
 -- >>> import Data.Either (Either (..), isLeft)
--- >>> import Text.Parsec (ParseError)
+-- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Data.Digit (HeXDigit)
 ----
 

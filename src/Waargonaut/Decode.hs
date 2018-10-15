@@ -7,10 +7,11 @@
 {-# LANGUAGE Rank2Types                 #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE GADTs #-}
 -- | Types and functions to convert Json values into your data types.
 module Waargonaut.Decode
   (
-    Err (..)
+    Err
   , CursorHistory (..)
   , DecodeResult (..)
 
@@ -106,6 +107,7 @@ import           Waargonaut.Types              (AsJType, Elems, JAssoc, Json)
 
 import qualified Waargonaut.Types              as WT
 
+import Waargonaut.Decode.Error (Err' (..))
 import           Waargonaut.Decode.Internal    (CursorHistory' (..),
                                                 DecodeError (..), DecodeResultT,
                                                 Decoder' (..), ZipperMove (..),
@@ -115,10 +117,7 @@ import qualified Waargonaut.Decode.Internal    as DR
 
 -- | Convenience Error structure for the separate parsing/decoding phases. For
 -- when things really aren't that complicated.
-data Err e
-  = Parse e
-  | Decode (DecodeError, CursorHistory)
-  deriving (Show, Eq, Functor)
+type Err e = Err' CursorHistory e
 
 -- | Wrapper for our 'CursorHistory'' to define our index as being an 'Int'.
 --

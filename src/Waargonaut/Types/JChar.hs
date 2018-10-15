@@ -84,7 +84,7 @@ import           Text.Parser.Char            (CharParsing, char, satisfy)
 -- >>> import Data.Either(Either (..), isLeft)
 -- >>> import Data.Digit (HeXDigit(..))
 -- >>> import qualified Data.Digit as D
--- >>> import Text.Parsec(ParseError)
+-- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Utils
 ----
 
@@ -308,19 +308,19 @@ jCharToUtf8Char jc = utf8SafeChar (_JChar # jc)
 
 -- | Parse a single 'HexDigit4'.
 --
--- >>> testparse parseHexDigit4 "1234" :: Either ParseError (HexDigit4 HeXDigit)
+-- >>> testparse parseHexDigit4 "1234" :: Either DecodeError (HexDigit4 HeXDigit)
 -- Right (HexDigit4 HeXDigit1 HeXDigit2 HeXDigit3 HeXDigit4)
 --
--- >>> testparse parseHexDigit4 "12aF" :: Either ParseError (HexDigit4 HeXDigit)
+-- >>> testparse parseHexDigit4 "12aF" :: Either DecodeError (HexDigit4 HeXDigit)
 -- Right (HexDigit4 HeXDigit1 HeXDigit2 HeXDigita HeXDigitF)
 --
--- >>> testparse parseHexDigit4 "aBcD" :: Either ParseError (HexDigit4 HeXDigit)
+-- >>> testparse parseHexDigit4 "aBcD" :: Either DecodeError (HexDigit4 HeXDigit)
 -- Right (HexDigit4 HeXDigita HeXDigitB HeXDigitc HeXDigitD)
 --
--- >>> testparsetheneof parseHexDigit4 "12aF" :: Either ParseError (HexDigit4 HeXDigit)
+-- >>> testparsetheneof parseHexDigit4 "12aF" :: Either DecodeError (HexDigit4 HeXDigit)
 -- Right (HexDigit4 HeXDigit1 HeXDigit2 HeXDigita HeXDigitF)
 --
--- >>> testparsethennoteof parseHexDigit4 "12aFx" :: Either ParseError (HexDigit4 HeXDigit)
+-- >>> testparsethennoteof parseHexDigit4 "12aFx" :: Either DecodeError (HexDigit4 HeXDigit)
 -- Right (HexDigit4 HeXDigit1 HeXDigit2 HeXDigita HeXDigitF)
 parseHexDigit4 ::
   ( CharParsing f, HeXaDeCiMaL digit ) =>
@@ -376,7 +376,7 @@ parseJCharUnescaped =
 -- >>> testparse parseJCharEscaped "\\t"
 -- Right (WhiteSpace HorizontalTab)
 --
--- >>> testparse parseJCharEscaped "\\u1234" :: Either ParseError (JCharEscaped HeXDigit)
+-- >>> testparse parseJCharEscaped "\\u1234" :: Either DecodeError (JCharEscaped HeXDigit)
 -- Right (Hex (HexDigit4 HeXDigit1 HeXDigit2 HeXDigit3 HeXDigit4))
 --
 -- >>> testparsetheneof parseJCharEscaped "\\t"
@@ -409,10 +409,10 @@ parseJCharEscaped =
 
 -- | Parse a JSON character.
 --
--- >>> testparse parseJChar "\\u1234" :: Either ParseError (JChar HeXDigit)
+-- >>> testparse parseJChar "\\u1234" :: Either DecodeError (JChar HeXDigit)
 -- Right (EscapedJChar (Hex (HexDigit4 HeXDigit1 HeXDigit2 HeXDigit3 HeXDigit4)))
 --
--- >>> testparse parseJChar "\\\\" :: Either ParseError (JChar HeXDigit)
+-- >>> testparse parseJChar "\\\\" :: Either DecodeError (JChar HeXDigit)
 -- Right (EscapedJChar ReverseSolidus)
 --
 -- >>> testparse parseJChar "\\r"

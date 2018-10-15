@@ -1,12 +1,14 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DeriveFunctor #-}
 module Waargonaut.Decode.Error
   ( DecodeError (..)
   , AsDecodeError (..)
+  , Err' (..)
   ) where
 
 import           Control.Lens                 (Prism')
 import qualified Control.Lens                 as L
 
+import           Data.Functor                 (Functor)
 import           GHC.Word                     (Word64)
 
 import           Data.Text                    (Text)
@@ -14,6 +16,13 @@ import           Data.Text                    (Text)
 import           Waargonaut.Decode.ZipperMove (ZipperMove)
 
 import           Waargonaut.Types             (JNumber)
+
+-- | Convenience Error structure for the separate parsing/decoding phases. For
+-- when things really aren't that complicated.
+data Err' c e
+  = Parse e
+  | Decode (DecodeError, c)
+  deriving (Show, Eq, Functor)
 
 -- |
 -- Set of errors that may occur during the decode phase.

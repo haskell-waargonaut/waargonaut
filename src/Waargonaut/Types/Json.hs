@@ -1,14 +1,17 @@
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
 {-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeFamilies           #-}
 -- | Top level types and functions for Waargonaut 'Json' types.
+
 module Waargonaut.Types.Json
   (
     -- * Inner JSON types
@@ -74,7 +77,7 @@ import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
 -- >>> import Utils
 -- >>> import Control.Monad (return)
 -- >>> import Data.Either (Either (..), isLeft)
--- >>> import Text.Parsec (ParseError)
+-- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Data.Digit (HeXDigit)
 ----
 
@@ -209,6 +212,25 @@ jTypesBuilder s (JStr js tws)   = jStringBuilder js                             
 jTypesBuilder s (JArr js tws)   = jArrayBuilder s waargonautBuilder js          <> s tws
 jTypesBuilder s (JObj jobj tws) = jObjectBuilder s waargonautBuilder jobj       <> s tws
 
+-- setTrailingCS
+--   :: ( L.Unwrapped a ~ (CS.CommaSeparated WS b)
+--      , L.Rewrapped a a
+--      )
+--   => WS
+--   -> Prism' (JType WS Json) (a, WS)
+--   -> Json
+--   -> Json
+-- setTrailingCS ws t = intoMainThing L.%~ \es -> es
+--   & restOfThing .~ ws
+--   & onePartOfThing .~ ws
+--   where
+--     intoMainThing  = _Wrapped . t . L._1 . _Wrapped . CS._CommaSeparated . L._2 . L._Just
+--     onePartOfThing = CS.elemsLast . CS.elemTrailing . L._Just . L._2
+--     restOfThing    = CS.elemsElems . traverse . CS.elemTrailing . fmap . L._2
+
+-- nPretty :: WS -> Json -> Json
+-- nPretty ws = P.transformOf jsonTraversal (setTrailingCS ws _JArr . setTrailingCS ws _JObj)
+
 -- | Parse a 'null' value.
 --
 -- >>> testparse (parseJNull (return ())) "null"
@@ -281,7 +303,7 @@ parseJNum ws =
 -- >>> testparse (parseJStr (return ())) "\"a\\rbc\""
 -- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
 --
--- >>> testparse (parseJStr (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError (JType () a)
+-- >>> testparse (parseJStr (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either DecodeError (JType () a)
 -- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
 --
 -- >>> testparsetheneof (parseJStr (return ())) "\"\""

@@ -19,12 +19,10 @@ import qualified Data.Text.Encoding          as Text
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
 import qualified Hedgehog.Range              as Range
-import           Text.Parsec                 (ParseError)
 
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Test.Tasty.HUnit
-
 
 import           Waargonaut                  (Json)
 import qualified Waargonaut                  as W
@@ -33,6 +31,7 @@ import qualified Waargonaut.Types.JChar      as JChar
 import qualified Waargonaut.Types.Whitespace as WS
 
 import qualified Waargonaut.Decode           as D
+import           Waargonaut.Decode.Error     (DecodeError)
 import qualified Waargonaut.Encode           as E
 
 import qualified Types.CommaSep              as CS
@@ -42,7 +41,6 @@ import qualified Types.Whitespace            as WS
 
 import qualified Decoder
 import qualified Encoder
-import qualified Utils
 
 encodeText
   :: Json
@@ -61,9 +59,9 @@ encodeByteString =
 
 decode
   :: Text
-  -> Either ParseError Json
+  -> Either DecodeError Json
 decode =
-  Utils.testparse W.parseWaargonaut
+  Common.parseText
 
 prop_uncons_consCommaSep :: Property
 prop_uncons_consCommaSep = property $ do
@@ -176,7 +174,7 @@ parser_properties = testGroup "Parser Round-Trip"
   , testProperty "print . parse . print = print" prop_print_parse_print_id
   ]
 
-parsePrint :: ByteString -> Either ParseError ByteString
+parsePrint :: ByteString -> Either DecodeError ByteString
 parsePrint = fmap encodeByteString . decode . Text.decodeUtf8
 
 testFile :: FilePath -> Assertion

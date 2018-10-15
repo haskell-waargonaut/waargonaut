@@ -26,7 +26,8 @@ import qualified Control.Zipper             as Z
 
 import           Data.Maybe                 (fromMaybe)
 
-import Data.Functor.Identity (runIdentity)
+import           Data.Functor.Identity      (runIdentity)
+
 import           Data.List.NonEmpty         (NonEmpty)
 import           Data.Text                  (Text)
 import qualified Data.Text                  as Text
@@ -35,11 +36,12 @@ import qualified Data.Map                   as Map
 
 import           Waargonaut                 (Json)
 
-import           Waargonaut.Encode          (Encoder,Encoder')
+import           Waargonaut.Encode          (Encoder, Encoder')
 import qualified Waargonaut.Encode          as E
 
 import           Waargonaut.Decode          (Decoder)
 import qualified Waargonaut.Decode          as D
+
 import           Waargonaut.Decode.Error    (DecodeError (..))
 import           Waargonaut.Decode.Internal (CursorHistory' (..))
 
@@ -95,12 +97,8 @@ data JsonInfo :: [*] -> * where
   JsonMul  :: SListI xs => Tag -> JsonInfo xs
   JsonRec  :: SListI xs => Tag -> NP (K String) xs -> JsonInfo xs
 
-inObj
-  :: Encoder' a
-  -> String
-  -> Encoder' a
-inObj en t =
-  E.mapLikeObj' (E.atKey' (Text.pack t) en)
+inObj :: Encoder' a -> String -> Encoder' a
+inObj en t = E.mapLikeObj' (E.atKey' (Text.pack t) en)
 
 tagVal
   :: ( Applicative f
@@ -120,8 +118,10 @@ unTagVal
   -> Decoder f a
   -> D.JCursor h Json
   -> D.DecodeResult f a
-unTagVal NoTag   d = D.focus d
-unTagVal (Tag n) d = D.fromKey (Text.pack n) d
+unTagVal NoTag   d =
+  D.focus d
+unTagVal (Tag n) d =
+  D.fromKey (Text.pack n) d
 
 jInfoFor
   :: forall xs.
@@ -249,7 +249,9 @@ gDecoderConstructor
 gDecoderConstructor opts cursor ninfo =
   foldForRight . hcollapse $ hcliftA2 pAllJDec (mkGDecoder opts cursor) ninfo injs
   where
-    err = Left (ConversionFailure "Generic Decoder has failed", D.CursorHist (CursorHistory' mempty))
+    err = Left ( ConversionFailure "Generic Decoder has failed, please file a bug."
+               , D.CursorHist (CursorHistory' mempty)
+               )
 
     failure (e,h) = modify (const $ D.unCursorHist h) >> throwError e
 
@@ -258,9 +260,7 @@ gDecoderConstructor opts cursor ninfo =
     -- given type. But I'm not 100% sure that this is actually the case.
     foldForRight :: [D.DecodeResult f (SOP I xss)] -> D.DecodeResult f (SOP I xss)
     foldForRight xs = (lift . sequence $ D.runDecoderResult <$> xs)
-      >>= either failure pure
-      . fromMaybe err
-      . findOf folded (isn't _Left)
+      >>= either failure pure . fromMaybe err . findOf folded (isn't _Left)
 
     injs :: NP (Injection (NP I) xss) xss
     injs = injections

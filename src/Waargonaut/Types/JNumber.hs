@@ -76,7 +76,7 @@ import qualified Data.ByteString.Builder as BB
 -- >>> import Data.List.NonEmpty (NonEmpty ((:|)))
 -- >>> import Data.Digit (DecDigit(..))
 -- >>> import qualified Data.Digit as D
--- >>> import Text.Parsec(ParseError)
+-- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Data.ByteString.Lazy (toStrict)
 -- >>> import Data.ByteString.Builder (toLazyByteString)
 -- >>> import Utils

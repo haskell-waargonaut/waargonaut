@@ -14,10 +14,15 @@ module Types.Common
   , hexadecimalDigitLower
 
   , prop_generic_tripping
+  , parseWith
   , parseBS
+  , parseText
 
   , testImageDataType
   , testFudge
+  , imageDecodeManual
+  , imageDecodeGeneric
+  , imageDecodeSuccinct
 
   -- * Some test types to be messed with
   , Image (..)
@@ -28,12 +33,14 @@ module Types.Common
 import           Generics.SOP                (Generic, HasDatatypeInfo)
 import qualified GHC.Generics                as GHC
 
-import           Control.Lens                (makeClassy)
+import           Control.Lens                (makeClassy, over, _Left)
+import           Control.Monad               ((>=>))
 
 import qualified Data.List                   as List
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Text                   (Text)
+import qualified Data.Text                   as Text
 
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
@@ -42,20 +49,26 @@ import qualified Hedgehog.Range              as Range
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString.Lazy.Char8  as BSL8
 
-import qualified Text.Parsec                 as P
+import qualified Data.Attoparsec.ByteString  as AB
+import qualified Data.Attoparsec.Text        as AT
+import           Data.Attoparsec.Types       (Parser)
 
 import           Data.Digit                  (DecDigit, HeXDigit, HexDigit)
 import qualified Data.Digit                  as D
 
 import           Waargonaut                  (parseWaargonaut)
 import qualified Waargonaut.Decode           as D
+
+import qualified Waargonaut.Decode.Succinct  as SD
+
+import           Waargonaut.Decode.Error     (DecodeError (ParseFailed))
 import qualified Waargonaut.Encode           as E
 import           Waargonaut.Types            (Json)
 import           Waargonaut.Types.Whitespace (Whitespace (..))
 
-import           Waargonaut.Generic          (JsonDecode (..), JsonEncode (..), NewtypeName (..),
-                                              Options (..), defaultOpts,
-                                              gDecoder, gEncoder)
+import           Waargonaut.Generic          (JsonDecode (..), JsonEncode (..),
+                                              NewtypeName (..), Options (..),
+                                              defaultOpts, gDecoder, gEncoder)
 
 data Image = Image
   { _imageWidth    :: Int
@@ -69,6 +82,32 @@ makeClassy ''Image
 
 testImageDataType :: Image
 testImageDataType = Image 800 600 "View from 15th Floor" False [116, 943, 234, 38793]
+
+imageDecodeSuccinct :: Monad f => SD.Decoder f Image
+imageDecodeSuccinct = SD.withCursor $ SD.down >=> \curs -> do
+  -- Move to the value at the "Image" key
+  io <- SD.moveToKey "Image" curs >>= SD.down
+  -- We need individual values off of our object,
+  Image
+    <$> SD.fromKey "Width" SD.int io
+    <*> SD.fromKey "Height" SD.int io
+    <*> SD.fromKey "Title" SD.text io
+    <*> SD.fromKey "Animated" SD.bool io
+    <*> SD.fromKey "IDs" (SD.list SD.int) io
+
+imageDecodeManual :: Monad f => D.Decoder f Image
+imageDecodeManual = D.withCursor $ \c -> do
+  io <- D.moveToKey "Image" c
+
+  Image
+    <$> D.fromKey "Width" D.int io
+    <*> D.fromKey "Height" D.int io
+    <*> D.fromKey "Title" D.text io
+    <*> D.fromKey "Animated" D.bool io
+    <*> D.fromKey "IDs" (D.list D.int) io
+
+imageDecodeGeneric :: Monad f => D.Decoder f Image
+imageDecodeGeneric = D.withCursor $ D.fromKey "Image" mkDecoder
 
 instance Generic Image
 instance HasDatatypeInfo Image
@@ -186,8 +225,14 @@ genWhitespace = Gen.element
 genText :: Gen Text
 genText = Gen.text ( Range.linear 0 100 ) Gen.unicodeAll
 
-parseBS :: ByteString -> Either P.ParseError Json
-parseBS = P.parse parseWaargonaut "ByteString"
+parseWith :: (Parser t a -> t -> Either String a) -> Parser t a -> t -> Either DecodeError a
+parseWith f p = over _Left (ParseFailed . Text.pack . show) . f p
+
+parseBS :: ByteString -> Either DecodeError Json
+parseBS = parseWith AB.parseOnly parseWaargonaut
+
+parseText :: Text -> Either DecodeError Json
+parseText = parseWith AT.parseOnly parseWaargonaut
 
 prop_generic_tripping
   :: ( Generic a

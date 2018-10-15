@@ -45,7 +45,7 @@ import           Text.Parser.Combinators (many)
 -- >>> import Control.Monad (return)
 -- >>> import Data.Either(Either (..), isLeft)
 -- >>> import qualified Data.Digit as D
--- >>> import Text.Parsec(ParseError)
+-- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Data.ByteString.Lazy (toStrict)
 -- >>> import Data.ByteString.Builder (toLazyByteString)
 -- >>> import Utils
