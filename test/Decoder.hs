@@ -6,7 +6,7 @@ module Decoder
 
 import           Prelude                    (Char, Int, String, print)
 
-import           Control.Applicative        (liftA3, (<$>), (<*>))
+import           Control.Applicative        (liftA3, (<$>))
 import           Control.Category           ((.))
 import           Control.Monad              (Monad, (>=>), (>>=))
 
@@ -26,11 +26,10 @@ import           Waargonaut.Generic         (mkDecoder)
 import           Waargonaut.Decode.Error    (DecodeError)
 import           Waargonaut.Decode.Internal (ppCursorHistory)
 
-import           Waargonaut.Decode          as D
-import qualified Waargonaut.Decode.Succinct as SD
+import qualified Waargonaut.Decode.Succinct as D
 
-import           Types.Common               (Image (Image), parseBS,
-                                             testImageDataType, imageDecodeSuccinct)
+import           Types.Common               (Image, imageDecodeSuccinct,
+                                             parseBS, testImageDataType)
 
 decoderTests :: TestTree
 decoderTests = testGroup "Decoding"
@@ -49,31 +48,19 @@ decoderTests = testGroup "Decoding"
       print (ppCursorHistory hist)
       assertFailure "Decode Failed :("
 
-decodeTest2Json :: Either (D.Err DecodeError) [Int]
-decodeTest2Json = D.simpleDecode parseBS mkDecoder "[23,44]"
+decodeTest1Json :: IO (Either (DecodeError, D.CursorHistory) Image)
+decodeTest1Json = D.runPureDecode imageDecodeSuccinct parseBS . D.mkCursor
+  <$> BS.readFile "test/json-data/test1.json"
 
-decodeTest3Json :: Either (D.Err DecodeError) (Char,String,[Int])
-decodeTest3Json = D.simpleDecode parseBS decoder "[\"a\",\"fred\",1,2,3,4]"
+decodeTest2Json :: Either (DecodeError, D.CursorHistory) [Int]
+decodeTest2Json = D.runPureDecode mkDecoder parseBS (D.mkCursor "[23,44]")
+
+decodeTest3Json :: Either (DecodeError, D.CursorHistory) (Char,String,[Int])
+decodeTest3Json = D.runPureDecode decoder parseBS (D.mkCursor "[\"a\",\"fred\",1,2,3,4]")
   where
     decoder :: Monad f => D.Decoder f (Char,String,[Int])
-    decoder = D.withCursor $ D.down "array" >=> \fstElem -> liftA3 (,,)
+    decoder = D.withCursor $ D.down >=> \fstElem -> liftA3 (,,)
       (D.focus D.unboundedChar fstElem)
       (D.moveRight1 fstElem >>= D.focus D.string)
       (D.moveRightN 2 fstElem >>= D.rightwardSnoc [] D.int)
-
--- imageDecoder :: Monad f => SD.Decoder f Image
--- imageDecoder = SD.withCursor $ SD.down >=> \curs -> do
---   -- Move to the value at the "Image" key
---   io <- SD.moveToKey "Image" curs >>= SD.down
---   -- We need individual values off of our object,
---   Image
---     <$> SD.fromKey "Width" SD.int io
---     <*> SD.fromKey "Height" SD.int io
---     <*> SD.fromKey "Title" SD.text io
---     <*> SD.fromKey "Animated" SD.bool io
---     <*> SD.fromKey "IDs" (SD.list SD.int) io
-
-decodeTest1Json :: IO (Either (DecodeError, SD.CursorHistory) Image)
-decodeTest1Json = SD.runPureDecode imageDecodeSuccinct parseBS . SD.mkCursor
-  <$> BS.readFile "test/json-data/test1.json"
 

@@ -106,8 +106,8 @@ imageDecodeManual = D.withCursor $ \c -> do
     <*> D.fromKey "Animated" D.bool io
     <*> D.fromKey "IDs" (D.list D.int) io
 
-imageDecodeGeneric :: Monad f => D.Decoder f Image
-imageDecodeGeneric = D.withCursor $ D.fromKey "Image" mkDecoder
+imageDecodeGeneric :: Monad f => SD.Decoder f Image
+imageDecodeGeneric = SD.withCursor $ SD.fromKey "Image" mkDecoder
 
 instance Generic Image
 instance HasDatatypeInfo Image
@@ -247,4 +247,4 @@ prop_generic_tripping
   -> m ()
 prop_generic_tripping a = tripping a
   (E.runPureEncoder mkEncoder)
-  (D.simpleDecode parseBS mkDecoder . BSL8.toStrict)
+  (SD.runPureDecode mkDecoder parseBS . SD.mkCursor . BSL8.toStrict)

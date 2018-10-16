@@ -18,6 +18,7 @@ module Waargonaut.Decode.Succinct
 
     -- * Runners
   , runDecode
+  , runDecodeResult
   , runPureDecode
   , overrideParser
   , generaliseDecoder
@@ -35,6 +36,7 @@ module Waargonaut.Decode.Succinct
   , moveLeftN
   , moveLeft1
   , moveToKey
+  , moveToRankN
 
     -- * Decoding at cursor
   , jsonAtCursor
@@ -45,6 +47,8 @@ module Waargonaut.Decode.Succinct
   , leftwardCons
   , rightwardSnoc
   , foldCursor
+  , rank
+  , json
   , int
   , scientific
   , integral
@@ -64,8 +68,10 @@ module Waargonaut.Decode.Succinct
 
   ) where
 
+import GHC.Word (Word64)
+
 import           Control.Lens                              (Cons, Lens', Snoc,
-                                                            cons, lens,
+                                                            cons, lens, view,
                                                             modifying, snoc,
                                                             traverseOf, (.~),
                                                             (^.), _Wrapped)
@@ -127,6 +133,7 @@ import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
 import           HaskellWorks.Data.Json.Succinct.Cursor    (JsonCursor (..))
 import qualified HaskellWorks.Data.Json.Succinct.Cursor    as JC
 
+
 import           Waargonaut.Decode.Error                   (DecodeError (..),
                                                             Err' (..))
 import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
@@ -184,6 +191,16 @@ up
   -> DecodeResult f JCurs
 up =
   moveCursBasic parent U
+
+moveToRankN
+  :: Monad f
+  => Word64
+  -> JCurs
+  -> DecodeResult f JCurs
+moveToRankN newRank c =
+  if JC.balancedParens (c ^. _Wrapped) .?. Pos.lastPositionOf newRank
+  then pure $ c & _Wrapped . cursorRankL .~ newRank
+  else throwError $ InputOutOfBounds newRank
 
 moveRightN
   :: Monad f
@@ -345,6 +362,16 @@ runDecode
 runDecode dr p =
   DI.runDecoderResultT . runDecoder dr p
 
+runDecodeResult
+  :: Monad f
+  => ParseFn
+  -> DecodeResult f a
+  -> f (Either (DecodeError, CursorHistory) a)
+runDecodeResult p =
+  DI.runDecoderResultT
+  . flip runReaderT p
+  . unDecodeResult
+
 runPureDecode
   :: Decoder Identity a
   -> ParseFn
@@ -364,6 +391,9 @@ overrideParser parseOverride =
 integral :: (Monad f, Integral n, Bounded n) => Decoder f n
 integral = atCursor "integral" DI.integral'
 
+rank :: Monad f => Decoder f Count
+rank = withCursor (pure . view cursorRankL . unJCurs)
+
 int :: Monad f => Decoder f Int
 int = integral
 
@@ -378,6 +408,9 @@ unboundedChar = atCursor "unbounded char" DI.unboundedChar'
 
 boundedChar :: Monad f => Decoder f Char
 boundedChar = atCursor "bounded char" DI.boundedChar'
+
+json :: Monad f => Decoder f Json
+json = atCursor "json" pure
 
 text :: Monad f => Decoder f Text
 text = atCursor "text" DI.text'

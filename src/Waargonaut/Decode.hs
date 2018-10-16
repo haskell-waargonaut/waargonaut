@@ -1,13 +1,13 @@
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE Rank2Types                 #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
-{-# LANGUAGE GADTs #-}
 -- | Types and functions to convert Json values into your data types.
 module Waargonaut.Decode
   (
@@ -107,7 +107,7 @@ import           Waargonaut.Types              (AsJType, Elems, JAssoc, Json)
 
 import qualified Waargonaut.Types              as WT
 
-import Waargonaut.Decode.Error (Err' (..))
+import           Waargonaut.Decode.Error       (Err' (..))
 import           Waargonaut.Decode.Internal    (CursorHistory' (..),
                                                 DecodeError (..), DecodeResultT,
                                                 Decoder' (..), ZipperMove (..),

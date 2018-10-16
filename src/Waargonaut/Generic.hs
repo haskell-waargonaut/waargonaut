@@ -18,32 +18,37 @@ module Waargonaut.Generic
 
 import           Generics.SOP
 
-import           Control.Lens               (findOf, folded, isn't, _Left)
+import           Control.Lens                     (findOf, folded, isn't, _Left)
 
-import           Control.Monad.Except       (lift, throwError)
-import           Control.Monad.State        (modify)
-import qualified Control.Zipper             as Z
+import           Control.Monad                    ((>=>))
+import           Control.Monad.Except             (lift, throwError)
+import           Control.Monad.State              (modify)
 
-import           Data.Maybe                 (fromMaybe)
+import           Data.Maybe                       (fromMaybe)
 
-import           Data.Functor.Identity      (runIdentity)
+import           Data.Functor.Identity            (runIdentity)
 
-import           Data.List.NonEmpty         (NonEmpty)
-import           Data.Text                  (Text)
-import qualified Data.Text                  as Text
+import           Data.List.NonEmpty               (NonEmpty)
 
-import qualified Data.Map                   as Map
+import           Data.Text                        (Text)
+import qualified Data.Text                        as Text
 
-import           Waargonaut                 (Json)
+import qualified Data.Map                         as Map
 
-import           Waargonaut.Encode          (Encoder, Encoder')
-import qualified Waargonaut.Encode          as E
+import           Waargonaut                       (Json)
 
-import           Waargonaut.Decode          (Decoder)
-import qualified Waargonaut.Decode          as D
+import           Waargonaut.Encode                (Encoder, Encoder')
+import qualified Waargonaut.Encode                as E
 
-import           Waargonaut.Decode.Error    (DecodeError (..))
-import           Waargonaut.Decode.Internal (CursorHistory' (..))
+import           HaskellWorks.Data.Positioning    (Count)
+
+import           Waargonaut.Decode.Succinct       (Decoder)
+import qualified Waargonaut.Decode.Succinct       as D
+import qualified Waargonaut.Decode.Succinct.Types as D
+
+import           Waargonaut.Decode.Error          (DecodeError (..))
+import           Waargonaut.Decode.Internal       (CursorHistory' (..),
+                                                   DecodeResultT (..))
 
 data NewtypeName
   = Unwrap
@@ -115,13 +120,13 @@ tagVal (Tag t) v =
 unTagVal
   :: Monad f
   => Tag
-  -> Decoder f a
-  -> D.JCursor h Json
-  -> D.DecodeResult f a
+  -> Decoder f c
+  -> D.JCurs
+  -> D.DecodeResult f c
 unTagVal NoTag   d =
   D.focus d
 unTagVal (Tag n) d =
-  D.fromKey (Text.pack n) d
+  D.down >=> D.fromKey (Text.pack n) d
 
 jInfoFor
   :: forall xs.
@@ -234,80 +239,83 @@ gDecoder
      )
   => Options
   -> Decoder f a
-gDecoder opts = D.withCursor $ \cursor ->
-  to <$> gDecoderConstructor opts cursor (jsonInfo opts (Proxy :: Proxy a))
+gDecoder opts = D.Decoder $ \parseFn cursor ->
+  to <$> gDecoderConstructor opts parseFn cursor (jsonInfo opts (Proxy :: Proxy a))
 
 gDecoderConstructor
-  :: forall (xss :: [[*]]) f h.
+  :: forall (xss :: [[*]]) f.
      ( All2 JsonDecode xss
      , Monad f
      )
   => Options
-  -> D.JCursor h Json
+  -> D.ParseFn
+  -> D.JCurs
   -> NP JsonInfo xss
-  -> D.DecodeResult f (SOP I xss)
-gDecoderConstructor opts cursor ninfo =
-  foldForRight . hcollapse $ hcliftA2 pAllJDec (mkGDecoder opts cursor) ninfo injs
+  -> DecodeResultT Count DecodeError f (SOP I xss)
+gDecoderConstructor opts parseFn cursor ninfo =
+  foldForRight . hcollapse $ hcliftA2 pAllJDec (mkGDecoder opts parseFn cursor) ninfo injs
   where
     err = Left ( ConversionFailure "Generic Decoder has failed, please file a bug."
-               , D.CursorHist (CursorHistory' mempty)
+               , CursorHistory' mempty
                )
 
-    failure (e,h) = modify (const $ D.unCursorHist h) >> throwError e
+    failure (e,h) = modify (const h) >> throwError e
 
     -- Pretty sure there is a better way to manage this, as my intuition about
     -- generic-sop says that I will only have one successful result for any
     -- given type. But I'm not 100% sure that this is actually the case.
-    foldForRight :: [D.DecodeResult f (SOP I xss)] -> D.DecodeResult f (SOP I xss)
-    foldForRight xs = (lift . sequence $ D.runDecoderResult <$> xs)
+    foldForRight :: [D.DecodeResult f (SOP I xss)] -> DecodeResultT Count DecodeError f (SOP I xss)
+    foldForRight xs = (lift . sequence $ D.runDecodeResult parseFn <$> xs)
       >>= either failure pure . fromMaybe err . findOf folded (isn't _Left)
 
     injs :: NP (Injection (NP I) xss) xss
     injs = injections
 
 mkGDecoder
-  :: forall (xss :: [[*]]) (xs :: [*]) f h.
+  :: forall (xss :: [[*]]) (xs :: [*]) f.
      ( All JsonDecode xs
      , SListI xs
      , Monad f
      )
   => Options
-  -> D.JCursor h Json
+  -> D.ParseFn
+  -> D.JCurs
   -> JsonInfo xs
   -> Injection (NP I) xss xs
   -> K (D.DecodeResult f (SOP I xss)) xs
-mkGDecoder opts cursor info (Fn inj) = K $ do
+mkGDecoder opts _parseFn cursor info (Fn inj) = K $ do
   val <- mkGDecoder2 opts cursor info
   SOP . unK . inj <$> hsequence (hcliftA pJDec aux val)
   where
-    aux :: JsonDecode a => K Json a -> D.DecodeResult f a
-    aux = D.runDecoder mkDecoder . Z.zipper . unK
+    aux :: JsonDecode a => K Count a -> D.DecodeResult f a
+    aux (K rnk) = D.moveToRankN rnk cursor >>= D.focus mkDecoder
 
 mkGDecoder2
-  :: forall (xs :: [*]) f h.
+  :: forall (xs :: [*]) f.
      ( All JsonDecode xs
      , SListI xs
      , Monad f
     )
   => Options
-  -> D.JCursor h Json
+  -> D.JCurs
   -> JsonInfo xs
-  -> D.DecodeResult f (NP (K Json) xs)
+  -> D.DecodeResult f (NP (K Count) xs)
 mkGDecoder2 _ cursor (JsonZero _) =
-  Nil <$ unTagVal NoTag D.json cursor
+  Nil <$ unTagVal NoTag D.rank cursor
 
 mkGDecoder2 _ cursor (JsonOne tag) =
-  (\j -> K j :* Nil) <$> unTagVal tag D.json cursor
+  (\j -> K j :* Nil) <$> unTagVal tag D.rank cursor
 
 mkGDecoder2 _ cursor (JsonMul tag) = do
-  xs <- unTagVal tag (D.list D.json) cursor
+  xs <- unTagVal tag (D.list D.rank) cursor
   maybe err pure (fromList xs)
   where
-    err = throwError (ConversionFailure "Generic List")
+    err = throwError (ConversionFailure "Generic List Decode Failed")
 
-mkGDecoder2 opts cursor (JsonRec tag fields) =
-  hsequenceK $ hcliftA pJDec (mapKK decodeAtKey) fields
+mkGDecoder2 opts cursor (JsonRec tag fields) = do
+  c' <- D.down cursor
+  hsequenceK $ hcliftA pJDec (mapKK (decodeAtKey c')) fields
   where
-    decodeAtKey k = unTagVal tag (
-      D.withCursor $ D.fromKey (modFieldName opts k) D.json
-      ) cursor
+    decodeAtKey c k = unTagVal tag (
+      D.withCursor $ D.fromKey (modFieldName opts k) D.rank
+      ) c

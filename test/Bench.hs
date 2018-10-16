@@ -66,9 +66,9 @@ main = G.defaultMain
 decode :: G.Benchmark
 decode = G.env getDecodeFiles $ \ ~(image, numbers) -> G.bgroup "Decode"
   [ G.bench "Image Decode (manual - traversal)" $ G.nf (traversalDecode imageDecodeManual) image
-  , G.bench "Image Decode (manual - succinct)" $ G.nf (succinctDecode imageDecodeSuccinct) image
-  , G.bench "Image Decode (generic)" $ G.nf (traversalDecode imageDecodeGeneric) image
+  , G.bench "Image Decode (generic)"            $ G.nf (succinctDecode imageDecodeGeneric) image
   , G.bench "[Scientific] (manual - traversal)" $ G.nf (traversalDecode (D.list D.scientific)) numbers
+  , G.bench "Image Decode (manual - succinct)"  $ G.nf (succinctDecode imageDecodeSuccinct) image
   ]
 
 parse :: G.Benchmark
