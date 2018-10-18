@@ -18,38 +18,38 @@ module Waargonaut.Generic
 
 import           Generics.SOP
 
-import           Control.Lens                     (findOf, folded, isn't, _Left)
+import           Control.Lens                  (findOf, folded, isn't, _Left)
 
-import           Control.Monad                    ((>=>))
-import           Control.Monad.Except             (lift, throwError)
-import           Control.Monad.State              (modify)
+import           Control.Monad                 ((>=>))
+import           Control.Monad.Except          (lift, throwError)
+import           Control.Monad.State           (modify)
 
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                    (fromMaybe)
 
-import           Data.Functor.Identity            (runIdentity)
+import           Data.Functor.Identity         (runIdentity)
 
-import           Data.List.NonEmpty               (NonEmpty)
+import           Data.List.NonEmpty            (NonEmpty)
 
-import           Data.Text                        (Text)
-import qualified Data.Text                        as Text
+import           Data.Text                     (Text)
+import qualified Data.Text                     as Text
 
-import qualified Data.Map                         as Map
-import           Data.Scientific                  (Scientific)
+import qualified Data.Map                      as Map
+import           Data.Scientific               (Scientific)
 
-import           Waargonaut                       (Json)
+import           Waargonaut                    (Json)
 
-import           Waargonaut.Encode                (Encoder, Encoder')
-import qualified Waargonaut.Encode                as E
+import           Waargonaut.Encode             (Encoder, Encoder')
+import qualified Waargonaut.Encode             as E
 
-import           HaskellWorks.Data.Positioning    (Count)
+import           HaskellWorks.Data.Positioning (Count)
 
-import           Waargonaut.Decode.Succinct       (Decoder)
-import qualified Waargonaut.Decode.Succinct       as D
-import qualified Waargonaut.Decode.Succinct.Types as D
+import           Waargonaut.Decode             (Decoder)
+import qualified Waargonaut.Decode             as D
+import qualified Waargonaut.Decode.Types       as D
 
-import           Waargonaut.Decode.Error          (DecodeError (..))
-import           Waargonaut.Decode.Internal       (CursorHistory' (..),
-                                                   DecodeResultT (..))
+import           Waargonaut.Decode.Error       (DecodeError (..))
+import           Waargonaut.Decode.Internal    (CursorHistory' (..),
+                                                DecodeResultT (..))
 
 data NewtypeName
   = Unwrap

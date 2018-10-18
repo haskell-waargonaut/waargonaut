@@ -1,396 +1,300 @@
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE Rank2Types                 #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
--- | Types and functions to convert Json values into your data types.
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
 module Waargonaut.Decode
   (
-    Err
-  , CursorHistory (..)
-  , DecodeResult (..)
-
-    -- * Type aliases
-  , JCursorMove
-  , JCursor
+    -- * Types
+    CursorHistory
+  , SuccinctCursor
+  , DecodeResult
   , Decoder
+  , JCurs (..)
+  , Err
 
-    -- * Decoder creation
-  , withCursor
-
-    -- * Decoder execution
-  , runDecoder
-  , runDecoderResult
+    -- * Runners
+  , runDecode
+  , runDecodeResult
   , runPureDecode
   , simpleDecode
+  , overrideParser
   , generaliseDecoder
 
-    -- * Cursor movement
-  , into
-  , up
+    -- * Cursors
+  , withCursor
+  , mkCursor
+  , cursorRankL
+  , manyMoves
   , down
-  , moveLeftN
-  , moveLeft1
+  , up
+  , DI.try
   , moveRightN
   , moveRight1
+  , moveLeftN
+  , moveLeft1
   , moveToKey
-  , try
+  , moveToRankN
 
-    -- * Decode at Cursor
+    -- * Decoding at cursor
+  , jsonAtCursor
   , fromKey
   , atKey
-  , atCursor
   , focus
 
-    -- * Provided decoders
-  , scientific
-  , integral
-  , int
-  , bool
-  , text
-  , string
-  , boundedChar
-  , unboundedChar
-  , null
-  , json
-  , foldCursor
+    -- * Provided Decoders
   , leftwardCons
   , rightwardSnoc
-  , nonEmptyAt
+  , foldCursor
+  , rank
+  , json
+  , int
+  , scientific
+  , integral
+  , string
+  , unboundedChar
+  , boundedChar
+  , text
+  , bool
+  , null
+  , nonemptyAt
   , nonempty
   , listAt
   , list
-  , maybeOrNull
   , withDefault
+  , maybeOrNull
   , either
 
   ) where
 
-import           Prelude                       hiding (either, maybe, null)
+import           GHC.Word                                  (Word64)
 
-import           Numeric.Natural               (Natural)
+import           Control.Lens                              (Cons, Lens', Snoc,
+                                                            cons, lens,
+                                                            modifying, snoc,
+                                                            traverseOf, view,
+                                                            (.~), (^.),
+                                                            _Wrapped)
 
-import           Control.Lens                  (Bazaar', Cons, LensLike', Snoc,
-                                                (^.), (^?))
-import qualified Control.Lens                  as L
+import           Prelude                                   (Bool, Bounded, Char,
+                                                            Int, Integral,
+                                                            String,
+                                                            fromIntegral, (-),
+                                                            (==))
 
-import           Control.Lens.Internal.Indexed (Indexed, Indexing)
-import           Control.Monad                 ((>=>))
-import           Control.Monad.Except          (MonadError)
-import           Control.Monad.Morph           (MFunctor (..), MMonad (..),
-                                                generalize)
-import           Control.Monad.State           (MonadState)
-import           Control.Monad.Trans.Class     (MonadTrans (..))
+import           Control.Applicative                       (Applicative (..))
+import           Control.Category                          ((.))
+import           Control.Monad                             (Monad (..), (>=>))
+import           Control.Monad.Morph                       (embed, generalize)
 
-import           Control.Error.Util            (note)
-import           Control.Monad.Error.Hoist     ((<%?>), (<?>))
+import           Control.Monad.Except                      (lift, liftEither,
+                                                            throwError)
+import           Control.Monad.Reader                      (ReaderT (..), ask,
+                                                            local, runReaderT)
+import           Control.Monad.State                       (MonadState)
 
-import           Control.Zipper                ((:>>))
-import qualified Control.Zipper                as Z
+import           Control.Error.Util                        (note)
+import           Control.Monad.Error.Hoist                 ((<?>))
 
-import           Data.Functor.Identity         (Identity, runIdentity)
-import qualified Data.Maybe                    as Maybe
+import           Data.Either                               (Either (..))
+import           Data.Foldable                             (foldl)
+import           Data.Function                             (const, flip, ($),
+                                                            (&))
+import           Data.Functor                              (fmap, (<$), (<$>))
+import           Data.Functor.Identity                     (Identity,
+                                                            runIdentity)
+import           Data.Monoid                               (mempty)
 
-import           Data.List.NonEmpty            (NonEmpty ((:|)))
+import           Data.Scientific                           (Scientific)
 
-import qualified Data.Bool                     as Bool
-import           Data.Text                     (Text)
+import           Data.List                                 (replicate)
+import           Data.List.NonEmpty                        (NonEmpty ((:|)))
+import           Data.Maybe                                (Maybe (..),
+                                                            fromMaybe, maybe)
 
-import           Data.Scientific               (Scientific)
+import           Data.Text                                 (Text)
 
-import           Waargonaut.Types              (AsJType, Elems, JAssoc, Json)
+import           Data.ByteString.Char8                     (ByteString)
+import qualified Data.ByteString.Char8                     as BS8
 
-import qualified Waargonaut.Types              as WT
+import           Numeric.Natural                           (Natural)
 
-import           Waargonaut.Decode.Error       (Err' (..))
-import           Waargonaut.Decode.Internal    (CursorHistory' (..),
-                                                DecodeError (..), DecodeResultT,
-                                                Decoder' (..), ZipperMove (..),
-                                                runDecoderResultT, try)
+import           Waargonaut.Types
 
-import qualified Waargonaut.Decode.Internal    as DR
+import           HaskellWorks.Data.Positioning             (Count)
+import qualified HaskellWorks.Data.Positioning             as Pos
 
--- | Convenience Error structure for the separate parsing/decoding phases. For
--- when things really aren't that complicated.
-type Err e = Err' CursorHistory e
+import qualified HaskellWorks.Data.BalancedParens.FindOpen as BP
 
--- | Wrapper for our 'CursorHistory'' to define our index as being an 'Int'.
---
-newtype CursorHistory = CursorHist
-  { unCursorHist :: CursorHistory' Int
-  }
-  deriving (Show, Eq)
+import           HaskellWorks.Data.Bits                    ((.?.))
+import           HaskellWorks.Data.FromByteString          (fromByteString)
+import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
 
--- | Provide some of the type parameters that the underlying 'DecodeResultT'
--- requires. This contains the state and error management as we walk around our
--- zipper and decode our JSON input.
---
-newtype DecodeResult f a = DecodeResult
-  { unDecodeResult :: DecodeResultT Int DecodeError f a
-  }
-  deriving ( Functor
-           , Applicative
-           , Monad
-           , MonadState (CursorHistory' Int)
-           , MonadError DecodeError
-           )
+import           HaskellWorks.Data.Json.Cursor             (JsonCursor (..))
+import qualified HaskellWorks.Data.Json.Cursor             as JC
 
-instance MonadTrans DecodeResult where
-  lift = DecodeResult . lift
 
-instance MFunctor DecodeResult where
-  hoist nat (DecodeResult dr) = DecodeResult (hoist nat dr)
+import           Waargonaut.Decode.Error                   (DecodeError (..),
+                                                            Err' (..))
+import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
 
-instance MMonad DecodeResult where
-  embed f (DecodeResult dr) = DecodeResult (embed (unDecodeResult . f) dr)
+import qualified Waargonaut.Decode.Internal                as DI
 
--- | Type alias to describe the lens that may be given to a zipper movement
--- function to more directly target something within the 'Json' data structure.
---
-type JCursorMove s a =
-  LensLike' (Indexing (Bazaar' (Indexed Int) a)) s a
+import           Waargonaut.Decode.Types                   (CursorHistory,
+                                                            DecodeResult (..),
+                                                            Decoder (..),
+                                                            JCurs (..), ParseFn,
+                                                            SuccinctCursor)
 
--- | This is an alias to help explain a type from the zipper that is used to move
--- around the 'Json' data structure. 'JCursor h a' represents a "cursor" that is
--- currently located on a thing of type 'a', having previously been on a thing
--- of type 'h'.
---
--- This type will grow as a form of "breadcrumb" trail as the cursor moves
--- through the data structure. It may be used interchangably with 'h :>> a' from
--- the 'Control.Zipper' module.
---
-type JCursor h a =
-  h :>> a
+type Err = Err' CursorHistory
 
--- | A shorthand description of our 'Decoder' type that is used directly to
--- convert 'Json' structures to other data types.
---
-type Decoder f a =
-  forall h. Decoder' (JCursor h Json) Int DecodeError f a
+withCursor
+  :: Monad f
+  => (JCurs -> DecodeResult f a)
+  -> Decoder f a
+withCursor g = Decoder $ \p ->
+  DI.runDecoder' $ DI.withCursor' (flip runReaderT p . unDecodeResult . g)
+
+mkCursor :: ByteString -> JCurs
+mkCursor = JCurs . fromByteString
+
+cursorRankL :: Lens' (JsonCursor s i p) Count
+cursorRankL = lens JC.cursorRank (\c r -> c { cursorRank = r })
+
+manyMoves :: Monad m => Natural -> (b -> m b) -> b -> m b
+manyMoves i g = foldl (>=>) pure (replicate (fromIntegral i) g)
 
 -- | Generalise a 'Decoder' that has been specialised to 'Identity' back to some 'Monad f'.
 generaliseDecoder :: Monad f => Decoder Identity a -> Decoder f a
-generaliseDecoder dr = Decoder' (embed generalize . runDecoder' dr)
+generaliseDecoder dr = Decoder (\p -> embed generalize . runDecoder dr p)
 {-# INLINE generaliseDecoder #-}
 
--- | Function to define a 'Decoder' for a specific data type.
---
--- For example, given the following data type:
---
--- @
--- data Image = Image
---   { _imageW        :: Int
---   , _imageH        :: Int
---   , _imageTitle    :: Text
---   , _imageAnimated :: Bool
---   , _imageIDs      :: [Int]
---   }
--- @
---
--- We can use 'withCursor' to write a decoder that will be given a cursor that
--- we can use to build the data types that we need.
---
--- @
--- imageDecoder :: Monad f => Decoder f Image
--- imageDecoder = withCursor $ \\curs -> Image
---   \<$> D.fromKey \"Width\" D.int curs
---   \<*> D.fromKey \"Height\" D.int curs
---   \<*> D.fromKey \"Title\" D.text curs
---   \<*> D.fromKey \"Animated\" D.bool curs
---   \<*> D.fromKey \"IDs\" intArray curs
--- @
---
--- It's up to you to provide a cursor that is at the correct position for a
--- 'Decoder' to operate, but building decoders in this way simplifies creating
--- decoders for larger structures, as the smaller pieces contain fewer
--- assumptions. This encourages greater reuse of decoders and simplifies the
--- debugging process.
---
-withCursor
+moveCursBasic
   :: Monad f
-  => (forall h. JCursor h Json -> DecodeResult f a)
-  -> Decoder f a
-withCursor f =
-  Decoder' (unDecodeResult . f)
+  => (SuccinctCursor -> Maybe SuccinctCursor)
+  -> ZipperMove
+  -> JCurs
+  -> DecodeResult f JCurs
+moveCursBasic f m c =
+  traverseOf _Wrapped f c <?> FailedToMove m >>= recordRank m
 
--- | Run a 'Decoder f a' using a 'JCursor' to try to convert it into the data
--- type described by the 'Decoder'.
---
-runDecoder
-  :: Decoder f a
-  -> JCursor h Json
-  -> DecodeResult f a
-runDecoder f =
-  DecodeResult . DR.runDecoder' f
-
--- | Execute a 'DecodeResult' to determine if the process has been successful,
--- providing a descriptive error and the path history of the cursor movements to
--- assist in debugging any failures.
---
-runDecoderResult
-  :: Monad f
-  => DecodeResult f a
-  -> f (Either (DecodeError, CursorHistory) a)
-runDecoderResult =
-  L.over (L.mapped . L._Left . L._2) CursorHist
-  . runDecoderResultT
-  . unDecodeResult
-
--- |
--- Run a pure decoder with 'Identity'.
---
-runPureDecode
-  :: Decoder Identity a
-  -> JCursor h Json
-  -> Either (DecodeError, CursorHistory) a
-runPureDecode dec = runIdentity
-  . runDecoderResult
-  . runDecoder dec
-
--- |
--- Using the given parsing function, take some input and try to convert it to
--- the 'Json' structure. Then pass it to the given 'Decoder'.
-simpleDecode
-  :: (s -> Either e Json)
-  -> Decoder Identity a
-  -> s
-  -> Either (Err e) a
-simpleDecode p dec =
-  L.bimap Parse Z.zipper . p >=>
-  L.over L._Left Decode . runPureDecode dec
-
--- Helper function that takes a given attempt to move the cursor to a new
--- location, throwing the 'FailedToMove' error if it fails, or recording the new
--- position and returning the new position.
-moveAndKeepHistory
-  :: Monad f
-  => ZipperMove
-  -> Maybe (JCursor h s)
-  -> DecodeResult f (JCursor h s)
-moveAndKeepHistory dir mCurs = do
-  a <- mCurs <?> FailedToMove dir
-  a <$ DR.recordZipperMove dir (Z.tooth a)
-
--- | Using a given 'LensLike', try to step down into the 'Json' data structure
--- to the location targeted by the lens.
---
--- This can be used to move large steps over the data structure, or more
--- precisely to specific keys at deeper levels. On a successful step, the
--- history will be recorded as a single step into the thing described by the
--- 'Text' input.
---
-into
-  :: Monad f
-  => Text
-  -> JCursorMove s a
-  -> JCursor h s
-  -> DecodeResult f (JCursor (JCursor h s) a)
-into tgt l =
-  moveAndKeepHistory (DAt tgt) . Z.within l
-
--- | A constrained version of 'into' that will only move a single step down into
--- a 'Json' value. The 'Text' input is so you're able to provide an expectation
--- of what you are stepping down into, this provides a more descriptive error
--- message than simply "down".
---
--- For example:
---
--- @
--- firstElemCursor <- down "array" cursor
--- @
---
 down
   :: Monad f
-  => Text
-  -> JCursor h Json
-  -> DecodeResult f (JCursor (JCursor h Json) Json)
-down tgt =
-  into tgt WT.jsonTraversal
+  => JCurs
+  -> DecodeResult f JCurs
+down =
+  moveCursBasic firstChild D
 
--- | Attempt to step one level "up" from the current cursor location.
 up
   :: Monad f
-  => JCursor (JCursor h s) a
-  -> DecodeResult f (JCursor h s)
+  => JCurs
+  -> DecodeResult f JCurs
 up =
-  moveAndKeepHistory U . pure . Z.upward
+  moveCursBasic parent U
 
--- | From the current cursor location, try to move 'n' steps to the left.
-moveLeftN
+moveToRankN
   :: Monad f
-  => Natural
-  -> JCursor h a
-  -> DecodeResult f (JCursor h a)
-moveLeftN n cur =
-  moveAndKeepHistory (L n) (Z.jerks Z.leftward (fromIntegral n) cur)
+  => Word64
+  -> JCurs
+  -> DecodeResult f JCurs
+moveToRankN newRank c =
+  if JC.balancedParens (c ^. _Wrapped) .?. Pos.lastPositionOf newRank
+  then pure $ c & _Wrapped . cursorRankL .~ newRank
+  else throwError $ InputOutOfBounds newRank
 
--- | From the current cursor location, try to move 'n' steps to the right.
 moveRightN
   :: Monad f
   => Natural
-  -> JCursor h a
-  -> DecodeResult f (JCursor h a)
-moveRightN n cur =
-  moveAndKeepHistory (R n) (Z.jerks Z.rightward (fromIntegral n) cur)
+  -> JCurs
+  -> DecodeResult f JCurs
+moveRightN i =
+  moveCursBasic (manyMoves i nextSibling) (R i)
 
--- | From the current cursor location, try to move 1 step to the left.
-moveLeft1
-  :: Monad f
-  => JCursor h a
-  -> DecodeResult f (JCursor h a)
-moveLeft1 =
-  moveLeftN 1
-
--- | From the current cursor location, try to move 1 step to the right.
 moveRight1
   :: Monad f
-  => JCursor h a
-  -> DecodeResult f (JCursor h a)
+  => JCurs
+  -> DecodeResult f JCurs
 moveRight1 =
   moveRightN 1
 
--- | Provide a 'conversion' function and create a 'Decoder' that uses the
--- current cursor and runs the given function. Fails with 'ConversionFailure' and
--- the given 'Text' description.
-atCursor
+moveLeft1
   :: Monad f
-  => Text
-  -> (Json -> Maybe b)
-  -> Decoder f b
-atCursor t f = withCursor $ \c -> do
-  b <- c ^. Z.focus . L.to (note t . f) <%?> ConversionFailure
-  b <$ DR.recordZipperMove (Item t) (Z.tooth c)
+  => JCurs
+  -> DecodeResult f JCurs
+moveLeft1 jc =
+  let
+    c = jc ^. _Wrapped
+    rnk = c ^. cursorRankL
 
--- | From the current cursor position, try to move to the value for the first
--- occurence of that key. This move expects that you've positioned the cursor on an
--- object.
-moveToKey
-  :: ( AsJType s ws s
+    setRank r = jc & _Wrapped . cursorRankL .~ r
+    prev = rnk - 1
+  in
+    setRank <$> BP.findOpen (JC.balancedParens c) prev <?> InputOutOfBounds prev
+
+moveLeftN
+  :: Monad f
+  => Natural
+  -> JCurs
+  -> DecodeResult f JCurs
+moveLeftN i =
+  manyMoves i moveLeft1
+
+jsonAtCursor
+  :: Monad f
+  => (ByteString -> Either DecodeError a)
+  -> JCurs
+  -> DecodeResult f a
+jsonAtCursor p jc = do
+  let
+    c         = jc ^. _Wrapped
+    rnk       = c ^. cursorRankL
+
+    leading   = fromIntegral $ Pos.toCount (JC.jsonCursorPos c)
+    cursorTxt = BS8.drop leading (JC.cursorText c)
+
+  if JC.balancedParens c .?. Pos.lastPositionOf rnk
+    then liftEither (p cursorTxt)
+    else throwError (InputOutOfBounds rnk)
+
+recordRank
+  :: ( MonadState CursorHistory f
      , Monad f
      )
-  => Text
-  -> JCursor h s
-  -> DecodeResult f (h :>> s :>> Elems ws (JAssoc ws s) :>> JAssoc ws s :>> s)
-moveToKey k =
-  moveAndKeepHistory (DAt k)
-  . ( Z.within intoElems
-      >=> Z.within traverse
-      >=> shuffleToKey
-      >=> Z.within WT.jsonAssocVal
-    )
-  where
-    shuffleToKey cu = Z.within WT.jsonAssocKey cu ^? L._Just . Z.focus . L.re WT._JString
-      >>= Bool.bool (Just cu) (Z.rightward cu >>= shuffleToKey) . (/=k)
+  => ZipperMove
+  -> JCurs
+  -> f JCurs
+recordRank mv c =
+  c <$ modifying _Wrapped (`snoc` (mv, c ^. _Wrapped . cursorRankL))
 
-    intoElems = WT._JObj . L._1 . L._Wrapped . WT._CommaSeparated . L._2 . L._Just
+focus
+  :: Monad f
+  => Decoder f a
+  -> JCurs
+  -> DecodeResult f a
+focus decoder curs = DecodeResult $ do
+  p <- ask
+  lift $ runDecoder decoder p curs
+
+moveToKey
+  :: Monad f
+  => Text
+  -> JCurs
+  -> DecodeResult f JCurs
+moveToKey k c =
+  -- Tease out the key
+  focus text c >>= \k' -> if k' == k -- Are we at the key we want to be at ?
+  -- if we are, then move into the THING at the key
+  then moveRight1 c
+  -- if not, then jump to the next key index, the adjacent sibling is opening of the value of the current key
+  else moveRightN 2 c >>= moveToKey k
 
 -- | Move to the first occurence of this key, as per 'moveToKey' and then
 -- attempt to run the given 'Decoder' on that value, returning the result.
+--
+-- This decoder does not assume you have moved into the object.
 --
 -- @
 -- ...
@@ -403,15 +307,18 @@ fromKey
      )
   => Text
   -> Decoder f b
-  -> JCursor h Json
+  -> JCurs
   -> DecodeResult f b
 fromKey k d =
-  moveToKey k >=> runDecoder d
+  moveToKey k >=> focus d
 
 -- | A simplified version of 'fromKey' that takes a 'Text' value indicating a
 -- key to be moved to and decoded using the given 'Decoder f a'. If you don't
 -- need any special cursor movements to reach the list of keys you require, you
 -- could use this function to build a trivial 'Decoder' for a record type:
+--
+-- This decoder assumes it is positioned at the top of an object and will move
+-- 'down' before attempting to find the given key.
 --
 -- @
 -- data MyRec = MyRec { fieldA :: Text, fieldB :: Int }
@@ -428,147 +335,155 @@ atKey
   -> Decoder f a
   -> Decoder f a
 atKey k d =
-  withCursor (fromKey k d)
+  withCursor (down >=> fromKey k d)
 
--- | Decoder for 'Scientific'
-scientific :: Monad f => Decoder f Scientific
-scientific = atCursor "Scientific" DR.scientific'
-
--- | Decoder for a bounded integral value.
-integral :: (Bounded i, Integral i, Monad f) => Decoder f i
-integral = atCursor "Integral" DR.integral'
-
--- | Decoder for 'Int'
-int :: Monad f => Decoder f Int
-int = atCursor "Int" DR.int'
-
--- | Decoder for 'Bool'
-bool :: Monad f => Decoder f Bool
-bool = atCursor "Bool" DR.bool'
-
--- | Decoder for 'Text', as per the 'Text' documentation any unacceptable utf8 characters will be replaced.
-text :: Monad f => Decoder f Text
-text = atCursor "Text" DR.text'
-
--- | Decoder for 'String'
-string :: Monad f => Decoder f String
-string = atCursor "String" DR.string'
-
--- | Decoder for 'null'
-null :: Monad f => Decoder f ()
-null = atCursor "null" DR.null'
-
--- | Decoder for a 'Char' value that cannot contain values in the range U+D800
--- to U+DFFF. This decoder will fail if the 'Char' is outside of this range.
-boundedChar :: Monad f => Decoder f Char
-boundedChar = atCursor "Bounded Char" DR.boundedChar'
-
--- | Decoder for a Haskell 'Char' value whose values represent Unicode
--- (or equivalently ISO/IEC 10646) characters.
-unboundedChar :: Monad f => Decoder f Char
-unboundedChar = atCursor "Unbounded Char" DR.unboundedChar'
-
--- | Decoder for pulling out the 'Json' Haskell data structure at the current cursor.
-json :: Monad f => Decoder f Json
-json = atCursor "JSON" pure
-
--- | Try to decode the value at the current focus using the given 'Decoder'.
-focus
+atCursor
   :: Monad f
-  => Decoder f a
-  -> JCursor h Json
-  -> DecodeResult f a
-focus =
-  runDecoder
+  => Text
+  -> (Json -> Maybe c)
+  -> Decoder f c
+atCursor m c = withCursor $ \curs -> do
+  p <- ask
+  jsonAtCursor p curs >>=
+    liftEither . note (ConversionFailure m) . c
 
--- | Allows for folding over the results of repeated cursor movements.
---
--- @
--- intList :: Decoder f [String]
--- intList = withCursor $ \curs ->
---   foldCursor [] (\acc a -> acc <> [a]) moveRight1 string curs
--- @
---
 foldCursor
   :: Monad f
-  => s
-  -> (s -> a -> s)
-  -> (JCursor h Json -> DecodeResult f (JCursor h Json))
+  => (b -> a -> b)
+  -> (JCurs -> DecodeResult f JCurs)
+  -> b
   -> Decoder f a
-  -> JCursor h Json
-  -> DecodeResult f s
-foldCursor s sas mvCurs elemD = DecodeResult
-  . DR.foldCursor'
-    s
-    sas
-    (unDecodeResult . mvCurs)
-    elemD
+  -> JCurs
+  -> DecodeResult f b
+foldCursor nom f s elemD curs = DecodeResult . ReaderT $ \p ->
+  DI.foldCursor' s nom
+    (flip runReaderT p . unDecodeResult . f)
+    (DI.Decoder' $ runDecoder elemD p)
+    curs
 
--- | Use the 'Cons' typeclass and move leftwards from the current cursor
--- position, 'consing' the values to the 's' as it moves.
 leftwardCons
   :: ( Monad f
      , Cons s s a a
      )
   => s
   -> Decoder f a
-  -> JCursor h Json
+  -> JCurs
   -> DecodeResult f s
-leftwardCons s elemD = DecodeResult
-  . DR.foldCursor' s
-    (flip L.cons)
-    (unDecodeResult . moveLeft1)
-    elemD
+leftwardCons =
+  foldCursor (flip cons) moveLeft1
 
--- | Use the 'Snoc' typeclass and move rightwards from the current cursor
--- position, 'snocing' the values to the 's' as it moves.
 rightwardSnoc
   :: ( Monad f
      , Snoc s s a a
      )
   => s
   -> Decoder f a
-  -> JCursor h Json
+  -> JCurs
   -> DecodeResult f s
-rightwardSnoc s elemD = DecodeResult
-  . DR.foldCursor' s
-    L.snoc
-    (unDecodeResult . moveRight1)
-    elemD
+rightwardSnoc =
+  foldCursor snoc moveRight1
 
--- | Decode a 'NonEmpty' list of 'a' at the given cursor position.
-nonEmptyAt
+runDecode
   :: Monad f
   => Decoder f a
-  -> JCursor h Json
+  -> ParseFn
+  -> JCurs
+  -> f (Either (DecodeError, CursorHistory) a)
+runDecode dr p =
+  DI.runDecoderResultT . runDecoder dr p
+
+runDecodeResult
+  :: Monad f
+  => ParseFn
+  -> DecodeResult f a
+  -> f (Either (DecodeError, CursorHistory) a)
+runDecodeResult p =
+  DI.runDecoderResultT
+  . flip runReaderT p
+  . unDecodeResult
+
+simpleDecode
+  :: Decoder Identity a
+  -> ParseFn
+  -> ByteString
+  -> Either (DecodeError, CursorHistory) a
+simpleDecode d parseFn =
+  runPureDecode d parseFn
+  . mkCursor
+
+runPureDecode
+  :: Decoder Identity a
+  -> ParseFn
+  -> JCurs
+  -> Either (DecodeError, CursorHistory) a
+runPureDecode dr p =
+  runIdentity . runDecode dr p
+
+overrideParser
+  :: Monad f
+  => ParseFn
+  -> DecodeResult f a
+  -> DecodeResult f a
+overrideParser parseOverride =
+  local (const parseOverride)
+
+integral :: (Monad f, Integral n, Bounded n) => Decoder f n
+integral = atCursor "integral" DI.integral'
+
+rank :: Monad f => Decoder f Count
+rank = withCursor (pure . view cursorRankL . unJCurs)
+
+int :: Monad f => Decoder f Int
+int = integral
+
+scientific :: Monad f => Decoder f Scientific
+scientific = atCursor "scientific" DI.scientific'
+
+string :: Monad f => Decoder f String
+string = atCursor "string" DI.string'
+
+unboundedChar :: Monad f => Decoder f Char
+unboundedChar = atCursor "unbounded char" DI.unboundedChar'
+
+boundedChar :: Monad f => Decoder f Char
+boundedChar = atCursor "bounded char" DI.boundedChar'
+
+json :: Monad f => Decoder f Json
+json = atCursor "json" pure
+
+text :: Monad f => Decoder f Text
+text = atCursor "text" DI.text'
+
+null :: Monad f => Decoder f ()
+null = atCursor "null" DI.null'
+
+bool :: Monad f => Decoder f Bool
+bool = atCursor "bool" DI.bool'
+
+nonemptyAt
+  :: Monad f
+  => Decoder f a
+  -> JCurs
   -> DecodeResult f (NonEmpty a)
-nonEmptyAt elemD c =
-  moveAndKeepHistory D (Z.within WT.jsonTraversal c)
-  >>= \curs -> do
-    h <- focus elemD curs
-    moveRight1 curs >>= fmap (h:|) . rightwardSnoc [] elemD
+nonemptyAt elemD = down >=> \curs -> do
+  h <- focus elemD curs
+  xs <- moveRight1 curs
+  (h :|) <$> rightwardSnoc [] elemD xs
 
--- | Create a 'Decoder' for a 'NonEmpty' list.
-nonempty :: Monad f => Decoder f b -> Decoder f (NonEmpty b)
-nonempty d = withCursor (nonEmptyAt d)
+nonempty :: Monad f => Decoder f a -> Decoder f (NonEmpty a)
+nonempty d = withCursor (nonemptyAt d)
 
--- | Decode a '[a]' at the current cursor position.
 listAt
   :: Monad f
   => Decoder f a
-  -> JCursor h Json
+  -> JCurs
   -> DecodeResult f [a]
-listAt elemD c =
-  try (moveAndKeepHistory D (Z.within WT.jsonTraversal c))
-  >>= Maybe.maybe (pure mempty) (rightwardSnoc mempty elemD)
+listAt elemD curs = DI.try (down curs) >>= maybe
+  (pure mempty)
+  (rightwardSnoc mempty elemD)
 
--- | Create a 'Decoder' for a list of 'a'
-list
-  :: Monad f
-  => Decoder f b
-  -> Decoder f [b]
-list d =
-  withCursor (listAt d)
+list :: Monad f => Decoder f a -> Decoder f [a]
+list d = withCursor (listAt d)
 
 -- | Try to decode an optional value, returning the given default value if
 -- 'Nothing' is returned.
@@ -578,7 +493,7 @@ withDefault
   -> Decoder f (Maybe a)
   -> Decoder f a
 withDefault def hasD =
-  withCursor (fmap (Maybe.fromMaybe def) . focus hasD)
+  withCursor (fmap (fromMaybe def) . focus hasD)
 
 -- | Named to match it's 'Encoder' counterpart, this function will decode an
 -- optional value.
@@ -586,8 +501,8 @@ maybeOrNull
   :: Monad f
   => Decoder f a
   -> Decoder f (Maybe a)
-maybeOrNull hasD =
-  withCursor (try . focus hasD)
+maybeOrNull a =
+  withCursor (DI.try . focus a)
 
 -- | Decode either an 'a' or a 'b', failing if neither 'Decoder' succeeds. The
 -- 'Right' decoder is attempted first.
@@ -598,5 +513,5 @@ either
   -> Decoder f (Either a b)
 either leftD rightD =
   withCursor $ \c ->
-    try (focus (Right <$> rightD) c) >>=
-    Maybe.maybe (focus (Left <$> leftD) c) pure
+    DI.try (focus (Right <$> rightD) c) >>=
+    maybe (focus (Left <$> leftD) c) pure

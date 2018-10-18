@@ -57,9 +57,9 @@ import           Data.Digit                  (DecDigit, HeXDigit, HexDigit)
 import qualified Data.Digit                  as D
 
 import           Waargonaut                  (parseWaargonaut)
-import qualified Waargonaut.Decode           as D
+import qualified Waargonaut.Decode.Traversal as D
 
-import qualified Waargonaut.Decode.Succinct  as SD
+import qualified Waargonaut.Decode           as SD
 
 import           Waargonaut.Decode.Error     (DecodeError (ParseFailed))
 import qualified Waargonaut.Encode           as E

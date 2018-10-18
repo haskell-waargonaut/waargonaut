@@ -86,10 +86,11 @@ library
                      , Waargonaut.Decode.Internal
                      , Waargonaut.Decode.ZipperMove
                      , Waargonaut.Decode.Error
+                     , Waargonaut.Decode.Types
 
                      , Waargonaut.Decode
-                     , Waargonaut.Decode.Succinct
-                     , Waargonaut.Decode.Succinct.Types
+                     , Waargonaut.Decode.Traversal
+
                      , Waargonaut.Encode
 
                      , Waargonaut.Generic
@@ -157,8 +158,7 @@ test-suite doctests
 test-suite waarg-tests
    other-modules:      Types.Common
                      , Types.CommaSep
-                     , Types.JChar
-                     , Types.JNumber
+                     , Types.JChar , Types.JNumber
                      , Types.JString
                      , Types.Json
                      , Types.Whitespace

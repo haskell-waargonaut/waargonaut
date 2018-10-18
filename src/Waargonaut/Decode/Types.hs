@@ -3,7 +3,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
-module Waargonaut.Decode.Succinct.Types
+module Waargonaut.Decode.Types
   ( ParseFn
   , SuccinctCursor
   , CursorHistory
