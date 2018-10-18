@@ -12,33 +12,33 @@ module Waargonaut.Decode.Succinct.Types
   , JCurs (..)
   ) where
 
-import           Control.Lens                           (Rewrapped,
-                                                         Wrapped (..), iso)
-import           Control.Monad.Except                   (MonadError)
-import           Control.Monad.Morph                    (MFunctor (..),
-                                                         MMonad (..))
-import           Control.Monad.Reader                   (MonadReader,
-                                                         ReaderT (..))
-import           Control.Monad.State                    (MonadState)
-import           Control.Monad.Trans.Class              (MonadTrans (lift))
+import           Control.Lens                          (Rewrapped, Wrapped (..),
+                                                        iso)
+import           Control.Monad.Except                  (MonadError)
+import           Control.Monad.Morph                   (MFunctor (..),
+                                                        MMonad (..))
+import           Control.Monad.Reader                  (MonadReader,
+                                                        ReaderT (..))
+import           Control.Monad.State                   (MonadState)
+import           Control.Monad.Trans.Class             (MonadTrans (lift))
 
-import           GHC.Word                               (Word64)
+import           GHC.Word                              (Word64)
 
-import           Data.Functor                           (Functor)
+import           Data.Functor                          (Functor)
 
-import           Data.ByteString                        (ByteString)
-import           Data.Vector.Storable                   (Vector)
+import           Data.ByteString                       (ByteString)
+import           Data.Vector.Storable                  (Vector)
 
-import           HaskellWorks.Data.BalancedParens       (SimpleBalancedParens)
-import           HaskellWorks.Data.Json.Succinct.Cursor (JsonCursor (..))
-import           HaskellWorks.Data.Positioning          (Count)
-import           HaskellWorks.Data.RankSelect.Poppy512  (Poppy512)
+import           HaskellWorks.Data.BalancedParens      (SimpleBalancedParens)
+import           HaskellWorks.Data.Json.Cursor         (JsonCursor (..))
+import           HaskellWorks.Data.Positioning         (Count)
+import           HaskellWorks.Data.RankSelect.Poppy512 (Poppy512)
 
-import           Waargonaut.Decode.Internal             (CursorHistory',
-                                                         DecodeError (..),
-                                                         DecodeResultT (..))
+import           Waargonaut.Decode.Internal            (CursorHistory',
+                                                        DecodeError (..),
+                                                        DecodeResultT (..))
 
-import           Waargonaut.Types                       (Json)
+import           Waargonaut.Types                      (Json)
 
 type CursorHistory =
   CursorHistory' Count

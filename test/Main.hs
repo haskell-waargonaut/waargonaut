@@ -6,6 +6,8 @@ import qualified Control.Lens                as L
 
 import           Data.Either                 (isLeft)
 
+import qualified Data.Scientific as Sci
+
 import           Data.ByteString             (ByteString)
 import qualified Data.ByteString.Builder     as BB
 import qualified Data.ByteString.Char8       as BS8
@@ -28,6 +30,7 @@ import           Waargonaut                  (Json)
 import qualified Waargonaut                  as W
 import qualified Waargonaut.Types.CommaSep   as CommaSep
 import qualified Waargonaut.Types.JChar      as JChar
+import qualified Waargonaut.Types.JNumber      as JNumber
 import qualified Waargonaut.Types.Whitespace as WS
 
 import qualified Waargonaut.Decode           as D
@@ -88,6 +91,16 @@ prop_jchar :: Property
 prop_jchar = property $ do
   c <- forAll Gen.unicodeAll
   Just c === ((JChar._JChar #) <$> (c ^? JChar._JChar))
+
+prop_jnumber_scientific_prism :: Property
+prop_jnumber_scientific_prism = property $ do
+  sci <- forAll $ Sci.scientific
+    <$> Gen.integral (Range.linear 0 maxI)
+    <*> Gen.int Range.linearBounded
+  Just sci === ((JNumber._JNumberScientific # sci) ^? JNumber._JNumberScientific)
+  where
+    maxI :: Integer
+    maxI = 2 ^ (32 :: Integer)
 
 prop_tripping_int_list :: Property
 prop_tripping_int_list = property $ do
@@ -153,38 +166,38 @@ prop_maybe_maybe = withTests 1 . property $ do
 
 tripping_properties :: TestTree
 tripping_properties = testGroup "Round Trip"
-  [ testProperty "CommaSeparated: cons . uncons = id" prop_uncons_consCommaSep
-  , testProperty "CommaSeparated (disregard WS): cons . uncons = id" prop_uncons_consCommaSepVal
-  , testProperty "Char -> JChar Digit -> Maybe Char = Just id" prop_jchar
-  , testProperty "(Maybe (Maybe Bool))" prop_maybe_maybe
-  , testProperty "[Int]" prop_tripping_int_list
-
-  -- Cannot work because there isn't enough structure provided in the encoding for this to be able to be decoded.
-  -- , testProperty "(Maybe (Maybe Bool)) (generic)" prop_tripping_maybe_maybe_bool_generic
-
-  , testProperty "[Int] (generic)" prop_tripping_int_list_generic
-  , testProperty "Maybe Bool (generic)" prop_tripping_maybe_bool_generic
-  , testProperty "Image record (generic)" prop_tripping_image_record_generic
-  , testProperty "Newtype with Options (generic)" prop_tripping_newtype_fudge_generic
+  [ testProperty "CommaSeparated: cons . uncons = id"                  prop_uncons_consCommaSep
+  , testProperty "CommaSeparated (disregard WS): cons . uncons = id"   prop_uncons_consCommaSepVal
+  , testProperty "Char -> JChar Digit -> Maybe Char = Just id"         prop_jchar
+  , testProperty "Scientific -> JNumber -> Maybe Scientific = Just id" prop_jnumber_scientific_prism
+  , testProperty "(Maybe (Maybe Bool))"                                prop_maybe_maybe
+  , testProperty "[Int]"                                               prop_tripping_int_list
+  , testProperty "[Int] (generic)"                                     prop_tripping_int_list_generic
+  , testProperty "Maybe Bool (generic)"                                prop_tripping_maybe_bool_generic
+  , testProperty "Image record (generic)"                              prop_tripping_image_record_generic
+  , testProperty "Newtype with Options (generic)"                      prop_tripping_newtype_fudge_generic
   ]
 
 parser_properties :: TestTree
 parser_properties = testGroup "Parser Round-Trip"
-  [ testProperty "parse . print = id" prop_tripping
+  [ testProperty "parse . print = id"            prop_tripping
   , testProperty "print . parse . print = print" prop_print_parse_print_id
   ]
 
 parsePrint :: ByteString -> Either DecodeError ByteString
 parsePrint = fmap encodeByteString . decode . Text.decodeUtf8
 
+readTestFile :: FilePath -> IO ByteString
+readTestFile fp = BS8.readFile ("test/json-data" <> "/" <> fp)
+
 testFile :: FilePath -> Assertion
 testFile fp = do
-  s <- BS8.readFile fp
+  s <- readTestFile fp
   parsePrint s @?= Right s
 
 testFileFailure :: FilePath -> Assertion
 testFileFailure fp = do
-  s <- BS8.readFile fp
+  s <- readTestFile fp
   assertBool (fp <> " should fail to parse!") (isLeft $ parsePrint s)
 
 unitTests :: TestTree
@@ -194,14 +207,12 @@ unitTests =
     toTest f = testCase f (testFile f)
 
     fs =
-      [ "test/json-data/test1.json"
-      , "test/json-data/test2.json"
-      , "test/json-data/test3.json"
-      , "test/json-data/test5.json"
-      , "test/json-data/test7.json"
-      , "test/json-data/twitter100.json"
-      , "test/json-data/jp100.json"
-      , "test/json-data/numbers.json"
+      [ "test1.json"
+      , "test2.json"
+      , "test3.json"
+      , "test5.json"
+      , "test7.json"
+      , "numbers.json"
       ]
 
 regressionTests :: TestTree
@@ -212,8 +223,8 @@ regressionTests =
       testCase dsc (testFileFailure f)
 
     fs =
-      [ ("[11 12 13] (test4.json)","test/json-data/test4.json")
-      , ("{\"foo\":3\"bar\":4} (test6.json)", "test/json-data/test6.json")
+      [ ("[11 12 13] (test4.json)","test4.json")
+      , ("{\"foo\":3\"bar\":4} (test6.json)", "test6.json")
       ]
 
 main :: IO ()

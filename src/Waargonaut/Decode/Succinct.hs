@@ -68,13 +68,14 @@ module Waargonaut.Decode.Succinct
 
   ) where
 
-import GHC.Word (Word64)
+import           GHC.Word                                  (Word64)
 
 import           Control.Lens                              (Cons, Lens', Snoc,
-                                                            cons, lens, view,
+                                                            cons, lens,
                                                             modifying, snoc,
-                                                            traverseOf, (.~),
-                                                            (^.), _Wrapped)
+                                                            traverseOf, view,
+                                                            (.~), (^.),
+                                                            _Wrapped)
 
 import           Prelude                                   (Bool, Bounded, Char,
                                                             Int, Integral,
@@ -130,8 +131,8 @@ import           HaskellWorks.Data.Bits                    ((.?.))
 import           HaskellWorks.Data.FromByteString          (fromByteString)
 import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
 
-import           HaskellWorks.Data.Json.Succinct.Cursor    (JsonCursor (..))
-import qualified HaskellWorks.Data.Json.Succinct.Cursor    as JC
+import           HaskellWorks.Data.Json.Cursor             (JsonCursor (..))
+import qualified HaskellWorks.Data.Json.Cursor             as JC
 
 
 import           Waargonaut.Decode.Error                   (DecodeError (..),

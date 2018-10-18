@@ -43,7 +43,7 @@ succinctDecode :: SD.Decoder Identity a -> ByteString -> Bool
 succinctDecode d = isn't _Left . SD.runPureDecode d parseBS . SD.mkCursor
 
 rf :: FilePath -> IO ByteString
-rf f = BS.readFile $ "test/json-data/" <> f
+rf f = BS.readFile $ "../test/json-data/" <> f
 
 getParseFiles :: IO (ByteString, ByteString, ByteString)
 getParseFiles = liftA3 (,,)

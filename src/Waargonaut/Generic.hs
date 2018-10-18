@@ -34,6 +34,7 @@ import           Data.Text                        (Text)
 import qualified Data.Text                        as Text
 
 import qualified Data.Map                         as Map
+import           Data.Scientific                  (Scientific)
 
 import           Waargonaut                       (Json)
 
@@ -74,6 +75,7 @@ instance (JsonEncode a)               => JsonEncode [a]          where mkEncoder
 instance (JsonEncode a)               => JsonEncode (NonEmpty a) where mkEncoder = E.nonempty mkEncoder
 instance JsonEncode Text                                         where mkEncoder = E.text
 instance JsonEncode Int                                          where mkEncoder = E.int
+instance JsonEncode Scientific                                   where mkEncoder = E.scientific
 instance JsonEncode Bool                                         where mkEncoder = E.bool
 
 class JsonDecode a where
@@ -87,6 +89,7 @@ instance (JsonDecode a)               => JsonDecode [a]          where mkDecoder
 instance (JsonDecode a)               => JsonDecode (NonEmpty a) where mkDecoder = D.nonempty mkDecoder
 instance JsonDecode Text                                         where mkDecoder = D.text
 instance JsonDecode Int                                          where mkDecoder = D.int
+instance JsonDecode Scientific                                   where mkDecoder = D.scientific
 instance JsonDecode Bool                                         where mkDecoder = D.bool
 
 type JTag = String
@@ -101,6 +104,23 @@ data JsonInfo :: [*] -> * where
   JsonOne  :: Tag -> JsonInfo '[a]
   JsonMul  :: SListI xs => Tag -> JsonInfo xs
   JsonRec  :: SListI xs => Tag -> NP (K String) xs -> JsonInfo xs
+
+pJEnc :: Proxy JsonEncode
+pJEnc = Proxy
+
+pJDec :: Proxy JsonDecode
+pJDec = Proxy
+
+pAllJDec :: Proxy (All JsonDecode)
+pAllJDec = Proxy
+
+modFieldName
+  :: Options
+  -> String
+  -> Text
+modFieldName opts =
+ Text.pack . _optionsFieldName opts
+
 
 inObj :: Encoder' a -> String -> Encoder' a
 inObj en t = E.mapLikeObj' (E.atKey' (Text.pack t) en)
@@ -167,22 +187,6 @@ jsonInfo opts pa =
     tag :: NP ConstructorInfo (Code a) -> ConstructorName -> Tag
     tag (_ :* Nil) = const NoTag
     tag _          = Tag
-
-pJEnc :: Proxy JsonEncode
-pJEnc = Proxy
-
-pJDec :: Proxy JsonDecode
-pJDec = Proxy
-
-pAllJDec :: Proxy (All JsonDecode)
-pAllJDec = Proxy
-
-modFieldName
-  :: Options
-  -> String
-  -> Text
-modFieldName opts =
- Text.pack . _optionsFieldName opts
 
 gEncoder
   :: forall a f.

@@ -21,6 +21,7 @@ module Waargonaut.Types.JNumber
   , _JZero
   , _JIntInt
   , _JNumberInt
+  , _JNumberScientific
 
     -- * Parser / Builder
   , jNumberBuilder
@@ -30,7 +31,7 @@ module Waargonaut.Types.JNumber
   , jNumberToScientific
   ) where
 
-import           Prelude                 (Bool (..), Eq, Int, Ord, Show, abs,
+import           Prelude                 (Bool (..), Eq, Int, Ord, Show, Integral, abs,
                                           fromIntegral, maxBound, minBound,
                                           negate, (-), (<), (>), (||))
 
@@ -53,6 +54,7 @@ import           Data.Functor            (fmap)
 import           Data.Maybe              (Maybe (..), fromMaybe, isJust, maybe)
 import           Data.Monoid             (mappend, mempty)
 import           Data.Semigroup          ((<>))
+import           Data.Traversable        (traverse)
 import           Data.Tuple              (uncurry)
 
 import           Data.List.NonEmpty      (NonEmpty ((:|)), some1)
@@ -72,6 +74,7 @@ import qualified Data.ByteString.Builder as BB
 -- $setup
 -- >>> :set -XOverloadedStrings
 -- >>> import Control.Monad (return)
+-- >>> import Prelude (read)
 -- >>> import Data.Either(Either (..), isLeft)
 -- >>> import Data.List.NonEmpty (NonEmpty ((:|)))
 -- >>> import Data.Digit (DecDigit(..))
@@ -216,8 +219,34 @@ _JNumberInt = prism jnumberToInt (\v -> note v $ Sci.toBoundedInteger =<< jNumbe
   where
     jnumberToInt i = JNumber (i < 0) (mkjInt $ abs i) Nothing Nothing
 
-    mkjInt 0 = JZero
-    mkjInt n = (\(h :| t) -> JIntInt h t) $ D._NaturalDigits # fromIntegral n
+mkjInt :: (Integral a, Eq a) => a -> JInt' DecDigit
+mkjInt 0 = JZero
+mkjInt n = (\(h :| t) -> JIntInt h t) $ D._NaturalDigits # fromIntegral n
+
+-- | Prism for trying to move between 'JNumber' and 'Scientific'
+--
+-- >>> _JNumberScientific # (read "-3.45e-2")
+-- JNumber {_minus = True, _numberint = JIntInt DecDigit3 [], _frac = Just (Frac (DecDigit4 :| [DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = DecDigit2 :| []})}
+--
+-- >>> _JNumberScientific # (read "-1.23456e-787")
+-- JNumber {_minus = True, _numberint = JIntInt DecDigit1 [], _frac = Just (Frac (DecDigit2 :| [DecDigit3,DecDigit4,DecDigit5,DecDigit6])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = DecDigit7 :| [DecDigit8,DecDigit7]})}
+--
+-- >>> _JNumberScientific # (read "-1.23456e791")
+-- JNumber {_minus = True, _numberint = JIntInt DecDigit1 [], _frac = Just (Frac (DecDigit2 :| [DecDigit3,DecDigit4,DecDigit5,DecDigit6])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = DecDigit7 :| [DecDigit9,DecDigit1]})}
+--
+_JNumberScientific :: Prism' JNumber Scientific
+_JNumberScientific = prism toJNum (\v -> note v $ jNumberToScientific v)
+  where
+    toJNum s =
+      let (is, e) = Sci.toDecimalDigits (abs s)
+          sign = s < 0
+      in case is of
+        [] -> JNumber sign JZero Nothing Nothing
+        [0] -> JNumber sign JZero Nothing Nothing
+        [d] -> JNumber sign (mkjInt d) Nothing Nothing
+        (d:ds) -> JNumber sign (mkjInt d)
+          (fmap Frac $ NE.nonEmpty =<< traverse (^? D.integralDecimal) ds)
+          (Just $ Exp Ee (Just $ e < 0) (D._NaturalDigits # fromIntegral (abs (e - 1))))
 
 -- | Parse the integer component of a JSON number.
 --

@@ -1,11 +1,11 @@
 { mkDerivation, attoparsec, base, bifunctors, bytestring, Cabal
 , cabal-doctest, containers, contravariant, digit, directory
-, distributive, doctest, errors, filepath, gauge, generics-sop
-, hedgehog, hoist-error, hw-balancedparens, hw-bits, hw-json
-, hw-prim, hw-rankselect, lens, mmorph, mtl, nats, parsers
-, scientific, semigroups, stdenv, tasty, tasty-expected-failure
-, tasty-hedgehog, tasty-hunit, template-haskell, text, transformers
-, vector, witherable, wl-pprint-annotated, zippers
+, distributive, doctest, errors, filepath, generics-sop, hedgehog
+, hoist-error, hw-balancedparens, hw-bits, hw-json, hw-prim
+, hw-rankselect, lens, mmorph, mtl, nats, parsers, scientific
+, semigroups, stdenv, tasty, tasty-expected-failure, tasty-hedgehog
+, tasty-hunit, template-haskell, text, transformers, vector
+, witherable, wl-pprint-annotated, zippers
 }:
 mkDerivation {
   pname = "waargonaut";
@@ -21,13 +21,9 @@ mkDerivation {
   ];
   testHaskellDepends = [
     attoparsec base bytestring digit directory distributive doctest
-    filepath generics-sop hedgehog lens semigroups tasty
+    filepath generics-sop hedgehog lens scientific semigroups tasty
     tasty-expected-failure tasty-hedgehog tasty-hunit template-haskell
     text vector zippers
-  ];
-  benchmarkHaskellDepends = [
-    attoparsec base bytestring digit gauge generics-sop hedgehog lens
-    semigroups text
   ];
   homepage = "https://github.com/qfpl/waargonaut";
   description = "JSON wrangling";
