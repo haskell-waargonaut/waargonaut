@@ -151,6 +151,39 @@ import           Waargonaut.Decode.Types                   (CursorHistory,
 
 type Err = Err' CursorHistory
 
+-- | Function to define a 'Decoder' for a specific data type.
+--
+-- For example, given the following data type:
+--
+-- @
+-- data Image = Image
+--   { _imageW        :: Int
+--   , _imageH        :: Int
+--   , _imageTitle    :: Text
+--   , _imageAnimated :: Bool
+--   , _imageIDs      :: [Int]
+--   }
+-- @
+--
+-- We can use 'withCursor' to write a decoder that will be given a cursor that
+-- we can use to build the data types that we need.
+--
+-- @
+-- imageDecoder :: Monad f => Decoder f Image
+-- imageDecoder = withCursor $ \\curs -> D.down curs >>= Image
+--   \<$> D.fromKey \"Width\" D.int curs
+--   \<*> D.fromKey \"Height\" D.int curs
+--   \<*> D.fromKey \"Title\" D.text curs
+--   \<*> D.fromKey \"Animated\" D.bool curs
+--   \<*> D.fromKey \"IDs\" intArray curs
+-- @
+--
+-- It's up to you to provide a cursor that is at the correct position for a
+-- 'Decoder' to operate, but building decoders in this way simplifies creating
+-- decoders for larger structures, as the smaller pieces contain fewer
+-- assumptions. This encourages greater reuse of decoders and simplifies the
+-- debugging process.
+--
 withCursor
   :: Monad f
   => (JCurs -> DecodeResult f a)
@@ -158,12 +191,18 @@ withCursor
 withCursor g = Decoder $ \p ->
   DI.runDecoder' $ DI.withCursor' (flip runReaderT p . unDecodeResult . g)
 
+-- | Take a 'ByteString' input and build an index of the JSON structure inside
+--
 mkCursor :: ByteString -> JCurs
 mkCursor = JCurs . fromByteString
 
+-- | Lens for accessing the 'rank' of the 'JsonCursor'. The 'rank' forms part of
+-- the calculation that is the cursors current position in the index.
+--
 cursorRankL :: Lens' (JsonCursor s i p) Count
 cursorRankL = lens JC.cursorRank (\c r -> c { cursorRank = r })
 
+-- | Execute the given function 'n' times'.
 manyMoves :: Monad m => Natural -> (b -> m b) -> b -> m b
 manyMoves i g = foldl (>=>) pure (replicate (fromIntegral i) g)
 
@@ -172,6 +211,9 @@ generaliseDecoder :: Monad f => Decoder Identity a -> Decoder f a
 generaliseDecoder dr = Decoder (\p -> embed generalize . runDecoder dr p)
 {-# INLINE generaliseDecoder #-}
 
+-- | Execute the given cursor movement function, throwing a 'FailedToMove' error
+-- if it is unsuccessful, recording the new position in history if it is
+-- successful.
 moveCursBasic
   :: Monad f
   => (SuccinctCursor -> Maybe SuccinctCursor)
@@ -181,6 +223,27 @@ moveCursBasic
 moveCursBasic f m c =
   traverseOf _Wrapped f c <?> FailedToMove m >>= recordRank m
 
+-- | Move the cursor down or into the child of the current cursor position.
+--
+-- The following examples use "*" to represent the cursor position.
+--
+-- Starting position:
+-- @ *{"fred": 33, "sally": 44 } @
+--
+-- After moving 'down':
+-- @ { *"fred": 33, "sally": 44 } @
+--
+-- This function will also move into the elements in an array:
+--
+-- Starting position:
+-- @ *[1,2,3] @
+--
+-- After moving 'down':
+-- @ [*1,2,3] @
+--
+-- This function is essential when dealing with objects as you must move down
+-- into the object before you can start using 'fromKey'.
+--
 down
   :: Monad f
   => JCurs
@@ -188,6 +251,16 @@ down
 down =
   moveCursBasic firstChild D
 
+-- | Move the cursor up into the parent of the current cursor position.
+--
+-- The following examples use "*" to represent the cursor position.
+--
+-- Starting position:
+-- @ { "fred": 33, *"sally": 44 } @
+--
+-- After moving 'up':
+-- @ *{"fred": 33, "sally": 44 } @
+--
 up
   :: Monad f
   => JCurs
@@ -195,6 +268,10 @@ up
 up =
   moveCursBasic parent U
 
+-- | Given a 'rank' value, attempt to move the cursor directly to that position.
+--
+-- Returns a 'InputOutOfBounds' error if that position is invalid.
+--
 moveToRankN
   :: Monad f
   => Word64
@@ -205,6 +282,14 @@ moveToRankN newRank c =
   then pure $ c & _Wrapped . cursorRankL .~ newRank
   else throwError $ InputOutOfBounds newRank
 
+-- | Move the cursor rightwards 'n' times.
+--
+-- Starting position:
+-- @ [*1, 2, 3] @
+--
+-- After @moveRightN 2@:
+-- @ [1, 2, *3] @
+--
 moveRightN
   :: Monad f
   => Natural
@@ -213,6 +298,7 @@ moveRightN
 moveRightN i =
   moveCursBasic (manyMoves i nextSibling) (R i)
 
+-- | Helper function to move right once.
 moveRight1
   :: Monad f
   => JCurs
@@ -220,20 +306,27 @@ moveRight1
 moveRight1 =
   moveRightN 1
 
+-- | Helper function to move left once.
+--
+-- Starting position:
+-- @ [1, 2, *3] @
+--
+-- Ater 'moveLeft1':
+-- @ [1, *2, 3] @
 moveLeft1
   :: Monad f
   => JCurs
   -> DecodeResult f JCurs
 moveLeft1 jc =
   let
-    c = jc ^. _Wrapped
-    rnk = c ^. cursorRankL
-
+    c         = jc ^. _Wrapped
+    rnk       = c ^. cursorRankL
     setRank r = jc & _Wrapped . cursorRankL .~ r
-    prev = rnk - 1
+    prev      = rnk - 1
   in
     setRank <$> BP.findOpen (JC.balancedParens c) prev <?> InputOutOfBounds prev
 
+-- | Move the cursor leftwards 'n' times.
 moveLeftN
   :: Monad f
   => Natural
@@ -242,6 +335,8 @@ moveLeftN
 moveLeftN i =
   manyMoves i moveLeft1
 
+-- | Using the given parsing function, attempt to decode the value of the
+-- 'ByteString' at the current cursor position.
 jsonAtCursor
   :: Monad f
   => (ByteString -> Either DecodeError a)
@@ -259,6 +354,7 @@ jsonAtCursor p jc = do
     then liftEither (p cursorTxt)
     else throwError (InputOutOfBounds rnk)
 
+-- Internal function to record the current rank of the cursor into the zipper history
 recordRank
   :: ( MonadState CursorHistory f
      , Monad f
@@ -269,6 +365,12 @@ recordRank
 recordRank mv c =
   c <$ modifying _Wrapped (`snoc` (mv, c ^. _Wrapped . cursorRankL))
 
+-- | Using the given 'Decoder', try to decode the current focus.
+--
+-- @
+-- myIntList <- focus (list int) cursor
+-- @
+--
 focus
   :: Monad f
   => Decoder f a
@@ -278,6 +380,27 @@ focus decoder curs = DecodeResult $ do
   p <- ask
   lift $ runDecoder decoder p curs
 
+-- | Attempt to move to the value at a given key on the current JSON object.
+-- This will only work if you have already moved 'down' into the JSON object,
+-- because the cursor allows you to step over an entire object in a single. It has
+-- to be told to move into the object first, otherwise it will not look in the
+-- correct location for keys.
+--
+-- Cursor position indicated by "*".
+--
+-- Assuming cursor positioned here:
+-- @ *{ "foo": 33, "fieldB": "pew pew" } @
+--
+-- This won't work, because we're AT the object, not IN the object:
+-- @
+-- moveToKey "foo" cursor
+-- @
+--
+-- This will work, because we've moved 'down' INTO the object:
+-- @
+-- down cursor >>= moveToKey "foo"
+-- @
+--
 moveToKey
   :: Monad f
   => Text
@@ -318,7 +441,7 @@ fromKey k d =
 -- could use this function to build a trivial 'Decoder' for a record type:
 --
 -- This decoder assumes it is positioned at the top of an object and will move
--- 'down' before attempting to find the given key.
+-- 'down' each time, before attempting to find the given key.
 --
 -- @
 -- data MyRec = MyRec { fieldA :: Text, fieldB :: Int }
@@ -337,6 +460,12 @@ atKey
 atKey k d =
   withCursor (down >=> fromKey k d)
 
+-- | Used internally in the construction of the basic 'Decoder's. Takes a 'Text'
+-- description of the thing you expect to find at the current cursor, and a
+-- function to convert the 'Json' structure found there into something else.
+--
+-- Useful if you want to decide how a 'Json' value is converted to another type.
+--
 atCursor
   :: Monad f
   => Text
@@ -347,6 +476,21 @@ atCursor m c = withCursor $ \curs -> do
   jsonAtCursor p curs >>=
     liftEither . note (ConversionFailure m) . c
 
+-- | Higher order function for combining a folding function with repeated cursor
+-- movements. This lets you combine arbitrary cursor movements with an accumulating
+-- function.
+--
+-- The functions 'leftwardCons' and 'rightwardSnoc' are both impelemented using
+-- this function.
+--
+-- @
+-- leftwardCons = foldCursor (flip cons) moveLeft1
+-- @
+--
+-- @
+-- rightwardSnoc = foldCursor snoc moveRight1
+-- @
+--
 foldCursor
   :: Monad f
   => (b -> a -> b)
@@ -361,6 +505,8 @@ foldCursor nom f s elemD curs = DecodeResult . ReaderT $ \p ->
     (DI.Decoder' $ runDecoder elemD p)
     curs
 
+-- | From the current cursor position, move leftwards one position at a time and
+-- push each 'a' onto the front of some 'Cons' structure.
 leftwardCons
   :: ( Monad f
      , Cons s s a a
@@ -372,6 +518,8 @@ leftwardCons
 leftwardCons =
   foldCursor (flip cons) moveLeft1
 
+-- | From the current cursor position, move rightwards one position at a time,
+-- and append the 'a' to some 'Snoc' structure.
 rightwardSnoc
   :: ( Monad f
      , Snoc s s a a
@@ -383,6 +531,7 @@ rightwardSnoc
 rightwardSnoc =
   foldCursor snoc moveRight1
 
+-- | Run a 'Decoder' for the final result to see if you have your 'a' or an error.
 runDecode
   :: Monad f
   => Decoder f a
@@ -402,6 +551,18 @@ runDecodeResult p =
   . flip runReaderT p
   . unDecodeResult
 
+-- | Basic usage of a 'Decoder' is to specialise the 'f' to be 'Identity', then
+-- provide the 'ParseFn' and the 'ByteString' input. This will run the 'Decoder' to
+-- try to parse and decode the JSON to the 'a' you require.
+--
+-- This function takes care of converting the 'ByteString' to a 'JCurs'.
+--
+-- @
+-- simpleDecode (list int) myParseFn "[1,2,3]"
+-- =
+-- Right [1,2,3]
+-- @
+--
 simpleDecode
   :: Decoder Identity a
   -> ParseFn
@@ -411,6 +572,8 @@ simpleDecode d parseFn =
   runPureDecode d parseFn
   . mkCursor
 
+-- | Similar to the 'simpleDecode' function, however this function expects
+-- you've already converted your input to a 'JCurs'.
 runPureDecode
   :: Decoder Identity a
   -> ParseFn
@@ -419,6 +582,21 @@ runPureDecode
 runPureDecode dr p =
   runIdentity . runDecode dr p
 
+-- | This function lets you override the parsing function that is being used in
+-- a decoder for a different one. This means that when building your 'Decoder' you
+-- are not bound to only using a single parsing function. If you have specific
+-- needs for alternate parsers then you can use this function in your 'Decoder' to
+-- make that change.
+--
+-- @
+-- myTricksyObj = withCursor $ \curs -> do
+--   curs' <- down curs
+--   fA <- fromKey "normalFieldA" int curs'
+--   fB <- fromKey "normalFieldB" text curs'
+--   wB <- overrideParser handTunedParser $ fromKey "weirdFieldC" fieldCDecoder curs'
+--   pure $ Foo fA fB wB
+-- @
+--
 overrideParser
   :: Monad f
   => ParseFn
@@ -427,39 +605,57 @@ overrideParser
 overrideParser parseOverride =
   local (const parseOverride)
 
+-- | Decoder for some 'Integral' type. This conversion is walked through Mayan,
+-- I mean, 'Scientific' to try to avoid numeric explosion issues.
 integral :: (Monad f, Integral n, Bounded n) => Decoder f n
 integral = atCursor "integral" DI.integral'
 
+-- | At the given cursor position, return the 'Count' or 'rank' of that
+-- position. Useful if you want to build a map of a complicated structure such that
+-- you're able to optimise your 'Decoder' by using 'moveToRankN' instead of
+-- individual cursor movements.
 rank :: Monad f => Decoder f Count
 rank = withCursor (pure . view cursorRankL . unJCurs)
 
+-- | Decode an 'Int'.
 int :: Monad f => Decoder f Int
 int = integral
 
+-- | Decode a 'Scientific' number value.
 scientific :: Monad f => Decoder f Scientific
 scientific = atCursor "scientific" DI.scientific'
 
+-- | Decode a 'String' value.
 string :: Monad f => Decoder f String
 string = atCursor "string" DI.string'
 
+-- | Decode a 'Char' value that is equivalent to a Haskell 'Char' value, as Haskell 'Char' supports a wider range than JSON.
 unboundedChar :: Monad f => Decoder f Char
 unboundedChar = atCursor "unbounded char" DI.unboundedChar'
 
+-- | Decode a 'Char' that will fail if the 'Char' is outside of the range U+D800 to U+DFFF.
 boundedChar :: Monad f => Decoder f Char
 boundedChar = atCursor "bounded char" DI.boundedChar'
 
+-- | Decode the 'Json' structure at the cursor. Useful if you don't have a need
+-- to convert the Json and only want to make changes before sending it on its way.
 json :: Monad f => Decoder f Json
 json = atCursor "json" pure
 
+-- | Decode 'Text'
 text :: Monad f => Decoder f Text
 text = atCursor "text" DI.text'
 
+-- | Decode an explicit 'null' value at the current cursor position.
 null :: Monad f => Decoder f ()
 null = atCursor "null" DI.null'
 
+-- | Decode a 'Bool' value.
 bool :: Monad f => Decoder f Bool
 bool = atCursor "bool" DI.bool'
 
+-- | Given a 'Decoder' for 'a', attempt to decode a 'NonEmpty' list of 'a' at
+-- the current cursor position.
 nonemptyAt
   :: Monad f
   => Decoder f a
@@ -470,9 +666,12 @@ nonemptyAt elemD = down >=> \curs -> do
   xs <- moveRight1 curs
   (h :|) <$> rightwardSnoc [] elemD xs
 
+-- | Helper to create a 'NonEmpty a' 'Decoder'.
 nonempty :: Monad f => Decoder f a -> Decoder f (NonEmpty a)
 nonempty d = withCursor (nonemptyAt d)
 
+-- | Like 'nonemptyAt', this takes a 'Decoder' of 'a' and at the given cursor
+-- will try to decode a '[a]'.
 listAt
   :: Monad f
   => Decoder f a
@@ -482,6 +681,7 @@ listAt elemD curs = DI.try (down curs) >>= maybe
   (pure mempty)
   (rightwardSnoc mempty elemD)
 
+-- | Helper function to simplify writing a '[]' decoder.
 list :: Monad f => Decoder f a -> Decoder f [a]
 list d = withCursor (listAt d)
 

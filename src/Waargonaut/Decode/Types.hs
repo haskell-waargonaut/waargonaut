@@ -49,6 +49,9 @@ type SuccinctCursor =
 type ParseFn =
   ByteString -> Either DecodeError Json
 
+-- | 'Decoder' type that is used directly to convert 'Json' structures to other
+-- data types.
+--
 newtype Decoder f a = Decoder
   { runDecoder :: ParseFn -> JCurs -> DecodeResultT Count DecodeError f a
   }
@@ -68,6 +71,7 @@ instance Monad f => Monad (Decoder f) where
 instance MFunctor Decoder where
   hoist nat (Decoder pjdr) = Decoder (\p -> hoist nat . pjdr p)
 
+-- | Wrapper type for the 'SuccinctCursor'
 newtype JCurs = JCurs
   { unJCurs :: SuccinctCursor
   }
@@ -78,6 +82,13 @@ instance Wrapped JCurs where
   type Unwrapped JCurs = SuccinctCursor
   _Wrapped' = iso unJCurs JCurs
 
+-- | Provide some of the type parameters that the underlying 'DecodeResultT'
+-- requires. This contains the state and error management as we walk around our
+-- zipper and decode our JSON input.
+--
+-- Addtionally we keep our parsing function in a 'ReaderT' such that it's
+-- accessible for all of the decoding steps.
+--
 newtype DecodeResult f a = DecodeResult
   { unDecodeResult :: ReaderT ParseFn (DecodeResultT Count DecodeError f) a
   }

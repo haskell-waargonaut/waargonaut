@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Main where
+module Main (main) where
 
 import           Control.Lens                (( # ), (^.), (^?), _2)
 import qualified Control.Lens                as L
