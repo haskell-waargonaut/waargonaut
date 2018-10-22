@@ -41,7 +41,6 @@ build-type:          Custom
 -- Extra files to be distributed with the package, such as examples or a
 -- README.
 extra-source-files:  changelog.md
-                   , test/json-data/jp100.json
                    , test/json-data/numbers.json
                    , test/json-data/test1.json
                    , test/json-data/test2.json
@@ -50,7 +49,6 @@ extra-source-files:  changelog.md
                    , test/json-data/test5.json
                    , test/json-data/test6.json
                    , test/json-data/test7.json
-                   , test/json-data/twitter100.json
 
 homepage:            https://github.com/qfpl/waargonaut
 bug-reports:         https://github.com/qfpl/waargonaut/issues
@@ -88,8 +86,11 @@ library
                      , Waargonaut.Decode.Internal
                      , Waargonaut.Decode.ZipperMove
                      , Waargonaut.Decode.Error
+                     , Waargonaut.Decode.Types
 
                      , Waargonaut.Decode
+                     , Waargonaut.Decode.Traversal
+
                      , Waargonaut.Encode
 
                      , Waargonaut.Generic
@@ -99,31 +100,34 @@ library
   ghc-options:         -Wall
 
   -- Other library packages from which modules are imported.
-  build-depends:       base         >= 4.7    && < 4.13
-                     , lens         >= 4.15   && < 5
-                     , mtl          >= 2.2.2  && < 3
-                     , text         >= 1.2    && < 1.3
-                     , bytestring   >= 0.10.6 && < 0.11
-                     , parsers      >= 0.12   && < 0.13
-                     , digit        >= 0.7    && < 0.8
-                     , semigroups   >= 0.8.4  && < 0.19
-                     , scientific   >= 0.3    && < 0.4
-                     , distributive >= 0.5    && < 0.7
-                     , nats         >= 1      && <1.2
-                     , zippers      >= 0.2    && < 0.3
-                     , vector       >= 0.12   && < 0.13
-                     , errors       >= 2.2    && < 3
-                     , hoist-error  >= 0.2    && < 0.3
-                     , containers   >= 0.5.6  && < 0.7
-                     , witherable   >= 0.2    && < 0.3
-                     , generics-sop >= 0.3.2  && < 4
-                     , mmorph
-
-
-                     , transformers
-                     , bifunctors
-                     , contravariant
-                     , wl-pprint-annotated
+  build-depends:       base                >= 4.7    && < 4.13
+                     , lens                >= 4.15   && < 5
+                     , mtl                 >= 2.2.2  && < 3
+                     , text                >= 1.2    && < 1.3
+                     , bytestring          >= 0.10.6 && < 0.11
+                     , parsers             >= 0.12   && < 0.13
+                     , digit               >= 0.7    && < 0.8
+                     , semigroups          >= 0.8.4  && < 0.19
+                     , scientific          >= 0.3    && < 0.4
+                     , distributive        >= 0.5    && < 0.7
+                     , nats                >= 1      && <1.2
+                     , zippers             >= 0.2    && < 0.3
+                     , vector              >= 0.12   && < 0.13
+                     , errors              >= 2.2    && < 3
+                     , hoist-error         >= 0.2    && < 0.3
+                     , containers          >= 0.5.6  && < 0.7
+                     , witherable          >= 0.2    && < 0.3
+                     , generics-sop        >= 0.3.2  && < 4
+                     , mmorph              >= 1.1    && < 2
+                     , transformers        >= 0.4    && < 0.6
+                     , bifunctors          >= 5      && < 6
+                     , contravariant       >= 1.4    && < 2
+                     , wl-pprint-annotated >= 0.1    && < 0.2
+                     , hw-json             >= 0.9    && < 0.10
+                     , hw-prim             >= 0.6    && < 0.7
+                     , hw-balancedparens   >= 0.2    && < 0.3
+                     , hw-rankselect       >= 0.10   && < 0.13
+                     , hw-bits             >= 0.7    && < 0.8
 
   -- Directories containing source files.
   hs-source-dirs:      src
@@ -137,23 +141,24 @@ test-suite doctests
   default-language:    Haskell2010
   hs-source-dirs:      test
 
-  build-depends:       base >= 4.7 && < 4.13
-                     , waargonaut
+  build-depends:       base             >= 4.7  && < 4.13
                      , doctest          >= 0.9.7
                      , filepath         >= 1.3
                      , directory        >= 1.1
                      , template-haskell >= 2.8
-                     , parsec           >= 3.1
-                     , text             >= 1.2 && < 1.3
-                     , digit            >= 0.7 && < 0.8
+                     , hedgehog         >= 0.6  && < 0.7
+                     , text             >= 1.2  && < 1.3
+                     , digit            >= 0.7  && < 0.8
+                     , attoparsec       >= 0.13 && < 0.15
+
+                     , waargonaut
 
   ghc-options:         -Wall -threaded
 
 test-suite waarg-tests
    other-modules:      Types.Common
                      , Types.CommaSep
-                     , Types.JChar
-                     , Types.JNumber
+                     , Types.JChar , Types.JNumber
                      , Types.JString
                      , Types.Json
                      , Types.Whitespace
@@ -177,32 +182,15 @@ test-suite waarg-tests
                      , bytestring             >= 0.10.6 && < 0.11
                      , digit                  >= 0.7    && < 0.8
                      , text                   >= 1.2    && < 1.3
-                     , parsec                 >= 3.1
                      , semigroups             >= 0.8.4  && < 0.19
                      , zippers                >= 0.2    && < 0.3
                      , vector                 >= 0.12   && < 0.13
-                     , generics-sop           >= 0.3.2  && < 4
+                     , generics-sop           >= 0.3.2  && < 0.4
+                     , attoparsec             >= 0.13   && < 0.15
+                     , scientific             >= 0.3    && < 0.4
 
                      , waargonaut
 
   ghc-options:         -Wall
 
   default-language:    Haskell2010
-
-benchmark gauge
-  other-modules:       ConvenientFlatSurface
-
-  default-language:    Haskell2010
-  type:                exitcode-stdio-1.0
-  hs-source-dirs:      benchmarks
-  main-is:             Bench.hs
-
-  build-depends:       base         >= 4.7   && < 4.13
-                     , lens         >= 4.15  && < 5
-                     , parsec       >= 3.1
-                     , semigroups   >= 0.8.4 && < 0.19
-                     , text         >= 1.2   && < 1.3
-                     , gauge
-                     , waargonaut
-
-  ghc-options:         -Wall -O2

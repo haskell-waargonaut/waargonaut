@@ -92,7 +92,7 @@ import           Data.Witherable         (Filterable (..), Witherable (..))
 -- >>> import Waargonaut.Types.Json
 -- >>> import Control.Applicative (Applicative, pure)
 -- >>> import Data.Either (Either (..), isLeft)
--- >>> import Text.Parsec (ParsecT, ParseError)
+-- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Text.Parser.Char (CharParsing, alphaNum)
 -- >>> import Waargonaut.Types.Whitespace (WS (..), Whitespace (..), parseWhitespace)
 -- >>> let charWS = ((,) <$> alphaNum <*> parseWhitespace) :: CharParsing f => f (Char, WS)

@@ -1,5 +1,5 @@
 { nixpkgs ? import <nixpkgs> {}
-, compiler ? "default"
+  , compiler ? "default"
 }:
 let
   # Can't use overlays as there is a infinite recursion in the list of
@@ -10,14 +10,18 @@ let
     then pkgs.haskellPackages
     else pkgs.haskell.packages.${compiler};
 
-  waarg = import ./waargonaut-deps.nix;
+  waarg = import ../waargonaut-deps.nix;
 
   modifiedHaskellPackages = haskellPackages.override (old: {
     overrides = pkgs.lib.composeExtensions
       (old.overrides or (_: _: {}))
-      (waarg pkgs);
+      (self: super: (waarg pkgs self super) // {
+        waargonaut = self.callPackage ../waargonaut.nix {};
+      });
   });
 
-  drv = modifiedHaskellPackages.callPackage ./waargonaut.nix {};
+  drv = pkgs.haskell.lib.doBenchmark (
+    modifiedHaskellPackages.callPackage ./waargbench.nix {}
+  );
 in
   drv

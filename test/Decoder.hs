@@ -1,70 +1,62 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Decoder
   ( decoderTests
   ) where
 
-import           Control.Applicative   (liftA3)
-import           Control.Monad         ((>=>))
+import           Prelude                    (Char, Int, String, print)
 
-import           Test.Tasty            (TestTree, testGroup)
-import           Test.Tasty.HUnit      (assertBool, testCase)
+import           Control.Applicative        (liftA3, (<$>))
+import           Control.Category           ((.))
+import           Control.Monad              (Monad, (>=>), (>>=))
 
-import           Data.Either           (isLeft)
+import           Test.Tasty                 (TestTree, testGroup)
+import           Test.Tasty.HUnit           (Assertion, assertBool, assertEqual,
+                                             assertFailure, testCase)
 
-import           Data.ByteString       (ByteString)
-import qualified Data.ByteString.Char8 as BS8
+import qualified Data.ByteString            as BS
+import qualified Data.Either                as Either
+import           Data.Function              (($))
 
-import Waargonaut.Generic (mkDecoder)
+import           Waargonaut.Generic         (mkDecoder)
 
-import           Waargonaut.Decode     (Decoder, Err)
-import qualified Waargonaut.Decode     as D
-import qualified Waargonaut.Types      as WT
+import           Waargonaut.Decode.Internal (ppCursorHistory)
 
-import qualified Text.Parsec           as P
+import qualified Waargonaut.Decode          as D
 
-import           Types.Common          (Image (Image))
+import           Types.Common               (imageDecodeSuccinct, parseBS,
+                                             testImageDataType)
 
 decoderTests :: TestTree
 decoderTests = testGroup "Decoding"
-  [ testCase "Decode Image (test1.json)"
-    $ decodeTest1Json >>= assertBool "Decode Image Zipper - Success" . not . isLeft
-
-  , testCase "Decode [Int]"
-    $ assertBool "[Int] Decode Success" (not $ isLeft decodeTest2Json)
-
-  , testCase "Decode (Char,String,[Int])"
-    $ assertBool "(Char,String,[Int]) Decode Success" (not $ isLeft decodeTest3Json)
+  [ testCase "Decode Image (test1.json)" decodeTest1Json
+  , testCase "Decode [Int]" decodeTest2Json
+  , testCase "Decode (Char,String,[Int])" decodeTest3Json
   ]
 
-parseBS :: ByteString -> Either P.ParseError WT.Json
-parseBS = P.parse WT.parseWaargonaut "ByteString"
-
-decodeTest2Json :: Either (Err P.ParseError) [Int]
-decodeTest2Json = D.simpleDecode parseBS mkDecoder "[23,44]"
-
-decodeTest3Json :: Either (Err P.ParseError) (Char,String,[Int])
-decodeTest3Json = D.simpleDecode parseBS decoder "[\"a\",\"fred\",1,2,3,4]"
+decodeTest1Json :: Assertion
+decodeTest1Json = D.runPureDecode imageDecodeSuccinct parseBS . D.mkCursor
+  <$> BS.readFile "test/json-data/test1.json"
+  >>= Either.either failWithHistory (assertEqual "Image Decode Failed" testImageDataType)
   where
-    decoder :: Monad f => Decoder f (Char,String,[Int])
-    decoder = D.withCursor $ D.down "array" >=> \fstElem ->
-      liftA3 (,,)
-        (D.focus D.unboundedChar fstElem)
-        (D.moveRight1 fstElem >>= D.focus D.string)
-        (D.moveRightN 2 fstElem >>= D.rightwardSnoc [] D.int)
+    failWithHistory (err, hist) = do
+      print err
+      print (ppCursorHistory hist)
+      assertFailure "Decode Failed :("
 
-imageDecoder :: Monad f => Decoder f Image
-imageDecoder = D.withCursor $ \curs -> do
-  -- We're at the root of our object, move into it and move to the value at the "Image" key
-  o <- D.moveToKey "Image" curs
-  -- We need individual values off of our object,
-  Image
-    <$> D.fromKey "Width" D.int o
-    <*> D.fromKey "Height" D.int o
-    <*> D.fromKey "Title" D.text o
-    <*> D.fromKey "Animated" D.bool o
-    <*> D.fromKey "IDs" (D.list D.int) o
+decodeTest2Json :: Assertion
+decodeTest2Json = assertBool "[Int] Decode Success" . Either.isRight
+  $ D.runPureDecode listDecode parseBS (D.mkCursor "[23,44]")
+  where
+    listDecode :: Monad f => D.Decoder f  [Int]
+    listDecode = mkDecoder
 
-
-decodeTest1Json :: IO (Either (Err P.ParseError) Image)
-decodeTest1Json = D.simpleDecode parseBS imageDecoder <$> BS8.readFile "test/json-data/test1.json"
-
+decodeTest3Json :: Assertion
+decodeTest3Json = assertBool "(Char,String,[Int]) Decode Success" . Either.isRight
+  $ D.runPureDecode decoder parseBS (D.mkCursor "[\"a\",\"fred\",1,2,3,4]")
+  where
+    decoder :: Monad f => D.Decoder f (Char,String,[Int])
+    decoder = D.withCursor $ D.down >=> \fstElem -> liftA3 (,,)
+      (D.focus D.unboundedChar fstElem)
+      (D.moveRight1 fstElem >>= D.focus D.string)
+      (D.moveRightN 2 fstElem >>= D.rightwardSnoc [] D.int)

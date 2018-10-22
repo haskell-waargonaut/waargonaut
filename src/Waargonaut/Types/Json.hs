@@ -1,14 +1,18 @@
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeFamilies           #-}
 -- | Top level types and functions for Waargonaut 'Json' types.
+
 module Waargonaut.Types.Json
   (
     -- * Inner JSON types
@@ -74,7 +78,7 @@ import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
 -- >>> import Utils
 -- >>> import Control.Monad (return)
 -- >>> import Data.Either (Either (..), isLeft)
--- >>> import Text.Parsec (ParseError)
+-- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Data.Digit (HeXDigit)
 ----
 
@@ -281,7 +285,7 @@ parseJNum ws =
 -- >>> testparse (parseJStr (return ())) "\"a\\rbc\""
 -- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
 --
--- >>> testparse (parseJStr (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either ParseError (JType () a)
+-- >>> testparse (parseJStr (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either DecodeError (JType () a)
 -- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
 --
 -- >>> testparsetheneof (parseJStr (return ())) "\"\""

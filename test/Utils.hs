@@ -3,39 +3,43 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Utils where
 
-import           Control.Applicative ((<$>), (<*), (<*>))
+import           Control.Applicative     ((<$>), (<*), (<*>))
 
-import           Data.Char           (Char)
-import           Data.Either         (Either (..))
+import           Data.Char               (Char)
+import           Data.Either             (Either (..))
+import           Data.Text               (Text)
 
-import           Data.Text           (Text)
+import           Data.Attoparsec.Text    (Parser, anyChar, endOfInput,
+                                          parseOnly)
 
-import           Text.Parsec         (ParseError, Parsec, anyChar, eof, parse)
+import           Waargonaut.Decode.Error (DecodeError)
+
+import           Types.Common            (parseWith)
 
 testparse
-  :: Parsec Text () a
+  :: Parser a
   -> Text
-  -> Either ParseError a
-testparse p =
-  parse p "test"
+  -> Either DecodeError a
+testparse =
+  parseWith parseOnly
 
 testparsetheneof
-  :: Parsec Text () a
+  :: Parser a
   -> Text
-  -> Either ParseError a
+  -> Either DecodeError a
 testparsetheneof p =
-  testparse (p <* eof)
+  testparse (p <* endOfInput)
 
 testparsethennoteof
-  :: Parsec Text () a
+  :: Parser a
   -> Text
-  -> Either ParseError a
+  -> Either DecodeError a
 testparsethennoteof p =
   testparse (p <* anyChar)
 
 testparsethen
-  :: Parsec Text () a
+  :: Parser a
   -> Text
-  -> Either ParseError (a, Char)
+  -> Either DecodeError (a, Char)
 testparsethen p =
-  parse ((,) <$> p <*> anyChar) "test"
+  testparse ((,) <$> p <*> anyChar <* endOfInput)

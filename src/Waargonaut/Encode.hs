@@ -19,6 +19,7 @@ module Waargonaut.Encode
 
     -- * Provided encoders
   , int
+  , scientific
   , bool
   , text
   , null
@@ -45,6 +46,7 @@ module Waargonaut.Encode
 
     -- * Encoders specialised to Identity
   , int'
+  , scientific'
   , bool'
   , text'
   , null'
@@ -87,6 +89,7 @@ import qualified Data.Either                as Either
 import           Data.List.NonEmpty         (NonEmpty)
 import           Data.Maybe                 (Maybe)
 import qualified Data.Maybe                 as Maybe
+import           Data.Scientific            (Scientific)
 
 import           Data.Monoid                (Monoid, mempty)
 import           Data.Semigroup             (Semigroup)
@@ -103,7 +106,7 @@ import           Waargonaut                 (waargonautBuilder)
 import           Waargonaut.Types           (AsJType (..), JAssoc (..), JObject,
                                              Json, MapLikeObj (..), WS,
                                              textToJString, wsRemover,
-                                             _JNumberInt)
+                                             _JNumberInt, _JNumberScientific)
 
 -- |
 -- Define an "encoder" as a function from some @a@ to some 'Json' with the
@@ -167,6 +170,10 @@ encJ c f =
 -- | Encode an 'Int'
 int :: Applicative f => Encoder f Int
 int = encJ _JNum (_JNumberInt #)
+
+-- | Encode an 'Scientific'
+scientific :: Applicative f => Encoder f Scientific
+scientific = encJ _JNum (_JNumberScientific #)
 
 -- | Encode a 'Bool'
 bool :: Applicative f => Encoder f Bool
@@ -252,6 +259,9 @@ json' = json
 
 int' :: Encoder' Int
 int' = int
+
+scientific' :: Encoder' Scientific
+scientific' = scientific
 
 bool' :: Encoder' Bool
 bool' = bool
