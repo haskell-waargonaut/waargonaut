@@ -55,7 +55,7 @@ import           Control.Monad.Trans.Class     (MonadTrans (lift))
 import           Control.Monad.Morph           (MFunctor (..), MMonad (..))
 
 import           Data.Bifunctor                (first)
-import           Data.Functor                  (Functor, ($>))
+import           Data.Functor                  (($>))
 import           Data.Sequence                 (Seq)
 
 import           Data.Text                     (Text)

@@ -24,8 +24,6 @@ import           Control.Monad.Trans.Class             (MonadTrans (lift))
 
 import           GHC.Word                              (Word64)
 
-import           Data.Functor                          (Functor)
-
 import           Data.ByteString                       (ByteString)
 import           Data.Vector.Storable                  (Vector)
 

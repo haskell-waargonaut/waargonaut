@@ -8,7 +8,6 @@ module Waargonaut.Decode.Error
 import           Control.Lens                 (Prism')
 import qualified Control.Lens                 as L
 
-import           Data.Functor                 (Functor)
 import           GHC.Word                     (Word64)
 
 import           Data.Text                    (Text)

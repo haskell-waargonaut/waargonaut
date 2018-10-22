@@ -34,7 +34,6 @@ import qualified Data.Vector             as V
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 
 import           Data.Foldable           (asum)
-import           Data.Functor            ((<$))
 import           Data.Semigroup          (Semigroup (..))
 
 import           Text.Parser.Char        (CharParsing, char, newline, tab)
