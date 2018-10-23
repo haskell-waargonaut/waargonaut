@@ -26,13 +26,13 @@ import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Test.Tasty.HUnit
 
-import Data.Digit (HeXDigit)
+import           Data.Digit                  (HeXDigit)
 
 import           Waargonaut                  (Json)
 import qualified Waargonaut                  as W
 import qualified Waargonaut.Types.CommaSep   as CommaSep
 
-import Waargonaut.Types.JChar      (JChar)
+import           Waargonaut.Types.JChar      (JChar)
 import qualified Waargonaut.Types.JChar      as JChar
 
 import qualified Waargonaut.Types.JNumber    as JNumber

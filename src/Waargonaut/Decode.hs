@@ -11,9 +11,10 @@ module Waargonaut.Decode
     -- * Types
     CursorHistory
   , SuccinctCursor
-  , DecodeResult
-  , Decoder
+  , DecodeResult (..)
+  , Decoder (..)
   , JCurs (..)
+  , ParseFn
   , Err
 
     -- * Runners
@@ -228,21 +229,25 @@ moveCursBasic f m c =
 -- The following examples use "*" to represent the cursor position.
 --
 -- Starting position:
+--
 -- @ *{"fred": 33, "sally": 44 } @
 --
 -- After moving 'down':
+--
 -- @ { *"fred": 33, "sally": 44 } @
 --
 -- This function will also move into the elements in an array:
 --
 -- Starting position:
+--
 -- @ *[1,2,3] @
 --
 -- After moving 'down':
+--
 -- @ [*1,2,3] @
 --
--- This function is essential when dealing with objects as you must move down
--- into the object before you can start using 'fromKey'.
+-- This function is essential when dealing with the inner elements of objects or
+-- arrays. As you must first move 'down' into the focus.
 --
 down
   :: Monad f
@@ -256,9 +261,11 @@ down =
 -- The following examples use "*" to represent the cursor position.
 --
 -- Starting position:
+--
 -- @ { "fred": 33, *"sally": 44 } @
 --
 -- After moving 'up':
+--
 -- @ *{"fred": 33, "sally": 44 } @
 --
 up
@@ -285,9 +292,11 @@ moveToRankN newRank c =
 -- | Move the cursor rightwards 'n' times.
 --
 -- Starting position:
+--
 -- @ [*1, 2, 3] @
 --
 -- After @moveRightN 2@:
+--
 -- @ [1, 2, *3] @
 --
 moveRightN
@@ -309,9 +318,11 @@ moveRight1 =
 -- | Helper function to move left once.
 --
 -- Starting position:
+--
 -- @ [1, 2, *3] @
 --
 -- Ater 'moveLeft1':
+--
 -- @ [1, *2, 3] @
 moveLeft1
   :: Monad f
@@ -389,6 +400,7 @@ focus decoder curs = DecodeResult $ do
 -- Cursor position indicated by "*".
 --
 -- Assuming cursor positioned here:
+--
 -- @ *{ "foo": 33, "fieldB": "pew pew" } @
 --
 -- This won't work, because we're AT the object, not IN the object:

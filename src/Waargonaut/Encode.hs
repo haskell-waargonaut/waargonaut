@@ -246,7 +246,7 @@ nonempty
 nonempty =
   traversable
 
--- | Encode a standard Haskell list
+-- | Encode a list
 list
   :: Applicative f
   => Encoder f a
@@ -331,6 +331,7 @@ mapToObj'
 mapToObj' =
   mapToObj
 
+-- | When encoding a 'MapLikeObj', this function lets you encode a value at a specific key
 atKey
   :: ( At t
      , IxValue t ~ Json
@@ -443,7 +444,7 @@ nonemptyAt =
 --
 -- @
 -- encodeImage :: Applicative f => Encoder f Image
--- encodeImage = encodeAsMapLikeObj $ \\img ->
+-- encodeImage = mapLikeObj $ \\img ->
 --   intAt \"Width\" (_imageW img) .           -- ^ Set an 'Int' value at the \"Width\" key.
 --   intAt \"Height\" (_imageH img) .
 --   textAt \"Title\" (_imageTitle img) .
@@ -473,6 +474,8 @@ mapLikeObj'
 mapLikeObj' f = encodePureA $ \a ->
   _JObj # (fromMapLikeObj $ f a (_Empty # ()), mempty)
 
+-- | When encoding a JSON object that may contain duplicate keys, this function
+-- works the same as the 'atKey' function for 'MapLikeObj'.
 onObj
   :: Applicative f
   => Text

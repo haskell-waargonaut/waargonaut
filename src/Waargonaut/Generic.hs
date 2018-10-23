@@ -45,7 +45,6 @@ import           HaskellWorks.Data.Positioning (Count)
 
 import           Waargonaut.Decode             (Decoder)
 import qualified Waargonaut.Decode             as D
-import qualified Waargonaut.Decode.Types       as D
 
 import           Waargonaut.Decode.Error       (DecodeError (..))
 import           Waargonaut.Decode.Internal    (CursorHistory' (..),
@@ -77,7 +76,6 @@ instance JsonEncode Text                                         where mkEncoder
 instance JsonEncode Int                                          where mkEncoder = E.int
 instance JsonEncode Scientific                                   where mkEncoder = E.scientific
 instance JsonEncode Bool                                         where mkEncoder = E.bool
-instance JsonEncode Json                                         where mkEncoder = E.json
 
 class JsonDecode a where
   mkDecoder :: Monad f => Decoder f a
@@ -92,7 +90,6 @@ instance JsonDecode Text                                         where mkDecoder
 instance JsonDecode Int                                          where mkDecoder = D.int
 instance JsonDecode Scientific                                   where mkDecoder = D.scientific
 instance JsonDecode Bool                                         where mkDecoder = D.bool
-instance JsonDecode Json                                         where mkDecoder = D.json
 
 type JTag = String
 
