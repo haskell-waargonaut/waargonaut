@@ -72,11 +72,12 @@ import           Waargonaut.Types.Json (JType (..), Json (..), parseWaargonaut,
 -- NB: The 'Monad' constraint is provided as a flexibility for more interesting and nefarious uses
 -- of 'Waargonaut.Decode.Decoder'.
 --
--- Here is the 'Waargonaut.Decode.Decoder' for our 'Person' data type.
+-- Here is the 'Waargonaut.Decode.Decoder' for our 'Person' data type. It will help to turn on the
+-- 'OverloadedStrings' language pragma as these functions expect 'Data.Text.Text' input.
 --
 -- @
 -- personDecoder :: Monad f => Decoder f Person
--- personDecoder = D.withCursor $ \c -> do
+-- personDecoder = D.withCursor $ \\c -> do
 --   o     <- D.down c
 --   name  <- D.fromKey "name" D.text o
 --   age   <- D.fromKey "age" D.int o
@@ -225,11 +226,11 @@ import           Waargonaut.Types.Json (JType (..), Json (..), parseWaargonaut,
 --
 -- @
 -- personEncoder :: Applicative f => Encoder f Person
--- personEncoder = E.mapLikeObj $ \p ->
---   E.atKey "name" E.text (_personName p) .
---   E.atKey "age" E.int (_personAge p) .
---   E.atKey "address" E.text (_personAddress p) .
---   E.atKey "numbers" (E.list E.int) (_personFavouriteLotteryNumbers p)
+-- personEncoder = E.mapLikeObj $ \\p ->
+--   E.atKey' "name" E.text (_personName p) .
+--   E.atKey' "age" E.int (_personAge p) .
+--   E.atKey' "address" E.text (_personAddress p) .
+--   E.atKey' "numbers" (E.list E.int) (_personFavouriteLotteryNumbers p)
 -- @
 --
 -- The JSON RFC leaves the handling of duplicate keys on an object as a choice. It is up to the

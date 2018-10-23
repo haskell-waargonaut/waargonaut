@@ -181,8 +181,7 @@ instance MFunctor (Decoder' c i e) where
 -- @
 --
 withCursor'
-  :: Monad f
-  => (c -> DecodeResultT i e f a)
+  :: (c -> DecodeResultT i e f a)
   -> Decoder' c i e f a
 withCursor' =
   Decoder'
@@ -317,8 +316,6 @@ foldCursor' empty scons mvCurs elemD =
       maybe (pure acc)
         (\r -> try (mvCurs cur) >>= maybe (pure r) (go r))
         me
-      -- r <- scons acc <$> runDecoder' elemD cur
-      -- try (mvCurs cur) >>= maybe (pure r) (go r)
 
 -- |
 -- Provide a generalised and low level way of turning a JSON object into a

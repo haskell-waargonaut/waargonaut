@@ -25,8 +25,9 @@ import qualified Waargonaut.Decode as D
  So if the JSON input is not as your <code><a href="Waargonaut-Decode.html#v:Decoder" title="Waargonaut.Decode">Decoder</a></code> expects you are given a complete
  path to where things went awry.</p><p>Decoding a JSON value is done by moving the cursor to specific points of interest, then focusing
  on that point with a <code><a href="Waargonaut-Decode.html#v:Decoder" title="Waargonaut.Decode">Decoder</a></code> of the desired value.</p><p>NB: The <code>Monad</code> constraint is provided as a flexibility for more interesting and nefarious uses
- of <code><a href="Waargonaut-Decode.html#v:Decoder" title="Waargonaut.Decode">Decoder</a></code>.</p><p>Here is the <code><a href="Waargonaut-Decode.html#v:Decoder" title="Waargonaut.Decode">Decoder</a></code> for our <code>Person</code> data type.</p><pre>personDecoder :: Monad f =&gt; Decoder f Person
-personDecoder = D.withCursor $ c -&gt; do
+ of <code><a href="Waargonaut-Decode.html#v:Decoder" title="Waargonaut.Decode">Decoder</a></code>.</p><p>Here is the <code><a href="Waargonaut-Decode.html#v:Decoder" title="Waargonaut.Decode">Decoder</a></code> for our <code>Person</code> data type. It will help to turn on the
+ <code>OverloadedStrings</code> language pragma as these functions expect <code><a href="file:///nix/store/9ls123vy8ng6dqw29jvgd7lysn381kma-ghc-8.4.3-doc/share/doc/ghc/html/libraries/text-1.2.3.0/Data-Text.html#v:Text" title="Data.Text">Text</a></code> input.</p><pre>personDecoder :: Monad f =&gt; Decoder f Person
+personDecoder = D.withCursor $ \c -&gt; do
   o     &lt;- D.down c
   name  &lt;- D.fromKey &quot;name&quot; D.text o
   age   &lt;- D.fromKey &quot;age&quot; D.int o
@@ -101,11 +102,11 @@ personDecoder2 = Person
  such that it can be composed with itself to build up an object with multiple keys.</p><pre>import Waargonaut.Encode (Encoder)
 import qualified Waargonaut.Encode as E
 </pre><pre>personEncoder :: Applicative f =&gt; Encoder f Person
-personEncoder = E.mapLikeObj $ p -&gt;
-  E.atKey &quot;name&quot; E.text (_personName p) .
-  E.atKey &quot;age&quot; E.int (_personAge p) .
-  E.atKey &quot;address&quot; E.text (_personAddress p) .
-  E.atKey &quot;numbers&quot; (E.list E.int) (_personFavouriteLotteryNumbers p)
+personEncoder = E.mapLikeObj $ \p -&gt;
+  E.atKey' &quot;name&quot; E.text (_personName p) .
+  E.atKey' &quot;age&quot; E.int (_personAge p) .
+  E.atKey' &quot;address&quot; E.text (_personAddress p) .
+  E.atKey' &quot;numbers&quot; (E.list E.int) (_personFavouriteLotteryNumbers p)
 </pre><p>The JSON RFC leaves the handling of duplicate keys on an object as a choice. It is up to the
  implementor of a JSON handling package to decide what they will do. Waargonaut passes on this
  choice to you. In both encoding and decoding, the handling of duplicate keys is up to you.
