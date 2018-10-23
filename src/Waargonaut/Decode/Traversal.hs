@@ -9,6 +9,12 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE TypeOperators              #-}
 -- | Types and functions to convert Json values into your data types.
+--
+-- This module uses the 'Control.Lens.Traversal' based 'Control.Zipper.Zipper'
+-- as the basis for the 'Decoder'. It is provided for compatibility and
+-- comparison. It is not as fast as the succinct data structure based
+-- 'Waargonaut.Decode.Decoder'.
+--
 module Waargonaut.Decode.Traversal
   (
     Err
