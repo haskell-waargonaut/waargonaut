@@ -40,14 +40,10 @@ provides a plethora of tools for decoding, encoding, and manipulating JSON data.
   manipulate the JSON data structures to your hearts content, without breaking
   the invariants.
 
-* _Soon_ there will be a companion package for this library that leverages the awesome
-  work on succinct data structures by John Ky and [Haskell Works](https://github.com/haskell-works/). 
-
-  Providing the same zipper capabilities and property based guarantees, but with
-  all the speed, efficiency, and streaming capabilities that succinct data
-  structures have to offer. That's the idea, anyway.
-
-  **NB:** It exists for the keen and the brave [waargonaut-succinct-ds](https://github.com/qfpl/waargonaut-succinct-ds).
+* The awesome work on succinct data structures by John Ky and [Haskell Works](https://github.com/haskell-works/) 
+  is used to power the decoder. Providing the same zipper capabilities and
+  property based guarantees, but with all the speed and efficiency capabilities
+  that succinct data structures have to offer.
 
 ## Example
 
