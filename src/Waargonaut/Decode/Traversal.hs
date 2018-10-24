@@ -218,8 +218,7 @@ generaliseDecoder dr = Decoder' (embed generalize . runDecoder' dr)
 -- debugging process.
 --
 withCursor
-  :: Monad f
-  => (forall h. JCursor h Json -> DecodeResult f a)
+  :: (forall h. JCursor h Json -> DecodeResult f a)
   -> Decoder f a
 withCursor f =
   Decoder' (unDecodeResult . f)
@@ -480,8 +479,7 @@ json = atCursor "JSON" pure
 
 -- | Try to decode the value at the current focus using the given 'Decoder'.
 focus
-  :: Monad f
-  => Decoder f a
+  :: Decoder f a
   -> JCursor h Json
   -> DecodeResult f a
 focus =

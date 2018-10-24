@@ -1,2 +1,2 @@
-:set -fwarn-unused-binds -fwarn-unused-imports
+:set -fwarn-unused-binds -fwarn-unused-imports -Wredundant-constraints -Wincomplete-uni-patterns
 :set -isrc

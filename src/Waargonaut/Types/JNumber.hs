@@ -102,7 +102,7 @@ _JZero = prism (const JZero)
   )
 
 -- | Prism for JSON non-zero values.
-_JIntInt :: D.DecimalNoZero digit => Prism' (JInt' digit) (digit, [DecDigit])
+_JIntInt :: Prism' (JInt' digit) (digit, [DecDigit])
 _JIntInt = prism (uncurry JIntInt)
   (\case
       JIntInt d ds -> Right (d,ds)
@@ -219,7 +219,7 @@ _JNumberInt = prism jnumberToInt (\v -> note v $ Sci.toBoundedInteger =<< jNumbe
   where
     jnumberToInt i = JNumber (i < 0) (mkjInt $ abs i) Nothing Nothing
 
-mkjInt :: (Integral a, Eq a) => a -> JInt' DecDigit
+mkjInt :: Integral a => a -> JInt' DecDigit
 mkjInt 0 = JZero
 mkjInt n = (\(h :| t) -> JIntInt h t) $ D._NaturalDigits # fromIntegral n
 

@@ -246,5 +246,5 @@ prop_generic_tripping
   => a
   -> m ()
 prop_generic_tripping a = tripping a
-  (E.runPureEncoder mkEncoder)
+  (E.simplePureEncodeNoSpaces mkEncoder)
   (SD.runPureDecode mkDecoder parseBS . SD.mkCursor . BSL8.toStrict)

@@ -94,8 +94,7 @@ newtype CursorHistory' i = CursorHistory'
   deriving (Show, Eq)
 
 ppCursorHistory
-  :: Show i
-  => CursorHistory' i
+  :: CursorHistory' i
   -> Doc a
 ppCursorHistory =
   foldr (<+>) mempty
@@ -193,9 +192,7 @@ withCursor' =
 -- of the 'CursorHistory'' and error handling (via 'ExceptT').
 --
 runDecoderResultT
-  :: ( Num i
-     , Monad f
-     )
+  :: Monad f
   => DecodeResultT i DecodeError f a
   -> f (Either (DecodeError, CursorHistory' i) a)
 runDecoderResultT =

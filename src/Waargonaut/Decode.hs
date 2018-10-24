@@ -186,8 +186,7 @@ type Err = Err' CursorHistory
 -- debugging process.
 --
 withCursor
-  :: Monad f
-  => (JCurs -> DecodeResult f a)
+  :: (JCurs -> DecodeResult f a)
   -> Decoder f a
 withCursor g = Decoder $ \p ->
   DI.runDecoder' $ DI.withCursor' (flip runReaderT p . unDecodeResult . g)
@@ -367,9 +366,7 @@ jsonAtCursor p jc = do
 
 -- Internal function to record the current rank of the cursor into the zipper history
 recordRank
-  :: ( MonadState CursorHistory f
-     , Monad f
-     )
+  :: MonadState CursorHistory f
   => ZipperMove
   -> JCurs
   -> f JCurs

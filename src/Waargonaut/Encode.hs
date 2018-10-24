@@ -9,13 +9,18 @@
 module Waargonaut.Encode
   (
     -- * Encoder type
-    Encoder (..)
+    Encoder (Encoder)
   , Encoder'
 
     -- * Creation
   , encodeA
   , encodePureA
+
+    -- * Runners
   , runPureEncoder
+  , runEncoder
+  , simpleEncodeNoSpaces
+  , simplePureEncodeNoSpaces
 
     -- * Provided encoders
   , int
@@ -147,11 +152,23 @@ encodePureA :: (a -> Json) -> Encoder' a
 encodePureA f = encodeA (Identity . f)
 
 -- | Run the given 'Encoder' to produce a lazy 'ByteString'.
-runPureEncoder :: Encoder' a -> a -> ByteString
-runPureEncoder enc = BB.toLazyByteString
-  . waargonautBuilder wsRemover
-  . runIdentity
-  . runEncoder enc
+runPureEncoder :: Encoder' a -> a -> Json
+runPureEncoder enc = runIdentity . runEncoder enc
+
+simpleEncodeNoSpaces
+  :: Applicative f
+  => Encoder f a
+  -> a
+  -> f ByteString
+simpleEncodeNoSpaces enc =
+  fmap (BB.toLazyByteString . waargonautBuilder wsRemover) . runEncoder enc
+
+simplePureEncodeNoSpaces
+  :: Encoder' a
+  -> a
+  -> ByteString
+simplePureEncodeNoSpaces enc =
+  runIdentity . simpleEncodeNoSpaces enc
 
 -- | 'Encoder'' for a Waargonaut 'Json' data structure
 json :: Applicative f => Encoder f Json
@@ -190,8 +207,7 @@ null = encodeA $ const (pure $ _JNull # mempty)
 -- | Encode a 'Maybe' value, using the provided 'Encoder''s to handle the
 -- different choices.
 maybe
-  :: Applicative f
-  => Encoder f ()
+  :: Encoder f ()
   -> Encoder f a
   -> Encoder f (Maybe a)
 maybe encN = encodeA
@@ -208,8 +224,7 @@ maybeOrNull =
 
 -- | Encode an 'Either' value using the given 'Encoder's
 either
-  :: Applicative f
-  => Encoder f a
+  :: Encoder f a
   -> Encoder f b
   -> Encoder f (Either a b)
 either eA = encodeA
@@ -454,8 +469,8 @@ nonemptyAt =
 --
 mapLikeObj
   :: ( AsJType Json ws a
-     , Semigroup ws
      , Monoid ws
+     , Semigroup ws
      , Applicative f
      )
   => (i -> MapLikeObj ws a -> MapLikeObj ws a)
@@ -489,9 +504,6 @@ onObj k b encB o = (\j -> o & _Wrapped L.%~ L.cons j)
 -- | Encode key value pairs as a JSON object, allowing duplicate keys.
 keyValuesAsObj
   :: ( Foldable g
-     , Semigroup ws
-     , Monoid ws
-     , AsJType Json ws j
      , Monad f
      )
   => g (a -> JObject WS Json -> f (JObject WS Json))
@@ -503,9 +515,6 @@ keyValuesAsObj xs = encodeA $ \a ->
 keyValuesAsObj'
   :: ( Foldable g
      , Functor g
-     , Semigroup ws
-     , Monoid ws
-     , AsJType Json ws j
      )
   => g (a -> JObject WS Json -> JObject WS Json)
   -> Encoder' a

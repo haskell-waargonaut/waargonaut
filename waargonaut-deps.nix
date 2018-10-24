@@ -20,7 +20,7 @@ in
 
   generics-sop   = self.callHackage "generics-sop" "0.3.2.0" {};
 
-  generic-lens = pkgs.haskell.lib.dontCheck super.generic-lens;
+  generic-lens   = pkgs.haskell.lib.dontCheck super.generic-lens;
 
   hw-parser      = self.callHackage "hw-parser" "0.1.0.0" {};
   hw-json        = self.callCabal2nix "hw-json" sources.hw-json {};

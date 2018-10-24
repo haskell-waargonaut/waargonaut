@@ -118,7 +118,7 @@ prop_tripping_int_list :: Property
 prop_tripping_int_list = property $ do
   xs <- forAll . Gen.list (Range.linear 0 100) $ Gen.int (Range.linear 0 9999)
   tripping xs
-    (E.runPureEncoder (E.traversable E.int))
+    (E.simplePureEncodeNoSpaces (E.traversable E.int))
     (D.simpleDecode (D.list D.int) Common.parseBS . BSL8.toStrict)
 
 prop_tripping_image_record_generic :: Property
@@ -161,7 +161,7 @@ prop_maybe_maybe = withTests 1 . property $ do
   trippin' jjf
   where
     trippin' a = tripping a
-      (E.runPureEncoder enc)
+      (E.simplePureEncodeNoSpaces enc)
       (D.simpleDecode dec Common.parseBS . BSL8.toStrict)
 
     enc = E.maybeOrNull' . E.mapLikeObj' . E.atKey' "boop"

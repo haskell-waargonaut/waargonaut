@@ -43,7 +43,7 @@ tCase
   -> ByteString
   -> TestTree
 tCase nm enc a =
-  testCase nm . assertEqual nm (E.runPureEncoder enc a)
+  testCase nm . assertEqual nm (E.simplePureEncodeNoSpaces enc a)
 
 encoderTests :: TestTree
 encoderTests = testGroup "Encoder"

@@ -238,4 +238,14 @@ import           Waargonaut.Types.Json (JType (..), Json (..), parseWaargonaut,
 -- choice to you. In both encoding and decoding, the handling of duplicate keys is up to you.
 -- Waargonaut provides functionality to support /both/ use cases.
 --
+-- To then turn these values into JSON output:
 --
+-- @
+-- runEncoder :: Encoder f a -> a -> f Json
+-- @
+--
+-- Or
+--
+-- @
+-- runPureEncoder :: Encoder' a -> a -> ByteString
+-- @
