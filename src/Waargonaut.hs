@@ -191,7 +191,7 @@ import           Waargonaut.Types.Json (JType (..), Json (..), parseWaargonaut,
 -- @
 -- mapLikeObj
 --   :: ( AsJType Json ws a
---      , Semigroup ws
+--      , Semigroup ws         -- This library supports GHC 7.10.3 and 'Semigroup' wasn't a superclass of 'Monoid' then.
 --      , Monoid ws
 --      , Applicative f
 --      )
@@ -227,10 +227,10 @@ import           Waargonaut.Types.Json (JType (..), Json (..), parseWaargonaut,
 -- @
 -- personEncoder :: Applicative f => Encoder f Person
 -- personEncoder = E.mapLikeObj $ \\p ->
---   E.atKey' "name" E.text (_personName p) .
---   E.atKey' "age" E.int (_personAge p) .
---   E.atKey' "address" E.text (_personAddress p) .
---   E.atKey' "numbers" (E.list E.int) (_personFavouriteLotteryNumbers p)
+--   E.atKey' \"name\" E.text (_personName p) .
+--   E.atKey' \"age\" E.int (_personAge p) .
+--   E.atKey' \"address\" E.text (_personAddress p) .
+--   E.atKey' \"numbers\" (E.list E.int) (_personFavouriteLotteryNumbers p)
 -- @
 --
 -- The JSON RFC leaves the handling of duplicate keys on an object as a choice. It is up to the
@@ -241,11 +241,23 @@ import           Waargonaut.Types.Json (JType (..), Json (..), parseWaargonaut,
 -- To then turn these values into JSON output:
 --
 -- @
--- runEncoder :: Encoder f a -> a -> f Json
+-- simpleEncodeNoSpaces :: Applicative f => Encoder f a -> a -> f ByteString
 -- @
 --
 -- Or
 --
 -- @
--- runPureEncoder :: Encoder' a -> a -> ByteString
+-- simplePureEncodeNoSpaces :: Encoder' a -> a -> ByteString
 -- @
+--
+-- The latter specialises the 'f' to be 'Data.Functor.Identity'.
+--
+-- Then, like the use of the 'Waargonaut.Decode.Decoder' you select the 'Waargonaut.Encode.Encoder'
+-- you wish to use and run it against a value of a matching type:
+--
+-- @
+-- simplePureEncodeNoSpaces personEncoder (Person \"Krag\" 33 \"Red House 4, Three Neck Lane, Greentown.\" [86,3,32,42,73])
+-- =
+-- "{\"name\":\"Krag\",\"age\":88,\"address\":\"Red House 4, Three Neck Lane, Greentown.\",\"numbers\":[86,3,32,42,73]}"
+-- @
+--
