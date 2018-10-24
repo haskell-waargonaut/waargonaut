@@ -51,6 +51,8 @@ module Waargonaut.Decode
   , rightwardSnoc
   , foldCursor
   , rank
+  , prismD
+  , prismDOrFail
   , json
   , int
   , scientific
@@ -73,11 +75,11 @@ module Waargonaut.Decode
 
 import           GHC.Word                                  (Word64)
 
-import           Control.Lens                              (Cons, Lens', Snoc,
-                                                            cons, lens,
-                                                            modifying, snoc,
-                                                            traverseOf, view,
-                                                            (.~), (^.),
+import           Control.Lens                              (Cons, Lens', Prism',
+                                                            Snoc, cons, lens,
+                                                            modifying, preview,
+                                                            snoc, traverseOf,
+                                                            view, (.~), (^.), (#),
                                                             _Wrapped)
 
 import           Prelude                                   (Bool, Bounded, Char,
@@ -98,7 +100,7 @@ import           Control.Monad.Reader                      (ReaderT (..), ask,
 import           Control.Monad.State                       (MonadState)
 
 import           Control.Error.Util                        (note)
-import           Control.Monad.Error.Hoist                 ((<?>))
+import           Control.Monad.Error.Hoist                 ((<?>), (<!?>))
 
 import           Data.Either                               (Either (..))
 import           Data.Foldable                             (foldl)
@@ -139,7 +141,7 @@ import qualified HaskellWorks.Data.Json.Cursor             as JC
 
 
 import           Waargonaut.Decode.Error                   (DecodeError (..),
-                                                            Err' (..))
+                                                            Err' (..), _ConversionFailure)
 import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
 
 import qualified Waargonaut.Decode.Internal                as DI
@@ -625,6 +627,25 @@ integral = atCursor "integral" DI.integral'
 -- individual cursor movements.
 rank :: Monad f => Decoder f Count
 rank = withCursor (pure . view cursorRankL . unJCurs)
+
+-- | Create a 'Decoder' from a 'Control.Lens.Prism''.
+--
+prismD
+  :: Monad f
+  => Prism' a b
+  -> Decoder f a
+  -> Decoder f (Maybe b)
+prismD p =
+  fmap (preview p)
+
+prismDOrFail
+  :: Monad f
+  => Text
+  -> Prism' a b
+  -> Decoder f a
+  -> Decoder f b
+prismDOrFail t p d = withCursor $ \c ->
+  focus (prismD p d) c <!?> (_ConversionFailure # t)
 
 -- | Decode an 'Int'.
 int :: Monad f => Decoder f Int

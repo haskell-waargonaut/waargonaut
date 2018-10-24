@@ -5,6 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE RankNTypes #-}
 -- | Types and functions to encode your data types to 'Json'.
 module Waargonaut.Encode
   (
@@ -36,6 +37,7 @@ module Waargonaut.Encode
   , nonempty
   , mapToObj
   , json
+  , prismE
 
     -- * Object encoder helpers
   , mapLikeObj
@@ -75,7 +77,7 @@ import           Control.Monad.Morph        (MFunctor (..), generalize)
 
 import           Control.Applicative        (Applicative (..), (<$>))
 import           Control.Category           (id, (.))
-import           Control.Lens               (AReview, At, Index, IxValue,
+import           Control.Lens               (AReview, At, Index, IxValue, Prism',
                                              Rewrapped, Wrapped (..), at, cons,
                                              iso, ( # ), (?~), _Empty, _Wrapped)
 import qualified Control.Lens               as L
@@ -85,7 +87,7 @@ import           Prelude                    (Bool, Int, Monad)
 import           Data.Foldable              (Foldable, foldr, foldrM)
 import           Data.Function              (const, flip, ($), (&))
 import           Data.Functor               (Functor, fmap)
-import           Data.Functor.Contravariant (Contravariant (..))
+import           Data.Functor.Contravariant (Contravariant (..), (>$<))
 import           Data.Functor.Identity      (Identity (..))
 import           Data.Traversable           (Traversable, traverse)
 
@@ -174,31 +176,39 @@ simplePureEncodeNoSpaces enc =
 json :: Applicative f => Encoder f Json
 json = encodeA pure
 
-encJ
+encToJsonNoSpaces
   :: ( Monoid t
      , Applicative f
      )
   => AReview Json (b, t)
   -> (a -> b)
   -> Encoder f a
-encJ c f =
+encToJsonNoSpaces c f =
   encodeA (pure . (c #) . (,mempty) . f)
+
+-- | Build an 'Encoder' using a 'Control.Lens.Prism''
+prismE
+  :: Prism' a b
+  -> Encoder f a
+  -> Encoder f b
+prismE p e =
+  L.review p >$< e
 
 -- | Encode an 'Int'
 int :: Applicative f => Encoder f Int
-int = encJ _JNum (_JNumberInt #)
+int = encToJsonNoSpaces _JNum (_JNumberInt #)
 
 -- | Encode an 'Scientific'
 scientific :: Applicative f => Encoder f Scientific
-scientific = encJ _JNum (_JNumberScientific #)
+scientific = encToJsonNoSpaces _JNum (_JNumberScientific #)
 
 -- | Encode a 'Bool'
 bool :: Applicative f => Encoder f Bool
-bool = encJ _JBool id
+bool = encToJsonNoSpaces _JBool id
 
 -- | Encode a 'Text'
 text :: Applicative f => Encoder f Text
-text = encJ _JStr textToJString
+text = encToJsonNoSpaces _JStr textToJString
 
 -- | Encode an explicit 'null'.
 null :: Applicative f => Encoder f ()
