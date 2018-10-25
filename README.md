@@ -106,7 +106,7 @@ into the first element.
 ```haskell
 fooDecoder :: Monad f => Decoder f Foo
 fooDecoder = D.withCursor $ \cursor -> do
-  fstElem <- D.down "array" cursor
+  fstElem <- D.down cursor
 ```
 From the first element we can then decode the focus of the zipper using a
 specific decoder:
@@ -140,7 +140,9 @@ debugging precise and straight-forward.
 
 This library is built to parse and produce JSON in accordance with the [RFC
 8259](https://tools.ietf.org/html/rfc8259) standard. The data structures,
-parser, and printer are built to comply with the following properties:
+parser, and printer are built to satify the [Round Trip Property](https://teh.id.au/posts/2017/06/07/round-trip-property/):
+
+Which may be expressed using the following pseudocode:
 
 ```
 parse . print = id
@@ -149,6 +151,8 @@ This indicates that any JSON produced by this library will be parsed back in as
 the exact data structure that produced it. This includes whitespace such as
 carriage returns and trailing whitespace. There is no loss of information.
 
+There is also this property, again in pseudocode:
+
 ```
 print . parse . print = print
 ```
@@ -156,6 +160,9 @@ This states that the printed form of the JSON will not change will be identical
 after parsing and then re-printing. There is no loss of information.
 
 This provides a solid foundation to build upon.
+
+**NB:** The actual code will of course return values that account for the
+possibility of failure. Computers being what they are.
 
 ### TODO(s)
 
