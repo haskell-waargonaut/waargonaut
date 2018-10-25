@@ -9,7 +9,7 @@ _NB:_ **BETA Release**
 Flexible, precise, and efficient JSON decoding/encoding library. This package
 provides a plethora of tools for decoding, encoding, and manipulating JSON data.
 
-Pending a proper Hackage release, Haddocks may be found here: https://qfpl.github.com/waargonaut
+Pending a proper Hackage release, Haddocks may be found here: https://qfpl.github.io/waargonaut
 
 ## Features
 
