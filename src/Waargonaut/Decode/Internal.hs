@@ -5,6 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE RankNTypes #-}
 -- | Internal types and functions for building Decoder infrastructure.
 module Waargonaut.Decode.Internal
   ( CursorHistory' (..)
@@ -30,6 +31,7 @@ module Waargonaut.Decode.Internal
   , scientific'
   , objTuples'
   , foldCursor'
+  , prismDOrFail'
 
     -- * JSON Object to Map Functions
   , mapKeepingF
@@ -52,6 +54,7 @@ import           Control.Monad.Except          (ExceptT (..), MonadError (..),
 import           Control.Monad.State           (MonadState (..), StateT (..))
 import           Control.Monad.Trans.Class     (MonadTrans (lift))
 
+import           Control.Monad.Error.Hoist                 ((<!?>))
 import           Control.Monad.Morph           (MFunctor (..), MMonad (..))
 
 import           Data.Bifunctor                (first)
@@ -214,6 +217,18 @@ recordZipperMove dir i = L._Wrapped %= (`L.snoc` (dir, i))
 --
 try :: MonadError e m => m a -> m (Maybe a)
 try d = catchError (pure <$> d) (const (pure Nothing))
+
+prismDOrFail'
+  :: ( AsDecodeError e
+     , MonadError e f
+     )
+  => e
+  -> L.Prism' a b
+  -> Decoder' c i e f a
+  -> c
+  -> DecodeResultT i e f b
+prismDOrFail' e p d c =
+  runDecoder' (L.preview p <$> d) c <!?> e
 
 -- | Try to decode a 'Text' value from some 'Json' or value.
 text' :: AsJType a ws a => a -> Maybe Text

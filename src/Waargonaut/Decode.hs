@@ -79,7 +79,7 @@ import           Control.Lens                              (Cons, Lens', Prism',
                                                             Snoc, cons, lens,
                                                             modifying, preview,
                                                             snoc, traverseOf,
-                                                            view, (.~), (^.), (#),
+                                                            view, (.~), (^.),
                                                             _Wrapped)
 
 import           Prelude                                   (Bool, Bounded, Char,
@@ -93,14 +93,15 @@ import           Control.Category                          ((.))
 import           Control.Monad                             (Monad (..), (>=>))
 import           Control.Monad.Morph                       (embed, generalize)
 
-import           Control.Monad.Except                      (lift, liftEither,
+import           Control.Monad.Except                      (MonadError, lift,
+                                                            liftEither,
                                                             throwError)
 import           Control.Monad.Reader                      (ReaderT (..), ask,
                                                             local, runReaderT)
 import           Control.Monad.State                       (MonadState)
 
 import           Control.Error.Util                        (note)
-import           Control.Monad.Error.Hoist                 ((<?>), (<!?>))
+import           Control.Monad.Error.Hoist                 ((<?>))
 
 import           Data.Either                               (Either (..))
 import           Data.Foldable                             (foldl)
@@ -141,7 +142,7 @@ import qualified HaskellWorks.Data.Json.Cursor             as JC
 
 
 import           Waargonaut.Decode.Error                   (DecodeError (..),
-                                                            Err' (..), _ConversionFailure)
+                                                            Err' (..))
 import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
 
 import qualified Waargonaut.Decode.Internal                as DI
@@ -639,13 +640,13 @@ prismD p =
   fmap (preview p)
 
 prismDOrFail
-  :: Monad f
-  => Text
+  :: MonadError DecodeError f
+  => DecodeError
   -> Prism' a b
   -> Decoder f a
   -> Decoder f b
-prismDOrFail t p d = withCursor $ \c ->
-  focus (prismD p d) c <!?> (_ConversionFailure # t)
+prismDOrFail e p d = Decoder $ \pf ->
+  DI.prismDOrFail' e p (DI.Decoder' $ runDecoder d pf)
 
 -- | Decode an 'Int'.
 int :: Monad f => Decoder f Int
