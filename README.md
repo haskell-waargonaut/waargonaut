@@ -71,14 +71,17 @@ encodeImage = E.mapLikeObj $ \img ->
 
 - Decoder:
 ```haskell
-imageDecoder :: Monad f => Decoder f Image
-imageDecoder = D.withCursor $ \curs -> 
+imageDecoder :: Monad f => D.Decoder f Image
+imageDecoder = D.withCursor $ \curs -> do
+  -- Move down into the JSON object.
+  io <- D.down curs
+  -- We need individual values off of our object,
   Image
-    <$> D.fromKey "Width" D.int curs
-    <*> D.fromKey "Height" D.int curs
-    <*> D.fromKey "Title" D.text curs
-    <*> D.fromKey "Animated" D.bool curs
-    <*> D.fromKey "IDs" (D.list D.int) curs
+    <$> D.fromKey "Width" D.int io
+    <*> D.fromKey "Height" D.int io
+    <*> D.fromKey "Title" D.text io
+    <*> D.fromKey "Animated" D.bool io
+    <*> D.fromKey "IDs" (D.list D.int) io
 ```
 
 ### Zippers
