@@ -1,7 +1,9 @@
-{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 module Types.Common
   ( genDecimalDigit
   , genDecimalDigits
@@ -37,7 +39,7 @@ import qualified GHC.Generics                as GHC
 import           Control.Lens                (makeClassy, over, _Left)
 import           Control.Monad               ((>=>))
 
-import Data.Functor.Identity (Identity)
+import           Data.Functor.Identity       (Identity)
 import qualified Data.List                   as List
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Maybe                  (fromMaybe)
@@ -68,7 +70,9 @@ import qualified Waargonaut.Encode           as E
 import           Waargonaut.Types            (Json)
 import           Waargonaut.Types.Whitespace (Whitespace (..))
 
-import           Waargonaut.Generic          (JsonDecode (..), JsonEncode (..), GWaarg, GJsonEncoder (..),
+import           Waargonaut.Generic          (GJsonDecoder (..),
+                                              GJsonEncoder (..), GWaarg,
+                                              JsonDecode (..), JsonEncode (..),
                                               NewtypeName (..), Options (..),
                                               defaultOpts, gDecoder, gEncoder)
 
@@ -108,8 +112,9 @@ imageDecodeManual = D.withCursor $ \c -> do
     <*> D.fromKey "Animated" D.bool io
     <*> D.fromKey "IDs" (D.list D.int) io
 
-imageDecodeGeneric :: Monad f => SD.Decoder f Image
-imageDecodeGeneric = SD.withCursor $ SD.fromKey "Image" mkDecoder
+imageDecodeGeneric :: forall f. Monad f => SD.Decoder f Image
+imageDecodeGeneric = SD.withCursor $ SD.fromKey "Image" (unGJDec iDec)
+  where iDec = (mkDecoder :: GJsonDecoder GWaarg f Image)
 
 instance Generic Image
 instance HasDatatypeInfo Image
@@ -125,7 +130,7 @@ imageOpts = defaultOpts
 -- about how certain things are structured. These assumptions may not agree with
 -- your expectations so always check.
 instance JsonEncode GWaarg Image where mkEncoder = gEncoder imageOpts
-instance JsonDecode Image where mkDecoder = gDecoder imageOpts
+instance JsonDecode GWaarg Image where mkDecoder = gDecoder imageOpts
 
 newtype Fudge = Fudge Text
   deriving (Eq, Show, GHC.Generic)
@@ -140,7 +145,7 @@ fudgeJsonOpts = defaultOpts
   }
 
 instance JsonEncode GWaarg Fudge where mkEncoder = gEncoder fudgeJsonOpts
-instance JsonDecode Fudge where mkDecoder = gDecoder fudgeJsonOpts
+instance JsonDecode t Fudge where mkDecoder = gDecoder fudgeJsonOpts
 
 testFudge :: Fudge
 testFudge = Fudge "Chocolate"
@@ -237,16 +242,14 @@ parseText :: Text -> Either DecodeError Json
 parseText = parseWith AT.parseOnly parseWaargonaut
 
 prop_generic_tripping
-  :: ( Generic a
-     , HasDatatypeInfo a
-     , JsonDecode a
-     , MonadTest m
+  :: ( MonadTest m
      , Show a
      , Eq a
      )
   => GJsonEncoder GWaarg Identity a
+  -> GJsonDecoder GWaarg Identity a
   -> a
   -> m ()
-prop_generic_tripping e a = tripping a
+prop_generic_tripping e d a = tripping a
   (E.simplePureEncodeNoSpaces (unGJEnc e))
-  (SD.runPureDecode mkDecoder parseBS . SD.mkCursor . BSL8.toStrict)
+  (SD.runPureDecode (unGJDec d) parseBS . SD.mkCursor . BSL8.toStrict)

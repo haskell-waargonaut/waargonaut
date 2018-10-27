@@ -6,19 +6,18 @@ module Encoder
   , testImageDataType
   ) where
 
-import           Test.Tasty            (TestName, TestTree, testGroup)
-import           Test.Tasty.HUnit      (assertEqual, testCase)
+import           Test.Tasty           (TestName, TestTree, testGroup)
+import           Test.Tasty.HUnit     (assertEqual, testCase)
 
-import           Waargonaut.Encode     (Encoder, Encoder')
-import qualified Waargonaut.Encode     as E
+import           Waargonaut.Encode    (Encoder, Encoder')
+import qualified Waargonaut.Encode    as E
 
-import           Data.ByteString.Lazy  (ByteString)
-import           Data.Functor.Identity (Identity)
+import           Data.ByteString.Lazy (ByteString)
 
-import           Types.Common          (Fudge, Image (..), testFudge,
-                                        testImageDataType)
+import           Types.Common         (Fudge, Image (..), testFudge,
+                                       testImageDataType)
 
-import           Waargonaut.Generic    (GWaarg, GJsonEncoder (..), mkEncoder)
+import           Waargonaut.Generic   (GJsonEncoder (..), GWaarg, mkEncoder)
 
 testImageEncodedNoSpaces :: ByteString
 testImageEncodedNoSpaces = "{\"Width\":800,\"Height\":600,\"Title\":\"View from 15th Floor\",\"Animated\":false,\"IDs\":[116,943,234,38793]}"

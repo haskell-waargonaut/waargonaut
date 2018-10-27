@@ -1,16 +1,17 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE KindSignatures        #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE PolyKinds             #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeOperators              #-}
 module Waargonaut.Generic
   (
     -- * TypeClasses
@@ -22,7 +23,9 @@ module Waargonaut.Generic
 
     -- * Wrappers
   , GJsonEncoder (..)
+  , GJsonDecoder (..)
   , generaliseGJEncoder
+  , generaliseGJDecoder
 
     -- * Options
   , NewtypeName (..)
@@ -43,7 +46,6 @@ import           Generics.SOP
 
 import           Control.Lens                  (Rewrapped, Wrapped (..), findOf,
                                                 folded, isn't, iso, _Left)
-
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (lift, throwError)
 import           Control.Monad.State           (modify)
@@ -94,12 +96,12 @@ defaultOpts :: Options
 defaultOpts = Options id Unwrap
 
 newtype GJsonEncoder t f a = GJEnc
-  { unGJEnc :: Applicative f => Encoder f a
+  { unGJEnc :: Encoder f a
   }
 
-instance (Applicative f, (GJsonEncoder t f a) ~ Encoder f a) => Rewrapped (GJsonEncoder t f a) (Encoder f a)
+instance GJsonEncoder t f a ~ Encoder f a => Rewrapped (GJsonEncoder t f a) (Encoder f a)
 
-instance Applicative f => Wrapped (GJsonEncoder t f a) where
+instance Wrapped (GJsonEncoder t f a) where
   type Unwrapped (GJsonEncoder t f a) = Encoder f a
   _Wrapped' = iso unGJEnc GJEnc
 
@@ -110,25 +112,17 @@ instance MFunctor (GJsonEncoder t) where
   hoist nat (GJEnc e) = GJEnc (hoist nat e)
 
 generaliseGJEncoder :: Monad f => GJsonEncoder t Identity a -> GJsonEncoder t f a
-generaliseGJEncoder (GJEnc e) = GJEnc (E.generaliseEncoder' e)
+generaliseGJEncoder = GJEnc . E.generaliseEncoder' . unGJEnc
 
 wGJEnc1
-  :: forall t f a (g :: * -> *).
-     ( JsonEncode t a
-     , Applicative f
-     )
-  => (Encoder f a -> Encoder f (g a))
+  :: (Encoder f a -> Encoder f (g a))
   -> GJsonEncoder t f a
   -> GJsonEncoder t f (g a)
 wGJEnc1 e (GJEnc ga) =
   GJEnc (e ga)
 
 wGJEnc2
-  :: forall t f a b (g :: * -> * -> *).
-     ( JsonEncode t a
-     , Applicative f
-     )
-  => (Encoder f a -> Encoder f b -> Encoder f (g a b))
+  :: (Encoder f a -> Encoder f b -> Encoder f (g a b))
   -> GJsonEncoder t f a
   -> GJsonEncoder t f b
   -> GJsonEncoder t f (g a b)
@@ -149,19 +143,47 @@ instance JsonEncode t Int                                              where mkE
 instance JsonEncode t Scientific                                       where mkEncoder = GJEnc E.scientific
 instance JsonEncode t Bool                                             where mkEncoder = GJEnc E.bool
 
-class JsonDecode a where
-  mkDecoder :: Monad f => Decoder f a
-  default mkDecoder :: (Monad f, Generic a, HasDatatypeInfo a, All2 JsonDecode (Code a)) => Decoder f a
+newtype GJsonDecoder t f a = GJDec
+  { unGJDec :: Decoder f a
+  }
+  deriving ( Functor
+           , Applicative
+           , Monad
+           )
+
+generaliseGJDecoder :: Monad f => GJsonDecoder t Identity a -> GJsonDecoder t f a
+generaliseGJDecoder = GJDec . D.generaliseDecoder . unGJDec
+
+
+wGJDec1
+  :: (Decoder f a -> Decoder f (g a))
+  -> GJsonDecoder t f a
+  -> GJsonDecoder t f (g a)
+wGJDec1 e (GJDec ga) =
+  GJDec (e ga)
+
+wGJDec2
+  :: (Decoder f a -> Decoder f b -> Decoder f (g a b))
+  -> GJsonDecoder t f a
+  -> GJsonDecoder t f b
+  -> GJsonDecoder t f (g a b)
+
+wGJDec2 e (GJDec ga) (GJDec gb) =
+  GJDec (e ga gb)
+
+class JsonDecode t a where
+  mkDecoder :: Monad f => GJsonDecoder t f a
+  default mkDecoder :: (Monad f, Generic a, HasDatatypeInfo a, All2 (JsonDecode t) (Code a)) => GJsonDecoder t f a
   mkDecoder = gDecoder defaultOpts
 
-instance JsonDecode a                 => JsonDecode (Maybe a)    where mkDecoder = D.maybeOrNull mkDecoder
-instance (JsonDecode a, JsonDecode b) => JsonDecode (Either a b) where mkDecoder = D.either mkDecoder mkDecoder
-instance (JsonDecode a)               => JsonDecode [a]          where mkDecoder = D.list mkDecoder
-instance (JsonDecode a)               => JsonDecode (NonEmpty a) where mkDecoder = D.nonempty mkDecoder
-instance JsonDecode Text                                         where mkDecoder = D.text
-instance JsonDecode Int                                          where mkDecoder = D.int
-instance JsonDecode Scientific                                   where mkDecoder = D.scientific
-instance JsonDecode Bool                                         where mkDecoder = D.bool
+instance JsonDecode t a                   => JsonDecode t (Maybe a)    where mkDecoder = wGJDec1 D.maybeOrNull mkDecoder
+instance (JsonDecode t a, JsonDecode t b) => JsonDecode t (Either a b) where mkDecoder = wGJDec2 D.either mkDecoder mkDecoder
+instance (JsonDecode t a)                 => JsonDecode t [a]          where mkDecoder = wGJDec1 D.list mkDecoder
+instance (JsonDecode t a)                 => JsonDecode t (NonEmpty a) where mkDecoder = wGJDec1 D.nonempty mkDecoder
+instance JsonDecode t Text                                             where mkDecoder = GJDec D.text
+instance JsonDecode t Int                                              where mkDecoder = GJDec D.int
+instance JsonDecode t Scientific                                       where mkDecoder = GJDec D.scientific
+instance JsonDecode t Bool                                             where mkDecoder = GJDec D.bool
 
 type JTag = String
 
@@ -176,12 +198,6 @@ data JsonInfo :: [*] -> * where
   JsonMul  :: SListI xs => Tag -> JsonInfo xs
   JsonRec  :: SListI xs => Tag -> NP (K String) xs -> JsonInfo xs
 
-pJDec :: Proxy JsonDecode
-pJDec = Proxy
-
-pAllJDec :: Proxy (All JsonDecode)
-pAllJDec = Proxy
-
 modFieldName
   :: Options
   -> String
@@ -193,9 +209,7 @@ inObj :: Encoder' a -> String -> Encoder' a
 inObj en t = E.mapLikeObj' (E.atKey' (Text.pack t) en)
 
 tagVal
-  :: ( Applicative f
-     , SListI xs
-     )
+  :: Applicative f
   => Tag
   -> f Json
   -> K (f Json) xs
@@ -308,30 +322,33 @@ gEncoder' p opts (JsonRec tag fields) cs    =
     enc = E.runEncoder (E.mapToObj E.json id) . Map.fromList
 
 gDecoder
-  :: forall f a.
+  :: forall f a t.
      ( Generic a
      , HasDatatypeInfo a
-     , All2 JsonDecode (Code a)
+     , All2 (JsonDecode t) (Code a)
      , Monad f
      )
   => Options
-  -> Decoder f a
-gDecoder opts = D.Decoder $ \parseFn cursor ->
-  to <$> gDecoderConstructor opts parseFn cursor (jsonInfo opts (Proxy :: Proxy a))
+  -> GJsonDecoder t f a
+gDecoder opts = GJDec $ D.Decoder $ \parseFn cursor ->
+  to <$> gDecoderConstructor opts (Proxy :: Proxy (All (JsonDecode t))) parseFn cursor (jsonInfo opts (Proxy :: Proxy a))
 
 gDecoderConstructor
-  :: forall (xss :: [[*]]) f.
-     ( All2 JsonDecode xss
+  :: forall (xss :: [[*]]) f t.
+     ( All2 (JsonDecode t) xss
      , Monad f
      )
   => Options
+  -> Proxy (All (JsonDecode t))
   -> D.ParseFn
   -> D.JCurs
   -> NP JsonInfo xss
   -> DecodeResultT Count DecodeError f (SOP I xss)
-gDecoderConstructor opts parseFn cursor ninfo =
-  foldForRight . hcollapse $ hcliftA2 pAllJDec (mkGDecoder opts parseFn cursor) ninfo injs
+gDecoderConstructor opts pJAll parseFn cursor ninfo =
+  foldForRight . hcollapse $ hcliftA2 pJAll (mkGDecoder opts pJDec parseFn cursor) ninfo injs
   where
+    pJDec = Proxy :: Proxy (JsonDecode t)
+
     err = Left ( ConversionFailure "Generic Decoder has failed, please file a bug."
                , CursorHistory' mempty
                )
@@ -349,47 +366,50 @@ gDecoderConstructor opts parseFn cursor ninfo =
     injs = injections
 
 mkGDecoder
-  :: forall (xss :: [[*]]) (xs :: [*]) f.
-     ( All JsonDecode xs
-     , SListI xs
+  :: forall t (xss :: [[*]]) (xs :: [*]) f.
+     ( All (JsonDecode t) xs
      , Monad f
      )
   => Options
+  -> Proxy (JsonDecode t)
   -> D.ParseFn
   -> D.JCurs
   -> JsonInfo xs
   -> Injection (NP I) xss xs
   -> K (D.DecodeResult f (SOP I xss)) xs
-mkGDecoder opts _parseFn cursor info (Fn inj) = K $ do
-  val <- mkGDecoder2 opts cursor info
-  SOP . unK . inj <$> hsequence (hcliftA pJDec aux val)
+mkGDecoder opts pJDec _parseFn cursor info (Fn inj) = K $ do
+  val <- mkGDecoder2 opts pJDec cursor info
+  SOP . unK . inj <$> hsequence (hcliftA pJDec (aux pJDec) val)
   where
-    aux :: JsonDecode a => K Count a -> D.DecodeResult f a
-    aux (K rnk) = D.moveToRankN rnk cursor >>= D.focus mkDecoder
+    gd :: JsonDecode t x => Proxy (JsonDecode t) -> GJsonDecoder t f x
+    gd _ = mkDecoder
+
+    aux :: JsonDecode t x => Proxy (JsonDecode t) -> K Count x -> D.DecodeResult f x
+    aux pd (K rnk) = D.moveToRankN rnk cursor >>= D.focus (unGJDec (gd pd))
 
 mkGDecoder2
-  :: forall (xs :: [*]) f.
-     ( All JsonDecode xs
-     , SListI xs
+  :: forall t (xs :: [*]) f.
+     ( All (JsonDecode t) xs
      , Monad f
     )
   => Options
+  -> Proxy (JsonDecode t)
   -> D.JCurs
   -> JsonInfo xs
   -> D.DecodeResult f (NP (K Count) xs)
-mkGDecoder2 _ cursor (JsonZero _) =
+mkGDecoder2 _ _ cursor (JsonZero _) =
   Nil <$ unTagVal NoTag D.rank cursor
 
-mkGDecoder2 _ cursor (JsonOne tag) =
+mkGDecoder2 _ _ cursor (JsonOne tag) =
   (\j -> K j :* Nil) <$> unTagVal tag D.rank cursor
 
-mkGDecoder2 _ cursor (JsonMul tag) = do
+mkGDecoder2 _ _ cursor (JsonMul tag) = do
   xs <- unTagVal tag (D.list D.rank) cursor
   maybe err pure (fromList xs)
   where
     err = throwError (ConversionFailure "Generic List Decode Failed")
 
-mkGDecoder2 opts cursor (JsonRec tag fields) = do
+mkGDecoder2 opts pJDec cursor (JsonRec tag fields) = do
   c' <- D.down cursor
   hsequenceK $ hcliftA pJDec (mapKK (decodeAtKey c')) fields
   where

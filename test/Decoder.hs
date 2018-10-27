@@ -18,7 +18,7 @@ import qualified Data.ByteString            as BS
 import qualified Data.Either                as Either
 import           Data.Function              (($))
 
-import           Waargonaut.Generic         (mkDecoder)
+import           Waargonaut.Generic         (mkDecoder, unGJDec)
 
 import           Waargonaut.Decode.Internal (ppCursorHistory)
 
@@ -48,8 +48,8 @@ decodeTest2Json :: Assertion
 decodeTest2Json = assertBool "[Int] Decode Success" . Either.isRight
   $ D.runPureDecode listDecode parseBS (D.mkCursor "[23,44]")
   where
-    listDecode :: Monad f => D.Decoder f  [Int]
-    listDecode = mkDecoder
+    listDecode :: Monad f => D.Decoder f [Int]
+    listDecode = unGJDec mkDecoder
 
 decodeTest3Json :: Assertion
 decodeTest3Json = assertBool "(Char,String,[Int]) Decode Success" . Either.isRight
