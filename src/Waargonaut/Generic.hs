@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -91,19 +92,21 @@ instance MFunctor (GJsonEncoder t) where
 generaliseGJEncoder :: Monad f => GJsonEncoder t Identity a -> GJsonEncoder t f a
 generaliseGJEncoder (GJEnc e) = GJEnc (E.generaliseEncoder' e)
 
+data GWaarg
+
 class JsonEncode t a where
   mkEncoder :: Applicative f => GJsonEncoder t f a
   default mkEncoder :: (Applicative f, Generic a, HasDatatypeInfo a, All2 (JsonEncode t) (Code a)) => GJsonEncoder t f a
-  mkEncoder = GJEnc (gEncoder defaultOpts)
+  mkEncoder = gEncoder defaultOpts
 
-instance JsonEncode a                 => JsonEncode (Maybe a)    where mkEncoder = E.maybeOrNull mkEncoder
-instance (JsonEncode a, JsonEncode b) => JsonEncode (Either a b) where mkEncoder = E.either mkEncoder mkEncoder
-instance (JsonEncode a)               => JsonEncode [a]          where mkEncoder = E.list mkEncoder
-instance (JsonEncode a)               => JsonEncode (NonEmpty a) where mkEncoder = E.nonempty mkEncoder
-instance JsonEncode Text                                         where mkEncoder = E.text
-instance JsonEncode Int                                          where mkEncoder = E.int
-instance JsonEncode Scientific                                   where mkEncoder = E.scientific
-instance JsonEncode Bool                                         where mkEncoder = E.bool
+instance JsonEncode t a                   => JsonEncode t (Maybe a)    where mkEncoder = E.maybeOrNull mkEncoder
+instance (JsonEncode t a, JsonEncode t b) => JsonEncode t (Either a b) where mkEncoder = E.either mkEncoder mkEncoder
+instance (JsonEncode t a)                 => JsonEncode t [a]          where mkEncoder = E.list mkEncoder
+instance (JsonEncode t a)                 => JsonEncode t (NonEmpty a) where mkEncoder = E.nonempty mkEncoder
+instance JsonEncode t Text                                             where mkEncoder = E.text
+instance JsonEncode t Int                                              where mkEncoder = E.int
+instance JsonEncode t Scientific                                       where mkEncoder = E.scientific
+instance JsonEncode t Bool                                             where mkEncoder = E.bool
 
 class JsonDecode a where
   mkDecoder :: Monad f => Decoder f a
@@ -147,7 +150,6 @@ modFieldName
   -> Text
 modFieldName opts =
  Text.pack . _optionsFieldName opts
-
 
 inObj :: Encoder' a -> String -> Encoder' a
 inObj en t = E.mapLikeObj' (E.atKey' (Text.pack t) en)
@@ -216,23 +218,23 @@ jsonInfo opts pa =
     tag _          = Tag
 
 gEncoder
-  :: forall a f.
+  :: forall t a f.
      ( Generic a
      , Applicative f
      , HasDatatypeInfo a
-     , All2 JsonEncode (Code a)
+     , All2 (JsonEncode t) (Code a)
      )
   => Options
-  -> Encoder f a
-gEncoder opts = E.encodeA $ \a -> hcollapse $ hcliftA2
-  (Proxy :: Proxy (All JsonEncode))
+  -> GJsonEncoder t f a
+gEncoder opts = GJEnc . E.encodeA $ \a -> hcollapse $ hcliftA2
+  (Proxy :: Proxy (All (JsonEncode t)))
   (gEncoder' opts)
   (jsonInfo opts (Proxy :: Proxy a))
   (unSOP $ from a)
 
 gEncoder'
-  :: forall xs f.
-     ( All JsonEncode xs
+  :: forall xs f t.
+     ( All (JsonEncode t) xs
      , Applicative f
      )
   => Options
@@ -240,24 +242,24 @@ gEncoder'
   -> NP I xs
   -> K (f Json) xs
 gEncoder' _ (JsonZero n) Nil           =
-  K (E.runEncoder mkEncoder (Text.pack n))
+  K (E.runEncoder (unGJEnc mkEncoder) (Text.pack n))
 
 gEncoder' _ (JsonOne tag) (I a :* Nil) =
-  tagVal tag (E.runEncoder mkEncoder a)
+  tagVal tag (E.runEncoder (unGJEnc mkEncoder) a)
 
 gEncoder' _ (JsonMul tag) cs           =
   tagVal tag . enc . hcollapse $ hcliftA pJEnc ik cs
   where
-    ik :: JsonEncode a => I a -> K Json a
-    ik = K . runIdentity . E.runEncoder mkEncoder . unI
+    ik :: JsonEncode t a => I a -> K Json a
+    ik = K . runIdentity . E.runEncoder (unGJEnc mkEncoder) . unI
 
     enc = E.runEncoder (E.list E.json)
 
 gEncoder' opts (JsonRec tag fields) cs    =
   tagVal tag . enc . hcollapse $ hcliftA2 pJEnc tup fields cs
   where
-    tup :: JsonEncode a => K String a -> I a -> K (Text, Json) a
-    tup f a = K (modFieldName opts (unK f), runIdentity $ E.runEncoder mkEncoder (unI a))
+    tup :: JsonEncode t a => K String a -> I a -> K (Text, Json) a
+    tup f a = K (modFieldName opts (unK f), runIdentity $ E.runEncoder (unGJEnc mkEncoder) (unI a))
 
     enc = E.runEncoder (E.mapToObj E.json id) . Map.fromList
 
