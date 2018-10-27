@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 module Types.Common
@@ -36,6 +37,7 @@ import qualified GHC.Generics                as GHC
 import           Control.Lens                (makeClassy, over, _Left)
 import           Control.Monad               ((>=>))
 
+import Data.Functor.Identity (Identity)
 import qualified Data.List                   as List
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Maybe                  (fromMaybe)
@@ -66,7 +68,7 @@ import qualified Waargonaut.Encode           as E
 import           Waargonaut.Types            (Json)
 import           Waargonaut.Types.Whitespace (Whitespace (..))
 
-import           Waargonaut.Generic          (JsonDecode (..), JsonEncode (..),
+import           Waargonaut.Generic          (JsonDecode (..), JsonEncode (..), GWaarg, GJsonEncoder (..),
                                               NewtypeName (..), Options (..),
                                               defaultOpts, gDecoder, gEncoder)
 
@@ -122,7 +124,7 @@ imageOpts = defaultOpts
 -- sure to check your outputs as the Generic system must make some assumptions
 -- about how certain things are structured. These assumptions may not agree with
 -- your expectations so always check.
-instance JsonEncode Image where mkEncoder = gEncoder imageOpts
+instance JsonEncode GWaarg Image where mkEncoder = gEncoder imageOpts
 instance JsonDecode Image where mkDecoder = gDecoder imageOpts
 
 newtype Fudge = Fudge Text
@@ -137,7 +139,7 @@ fudgeJsonOpts = defaultOpts
   , _optionsFieldName           = const "fudgey"
   }
 
-instance JsonEncode Fudge where mkEncoder = gEncoder fudgeJsonOpts
+instance JsonEncode GWaarg Fudge where mkEncoder = gEncoder fudgeJsonOpts
 instance JsonDecode Fudge where mkDecoder = gDecoder fudgeJsonOpts
 
 testFudge :: Fudge
@@ -237,14 +239,14 @@ parseText = parseWith AT.parseOnly parseWaargonaut
 prop_generic_tripping
   :: ( Generic a
      , HasDatatypeInfo a
-     , JsonEncode a
      , JsonDecode a
      , MonadTest m
      , Show a
      , Eq a
      )
-  => a
+  => GJsonEncoder GWaarg Identity a
+  -> a
   -> m ()
-prop_generic_tripping a = tripping a
-  (E.simplePureEncodeNoSpaces mkEncoder)
+prop_generic_tripping e a = tripping a
+  (E.simplePureEncodeNoSpaces (unGJEnc e))
   (SD.runPureDecode mkDecoder parseBS . SD.mkCursor . BSL8.toStrict)

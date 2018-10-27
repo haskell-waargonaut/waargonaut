@@ -6,36 +6,54 @@
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
 module Waargonaut.Generic
-  ( JsonEncode (..)
+  (
+    -- * TypeClasses
+    JsonEncode (..)
   , JsonDecode (..)
+
+    -- * Tag
+  , GWaarg
+
+    -- * Wrappers
+  , GJsonEncoder (..)
+  , generaliseGJEncoder
+
+    -- * Options
   , NewtypeName (..)
   , Options (..)
   , defaultOpts
+
+    -- *  Creation
   , gEncoder
   , gDecoder
+
+    -- * Helpers
+  , wGJEnc1
+  , wGJEnc2
+
   ) where
 
 import           Generics.SOP
 
 import           Control.Lens                  (Rewrapped, Wrapped (..), findOf,
-                                                folded, isn't, _Left)
+                                                folded, isn't, iso, _Left)
 
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (lift, throwError)
 import           Control.Monad.State           (modify)
 
-import           Data.Functor.Contravariant    (Contravariant (..), (>$<))
-import           Data.Functor.Identity         (Identity)
+import           Data.Functor.Contravariant    (Contravariant (..))
+import           Data.Functor.Identity         (Identity, runIdentity)
 
-import           Control.Monad.Morph           (MFunctor (..), generalize)
+import           Control.Monad.Morph           (MFunctor (..))
 
 import           Data.Maybe                    (fromMaybe)
-
-import           Data.Functor.Identity         (runIdentity)
 
 import           Data.List.NonEmpty            (NonEmpty)
 
@@ -60,6 +78,8 @@ import           Waargonaut.Decode.Error       (DecodeError (..))
 import           Waargonaut.Decode.Internal    (CursorHistory' (..),
                                                 DecodeResultT (..))
 
+data GWaarg
+
 data NewtypeName
   = Unwrap
   | ConstructorNameAsKey
@@ -77,11 +97,11 @@ newtype GJsonEncoder t f a = GJEnc
   { unGJEnc :: Applicative f => Encoder f a
   }
 
-instance (GJsonEncoder t f a) ~ Encoder f a => Rewrapped (GJsonEncoder t f a) (Encoder f a)
+instance (Applicative f, (GJsonEncoder t f a) ~ Encoder f a) => Rewrapped (GJsonEncoder t f a) (Encoder f a)
 
-instance Wrapped (GJsonEncoder t f a) where
+instance Applicative f => Wrapped (GJsonEncoder t f a) where
   type Unwrapped (GJsonEncoder t f a) = Encoder f a
-  _Wrapped' = iso unGJEnc GJsonEncoder
+  _Wrapped' = iso unGJEnc GJEnc
 
 instance Contravariant (GJsonEncoder t f) where
   contramap f (GJEnc e) = GJEnc (contramap f e)
@@ -92,21 +112,42 @@ instance MFunctor (GJsonEncoder t) where
 generaliseGJEncoder :: Monad f => GJsonEncoder t Identity a -> GJsonEncoder t f a
 generaliseGJEncoder (GJEnc e) = GJEnc (E.generaliseEncoder' e)
 
-data GWaarg
+wGJEnc1
+  :: forall t f a (g :: * -> *).
+     ( JsonEncode t a
+     , Applicative f
+     )
+  => (Encoder f a -> Encoder f (g a))
+  -> GJsonEncoder t f a
+  -> GJsonEncoder t f (g a)
+wGJEnc1 e (GJEnc ga) =
+  GJEnc (e ga)
+
+wGJEnc2
+  :: forall t f a b (g :: * -> * -> *).
+     ( JsonEncode t a
+     , Applicative f
+     )
+  => (Encoder f a -> Encoder f b -> Encoder f (g a b))
+  -> GJsonEncoder t f a
+  -> GJsonEncoder t f b
+  -> GJsonEncoder t f (g a b)
+wGJEnc2 e (GJEnc ga) (GJEnc gb) =
+  GJEnc (e ga gb)
 
 class JsonEncode t a where
   mkEncoder :: Applicative f => GJsonEncoder t f a
   default mkEncoder :: (Applicative f, Generic a, HasDatatypeInfo a, All2 (JsonEncode t) (Code a)) => GJsonEncoder t f a
   mkEncoder = gEncoder defaultOpts
 
-instance JsonEncode t a                   => JsonEncode t (Maybe a)    where mkEncoder = E.maybeOrNull mkEncoder
-instance (JsonEncode t a, JsonEncode t b) => JsonEncode t (Either a b) where mkEncoder = E.either mkEncoder mkEncoder
-instance (JsonEncode t a)                 => JsonEncode t [a]          where mkEncoder = E.list mkEncoder
-instance (JsonEncode t a)                 => JsonEncode t (NonEmpty a) where mkEncoder = E.nonempty mkEncoder
-instance JsonEncode t Text                                             where mkEncoder = E.text
-instance JsonEncode t Int                                              where mkEncoder = E.int
-instance JsonEncode t Scientific                                       where mkEncoder = E.scientific
-instance JsonEncode t Bool                                             where mkEncoder = E.bool
+instance JsonEncode t a                   => JsonEncode t (Maybe a)    where mkEncoder = wGJEnc1 E.maybeOrNull mkEncoder
+instance (JsonEncode t a, JsonEncode t b) => JsonEncode t (Either a b) where mkEncoder = wGJEnc2 E.either mkEncoder mkEncoder
+instance (JsonEncode t a)                 => JsonEncode t [a]          where mkEncoder = wGJEnc1 E.list mkEncoder
+instance (JsonEncode t a)                 => JsonEncode t (NonEmpty a) where mkEncoder = wGJEnc1 E.nonempty mkEncoder
+instance JsonEncode t Text                                             where mkEncoder = GJEnc E.text
+instance JsonEncode t Int                                              where mkEncoder = GJEnc E.int
+instance JsonEncode t Scientific                                       where mkEncoder = GJEnc E.scientific
+instance JsonEncode t Bool                                             where mkEncoder = GJEnc E.bool
 
 class JsonDecode a where
   mkDecoder :: Monad f => Decoder f a
@@ -134,9 +175,6 @@ data JsonInfo :: [*] -> * where
   JsonOne  :: Tag -> JsonInfo '[a]
   JsonMul  :: SListI xs => Tag -> JsonInfo xs
   JsonRec  :: SListI xs => Tag -> NP (K String) xs -> JsonInfo xs
-
-pJEnc :: Proxy JsonEncode
-pJEnc = Proxy
 
 pJDec :: Proxy JsonDecode
 pJDec = Proxy
@@ -228,38 +266,44 @@ gEncoder
   -> GJsonEncoder t f a
 gEncoder opts = GJEnc . E.encodeA $ \a -> hcollapse $ hcliftA2
   (Proxy :: Proxy (All (JsonEncode t)))
-  (gEncoder' opts)
+  (gEncoder' pjE opts)
   (jsonInfo opts (Proxy :: Proxy a))
   (unSOP $ from a)
+  where
+    pjE = Proxy :: Proxy (JsonEncode t)
+
+ge :: (Applicative f, JsonEncode t x) => Proxy (JsonEncode t) -> GJsonEncoder t f x
+ge _ = mkEncoder
 
 gEncoder'
   :: forall xs f t.
      ( All (JsonEncode t) xs
      , Applicative f
      )
-  => Options
+  => Proxy (JsonEncode t)
+  -> Options
   -> JsonInfo xs
   -> NP I xs
   -> K (f Json) xs
-gEncoder' _ (JsonZero n) Nil           =
+gEncoder' _ _ (JsonZero n) Nil           =
   K (E.runEncoder (unGJEnc mkEncoder) (Text.pack n))
 
-gEncoder' _ (JsonOne tag) (I a :* Nil) =
-  tagVal tag (E.runEncoder (unGJEnc mkEncoder) a)
+gEncoder' p _ (JsonOne tag) (I a :* Nil) =
+  tagVal tag $ E.runEncoder (unGJEnc (ge p)) a
 
-gEncoder' _ (JsonMul tag) cs           =
-  tagVal tag . enc . hcollapse $ hcliftA pJEnc ik cs
+gEncoder' p _ (JsonMul tag) cs           =
+  tagVal tag . enc . hcollapse $ hcliftA p ik cs
   where
-    ik :: JsonEncode t a => I a -> K Json a
-    ik = K . runIdentity . E.runEncoder (unGJEnc mkEncoder) . unI
+    ik :: JsonEncode t x => I x -> K Json x
+    ik = K . runIdentity . E.runEncoder (unGJEnc (ge p)) . unI
 
     enc = E.runEncoder (E.list E.json)
 
-gEncoder' opts (JsonRec tag fields) cs    =
-  tagVal tag . enc . hcollapse $ hcliftA2 pJEnc tup fields cs
+gEncoder' p opts (JsonRec tag fields) cs    =
+  tagVal tag . enc . hcollapse $ hcliftA2 p tup fields cs
   where
-    tup :: JsonEncode t a => K String a -> I a -> K (Text, Json) a
-    tup f a = K (modFieldName opts (unK f), runIdentity $ E.runEncoder (unGJEnc mkEncoder) (unI a))
+    tup :: JsonEncode t x => K String x -> I x -> K (Text, Json) x
+    tup f a = K (modFieldName opts (unK f), runIdentity $ E.runEncoder (unGJEnc (ge p)) (unI a))
 
     enc = E.runEncoder (E.mapToObj E.json id) . Map.fromList
 

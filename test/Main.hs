@@ -42,6 +42,8 @@ import qualified Waargonaut.Decode           as D
 import           Waargonaut.Decode.Error     (DecodeError)
 import qualified Waargonaut.Encode           as E
 
+import Waargonaut.Generic (mkEncoder)
+
 import qualified Types.CommaSep              as CS
 import qualified Types.Common                as Common
 import qualified Types.Json                  as J
@@ -123,20 +125,20 @@ prop_tripping_int_list = property $ do
 
 prop_tripping_image_record_generic :: Property
 prop_tripping_image_record_generic = withTests 1 . property $
-  Common.prop_generic_tripping Common.testImageDataType
+  Common.prop_generic_tripping mkEncoder Common.testImageDataType
 
 prop_tripping_newtype_fudge_generic :: Property
 prop_tripping_newtype_fudge_generic = withTests 1 . property $
-  Common.prop_generic_tripping Common.testFudge
+  Common.prop_generic_tripping mkEncoder Common.testFudge
 
 prop_tripping_maybe_bool_generic :: Property
 prop_tripping_maybe_bool_generic = property $
-  forAll (Gen.maybe Gen.bool) >>= Common.prop_generic_tripping
+  forAll (Gen.maybe Gen.bool) >>= Common.prop_generic_tripping mkEncoder
 
 prop_tripping_int_list_generic :: Property
 prop_tripping_int_list_generic = property $ do
   xs <- forAll . Gen.list (Range.linear 0 100) $ Gen.int (Range.linear 0 9999)
-  Common.prop_generic_tripping xs
+  Common.prop_generic_tripping mkEncoder xs
 
 prop_tripping :: Property
 prop_tripping = withTests 200 . property $
