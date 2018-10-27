@@ -109,7 +109,7 @@ import qualified Data.Map                   as Map
 
 import           Data.Text                  (Text)
 
-import           Waargonaut                 (waargonautBuilder)
+import           Waargonaut.Types.Json (waargonautBuilder)
 import           Waargonaut.Types           (AsJType (..), JAssoc (..), JObject,
                                              Json, MapLikeObj (..), WS,
                                              textToJString, wsRemover,

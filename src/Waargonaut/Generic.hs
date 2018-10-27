@@ -1,11 +1,13 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DefaultSignatures   #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
 module Waargonaut.Generic
   ( JsonEncode (..)
   , JsonDecode (..)
@@ -18,11 +20,17 @@ module Waargonaut.Generic
 
 import           Generics.SOP
 
-import           Control.Lens                  (findOf, folded, isn't, _Left)
+import           Control.Lens                  (Rewrapped, Wrapped (..), findOf,
+                                                folded, isn't, _Left)
 
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (lift, throwError)
 import           Control.Monad.State           (modify)
+
+import           Data.Functor.Contravariant    (Contravariant (..), (>$<))
+import           Data.Functor.Identity         (Identity)
+
+import           Control.Monad.Morph           (MFunctor (..), generalize)
 
 import           Data.Maybe                    (fromMaybe)
 
@@ -40,6 +48,7 @@ import           Waargonaut                    (Json)
 
 import           Waargonaut.Encode             (Encoder, Encoder')
 import qualified Waargonaut.Encode             as E
+
 
 import           HaskellWorks.Data.Positioning (Count)
 
@@ -63,10 +72,29 @@ data Options = Options
 defaultOpts :: Options
 defaultOpts = Options id Unwrap
 
-class JsonEncode a where
-  mkEncoder :: Applicative f => Encoder f a
-  default mkEncoder :: (Applicative f, Generic a, HasDatatypeInfo a, All2 JsonEncode (Code a)) => Encoder f a
-  mkEncoder = gEncoder defaultOpts
+newtype GJsonEncoder t f a = GJEnc
+  { unGJEnc :: Applicative f => Encoder f a
+  }
+
+instance (GJsonEncoder t f a) ~ Encoder f a => Rewrapped (GJsonEncoder t f a) (Encoder f a)
+
+instance Wrapped (GJsonEncoder t f a) where
+  type Unwrapped (GJsonEncoder t f a) = Encoder f a
+  _Wrapped' = iso unGJEnc GJsonEncoder
+
+instance Contravariant (GJsonEncoder t f) where
+  contramap f (GJEnc e) = GJEnc (contramap f e)
+
+instance MFunctor (GJsonEncoder t) where
+  hoist nat (GJEnc e) = GJEnc (hoist nat e)
+
+generaliseGJEncoder :: Monad f => GJsonEncoder t Identity a -> GJsonEncoder t f a
+generaliseGJEncoder (GJEnc e) = GJEnc (E.generaliseEncoder' e)
+
+class JsonEncode t a where
+  mkEncoder :: Applicative f => GJsonEncoder t f a
+  default mkEncoder :: (Applicative f, Generic a, HasDatatypeInfo a, All2 (JsonEncode t) (Code a)) => GJsonEncoder t f a
+  mkEncoder = GJEnc (gEncoder defaultOpts)
 
 instance JsonEncode a                 => JsonEncode (Maybe a)    where mkEncoder = E.maybeOrNull mkEncoder
 instance (JsonEncode a, JsonEncode b) => JsonEncode (Either a b) where mkEncoder = E.either mkEncoder mkEncoder
