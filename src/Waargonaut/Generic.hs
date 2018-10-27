@@ -345,7 +345,7 @@ gDecoderConstructor
   -> NP JsonInfo xss
   -> DecodeResultT Count DecodeError f (SOP I xss)
 gDecoderConstructor opts pJAll parseFn cursor ninfo =
-  foldForRight . hcollapse $ hcliftA2 pJAll (mkGDecoder opts pJDec parseFn cursor) ninfo injs
+  foldForRight . hcollapse $ hcliftA2 pJAll (mkGDecoder opts pJDec cursor) ninfo injs
   where
     pJDec = Proxy :: Proxy (JsonDecode t)
 
@@ -372,12 +372,11 @@ mkGDecoder
      )
   => Options
   -> Proxy (JsonDecode t)
-  -> D.ParseFn
   -> D.JCurs
   -> JsonInfo xs
   -> Injection (NP I) xss xs
   -> K (D.DecodeResult f (SOP I xss)) xs
-mkGDecoder opts pJDec _parseFn cursor info (Fn inj) = K $ do
+mkGDecoder opts pJDec cursor info (Fn inj) = K $ do
   val <- mkGDecoder2 opts pJDec cursor info
   SOP . unK . inj <$> hsequence (hcliftA pJDec (aux pJDec) val)
   where
