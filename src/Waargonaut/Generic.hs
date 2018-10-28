@@ -39,13 +39,14 @@ module Waargonaut.Generic
     -- * Helpers
   , wGJEnc1
   , wGJEnc2
+  , wGJDec1
+  , wGJDec2
 
   ) where
 
 import           Generics.SOP
 
-import           Control.Lens                  (Rewrapped, Wrapped (..), findOf,
-                                                folded, isn't, iso, _Left)
+import           Control.Lens                  (findOf, folded, isn't, _Left)
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (lift, throwError)
 import           Control.Monad.State           (modify)
@@ -99,12 +100,6 @@ newtype GJsonEncoder t f a = GJEnc
   { unGJEnc :: Encoder f a
   }
 
-instance GJsonEncoder t f a ~ Encoder f a => Rewrapped (GJsonEncoder t f a) (Encoder f a)
-
-instance Wrapped (GJsonEncoder t f a) where
-  type Unwrapped (GJsonEncoder t f a) = Encoder f a
-  _Wrapped' = iso unGJEnc GJEnc
-
 instance Contravariant (GJsonEncoder t f) where
   contramap f (GJEnc e) = GJEnc (contramap f e)
 
@@ -146,14 +141,9 @@ instance JsonEncode t Bool                                             where mkE
 newtype GJsonDecoder t f a = GJDec
   { unGJDec :: Decoder f a
   }
-  deriving ( Functor
-           , Applicative
-           , Monad
-           )
 
 generaliseGJDecoder :: Monad f => GJsonDecoder t Identity a -> GJsonDecoder t f a
 generaliseGJDecoder = GJDec . D.generaliseDecoder . unGJDec
-
 
 wGJDec1
   :: (Decoder f a -> Decoder f (g a))
@@ -167,7 +157,6 @@ wGJDec2
   -> GJsonDecoder t f a
   -> GJsonDecoder t f b
   -> GJsonDecoder t f (g a b)
-
 wGJDec2 e (GJDec ga) (GJDec gb) =
   GJDec (e ga gb)
 
