@@ -3,9 +3,9 @@
 , distributive, doctest, errors, filepath, generics-sop, hedgehog
 , hoist-error, hw-balancedparens, hw-bits, hw-json, hw-prim
 , hw-rankselect, lens, mmorph, mtl, nats, parsers, scientific
-, semigroups, stdenv, tasty, tasty-expected-failure, tasty-hedgehog
-, tasty-hunit, template-haskell, text, transformers, vector
-, witherable, wl-pprint-annotated, zippers
+, semigroups, stdenv, tagged, tasty, tasty-expected-failure
+, tasty-hedgehog, tasty-hunit, template-haskell, text, transformers
+, vector, witherable, wl-pprint-annotated, zippers
 }:
 mkDerivation {
   pname = "waargonaut";
@@ -16,7 +16,7 @@ mkDerivation {
     base bifunctors bytestring containers contravariant digit
     distributive errors generics-sop hoist-error hw-balancedparens
     hw-bits hw-json hw-prim hw-rankselect lens mmorph mtl nats parsers
-    scientific semigroups text transformers vector witherable
+    scientific semigroups tagged text transformers vector witherable
     wl-pprint-annotated zippers
   ];
   testHaskellDepends = [

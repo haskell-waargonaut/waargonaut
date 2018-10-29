@@ -22,6 +22,8 @@ in
 
   generic-lens   = pkgs.haskell.lib.dontCheck super.generic-lens;
 
+  tagged         = self.callHackage "tagged" "0.8.6" {};
+
   hw-parser      = self.callHackage "hw-parser" "0.1.0.0" {};
   hw-json        = self.callCabal2nix "hw-json" sources.hw-json {};
 })

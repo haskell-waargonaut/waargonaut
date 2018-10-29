@@ -42,7 +42,7 @@ import qualified Waargonaut.Decode           as D
 import           Waargonaut.Decode.Error     (DecodeError)
 import qualified Waargonaut.Encode           as E
 
-import Waargonaut.Generic (mkEncoder,mkDecoder)
+import           Waargonaut.Generic          (mkDecoder, mkEncoder)
 
 import qualified Types.CommaSep              as CS
 import qualified Types.Common                as Common

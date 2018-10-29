@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications #-}
 module Types.Common
   ( genDecimalDigit
   , genDecimalDigits
@@ -57,6 +58,9 @@ import qualified Data.Attoparsec.ByteString  as AB
 import qualified Data.Attoparsec.Text        as AT
 import           Data.Attoparsec.Types       (Parser)
 
+import           Data.Tagged                 (Tagged)
+import qualified Data.Tagged                 as T
+
 import           Data.Digit                  (DecDigit, HeXDigit, HexDigit)
 import qualified Data.Digit                  as D
 
@@ -70,11 +74,10 @@ import qualified Waargonaut.Encode           as E
 import           Waargonaut.Types            (Json)
 import           Waargonaut.Types.Whitespace (Whitespace (..))
 
-import           Waargonaut.Generic          (GJsonDecoder (..),
-                                              GJsonEncoder (..), GWaarg,
-                                              JsonDecode (..), JsonEncode (..),
-                                              NewtypeName (..), Options (..),
-                                              defaultOpts, gDecoder, gEncoder)
+import           Waargonaut.Generic          (GWaarg, JsonDecode (..),
+                                              JsonEncode (..), NewtypeName (..),
+                                              Options (..), defaultOpts,
+                                              gDecoder, gEncoder)
 
 data Image = Image
   { _imageWidth    :: Int
@@ -112,9 +115,16 @@ imageDecodeManual = D.withCursor $ \c -> do
     <*> D.fromKey "Animated" D.bool io
     <*> D.fromKey "IDs" (D.list D.int) io
 
-imageDecodeGeneric :: forall f. Monad f => SD.Decoder f Image
-imageDecodeGeneric = SD.withCursor $ SD.fromKey "Image" (unGJDec iDec)
-  where iDec = (mkDecoder :: GJsonDecoder GWaarg f Image)
+imageDecodeGeneric :: Monad f => SD.Decoder f Image
+imageDecodeGeneric = SD.withCursor $ SD.fromKey "Image" iDec
+  -- Without using 'Proxy' type, crunchy.
+  where iDec = T.untag (mkDecoder :: Monad f => Tagged GWaarg (SD.Decoder f Image))
+
+  -- Proxy the decoder using the tag from the typeclass instance, much nicer
+  -- where iDec = T.proxy mkDecoder (Proxy :: Proxy GWaarg)
+
+  -- As above but with the niceness of TypeApplications (GHC > 8), even better
+  -- where iDec = T.proxy mkDecoder (Proxy @GWaarg)
 
 instance Generic Image
 instance HasDatatypeInfo Image
@@ -246,10 +256,10 @@ prop_generic_tripping
      , Show a
      , Eq a
      )
-  => GJsonEncoder GWaarg Identity a
-  -> GJsonDecoder GWaarg Identity a
+  => Tagged GWaarg (E.Encoder Identity a)
+  -> Tagged GWaarg (SD.Decoder Identity a)
   -> a
   -> m ()
 prop_generic_tripping e d a = tripping a
-  (E.simplePureEncodeNoSpaces (unGJEnc e))
-  (SD.runPureDecode (unGJDec d) parseBS . SD.mkCursor . BSL8.toStrict)
+  (E.simplePureEncodeNoSpaces (T.untag e))
+  (SD.runPureDecode (T.untag d) parseBS . SD.mkCursor . BSL8.toStrict)
