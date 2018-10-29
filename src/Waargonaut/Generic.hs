@@ -208,14 +208,12 @@ gEncoder
   -> Tagged t (Encoder f a)
 gEncoder opts = Tagged . E.encodeA $ \a -> hcollapse $ hcliftA2
   (Proxy :: Proxy (All (JsonEncode t)))
-  (gEncoder' pjE opts)
+  (gEncoder' pjE pt opts)
   (jsonInfo opts (Proxy :: Proxy a))
   (unSOP $ from a)
   where
     pjE = Proxy :: Proxy (JsonEncode t)
-
-gTaggedEncoder :: (Applicative f, JsonEncode t x) => Proxy (JsonEncode t) -> Tagged t (Encoder f x)
-gTaggedEncoder = const mkEncoder
+    pt  = Proxy :: Proxy t
 
 gEncoder'
   :: forall xs f t.
@@ -223,29 +221,30 @@ gEncoder'
      , Applicative f
      )
   => Proxy (JsonEncode t)
+  -> Proxy t
   -> Options
   -> JsonInfo xs
   -> NP I xs
   -> K (f Json) xs
-gEncoder' p _ (JsonZero n) Nil           =
-  K (E.runEncoder (T.untag (gTaggedEncoder p)) (Text.pack n))
+gEncoder' _ _ _ (JsonZero n) Nil           =
+  K (E.runEncoder (T.untag mkEncoder) (Text.pack n))
 
-gEncoder' p _ (JsonOne tag) (I a :* Nil) =
-  tagVal tag $ E.runEncoder (T.untag (gTaggedEncoder p)) a
+gEncoder' _ pT _ (JsonOne tag) (I a :* Nil) =
+  tagVal tag $ E.runEncoder (T.proxy mkEncoder pT) a
 
-gEncoder' p _ (JsonMul tag) cs           =
+gEncoder' p pT _ (JsonMul tag) cs           =
   tagVal tag . enc . hcollapse $ hcliftA p ik cs
   where
     ik :: JsonEncode t x => I x -> K Json x
-    ik = K . runIdentity . E.runEncoder (T.untag (gTaggedEncoder p)) . unI
+    ik = K . runIdentity . E.runEncoder (T.proxy mkEncoder pT) . unI
 
     enc = E.runEncoder (E.list E.json)
 
-gEncoder' p opts (JsonRec tag fields) cs    =
+gEncoder' p pT opts (JsonRec tag fields) cs    =
   tagVal tag . enc . hcollapse $ hcliftA2 p tup fields cs
   where
     tup :: JsonEncode t x => K String x -> I x -> K (Text, Json) x
-    tup f a = K (modFieldName opts (unK f), runIdentity $ E.runEncoder (T.untag (gTaggedEncoder p)) (unI a))
+    tup f a = K (modFieldName opts (unK f), runIdentity $ E.runEncoder (T.proxy mkEncoder pT) (unI a))
 
     enc = E.runEncoder (E.mapToObj E.json id) . Map.fromList
 
@@ -273,9 +272,10 @@ gDecoderConstructor
   -> NP JsonInfo xss
   -> DecodeResultT Count DecodeError f (SOP I xss)
 gDecoderConstructor opts pJAll parseFn cursor ninfo =
-  foldForRight . hcollapse $ hcliftA2 pJAll (mkGDecoder opts pJDec cursor) ninfo injs
+  foldForRight . hcollapse $ hcliftA2 pJAll (mkGDecoder opts pJDec pT cursor) ninfo injs
   where
     pJDec = Proxy :: Proxy (JsonDecode t)
+    pT    = Proxy :: Proxy t
 
     err = Left ( ConversionFailure "Generic Decoder has failed, please file a bug."
                , CursorHistory' mempty
@@ -300,19 +300,17 @@ mkGDecoder
      )
   => Options
   -> Proxy (JsonDecode t)
+  -> Proxy t
   -> D.JCurs
   -> JsonInfo xs
   -> Injection (NP I) xss xs
   -> K (D.DecodeResult f (SOP I xss)) xs
-mkGDecoder opts pJDec cursor info (Fn inj) = K $ do
+mkGDecoder opts pJDec pT cursor info (Fn inj) = K $ do
   val <- mkGDecoder2 opts pJDec cursor info
-  SOP . unK . inj <$> hsequence (hcliftA pJDec (aux pJDec) val)
+  SOP . unK . inj <$> hsequence (hcliftA pJDec aux val)
   where
-    gd :: JsonDecode t x => Proxy (JsonDecode t) -> Tagged t (Decoder f x)
-    gd _ = mkDecoder
-
-    aux :: JsonDecode t x => Proxy (JsonDecode t) -> K Count x -> D.DecodeResult f x
-    aux pd (K rnk) = D.moveToRankN rnk cursor >>= D.focus (T.untag (gd pd))
+    aux :: JsonDecode t x => K Count x -> D.DecodeResult f x
+    aux (K rnk) = D.moveToRankN rnk cursor >>= D.focus (T.proxy mkDecoder pT)
 
 mkGDecoder2
   :: forall t (xs :: [*]) f.
