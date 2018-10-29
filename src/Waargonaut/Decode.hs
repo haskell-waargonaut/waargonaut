@@ -15,7 +15,7 @@ module Waargonaut.Decode
   , Decoder (..)
   , JCurs (..)
   , ParseFn
-  , Err
+  , Err (..)
 
     -- * Runners
   , runDecode
@@ -24,6 +24,9 @@ module Waargonaut.Decode
   , simpleDecode
   , overrideParser
   , generaliseDecoder
+
+    -- * Helpers
+  , DI.ppCursorHistory
 
     -- * Cursors
   , withCursor
@@ -142,7 +145,7 @@ import qualified HaskellWorks.Data.Json.Cursor             as JC
 
 
 import           Waargonaut.Decode.Error                   (DecodeError (..),
-                                                            Err' (..))
+                                                            Err (..))
 import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
 
 import qualified Waargonaut.Decode.Internal                as DI
@@ -152,8 +155,6 @@ import           Waargonaut.Decode.Types                   (CursorHistory,
                                                             Decoder (..),
                                                             JCurs (..), ParseFn,
                                                             SuccinctCursor)
-
-type Err = Err' CursorHistory
 
 -- | Function to define a 'Decoder' for a specific data type.
 --

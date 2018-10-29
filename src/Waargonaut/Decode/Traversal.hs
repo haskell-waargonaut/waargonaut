@@ -17,7 +17,7 @@
 --
 module Waargonaut.Decode.Traversal
   (
-    Err
+    Err (..)
   , CursorHistory (..)
   , DecodeResult (..)
 
@@ -113,7 +113,7 @@ import           Waargonaut.Types              (AsJType, Elems, JAssoc, Json)
 
 import qualified Waargonaut.Types              as WT
 
-import           Waargonaut.Decode.Error       (Err' (..))
+import           Waargonaut.Decode.Error       (Err (..))
 import           Waargonaut.Decode.Internal    (CursorHistory' (..),
                                                 DecodeError (..), DecodeResultT,
                                                 Decoder' (..), ZipperMove (..),
@@ -123,7 +123,6 @@ import qualified Waargonaut.Decode.Internal    as DR
 
 -- | Convenience Error structure for the separate parsing/decoding phases. For
 -- when things really aren't that complicated.
-type Err e = Err' CursorHistory e
 
 -- | Wrapper for our 'CursorHistory'' to define our index as being an 'Int'.
 --
@@ -264,7 +263,7 @@ simpleDecode
   :: (s -> Either e Json)
   -> Decoder Identity a
   -> s
-  -> Either (Err e) a
+  -> Either (Err CursorHistory e) a
 simpleDecode p dec =
   L.bimap Parse Z.zipper . p >=>
   L.over L._Left Decode . runPureDecode dec

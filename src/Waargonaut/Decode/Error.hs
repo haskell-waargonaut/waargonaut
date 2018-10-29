@@ -2,7 +2,7 @@
 module Waargonaut.Decode.Error
   ( DecodeError (..)
   , AsDecodeError (..)
-  , Err' (..)
+  , Err (..)
   ) where
 
 import           Control.Lens                 (Prism')
@@ -18,7 +18,7 @@ import           Waargonaut.Types             (JNumber)
 
 -- | Convenience Error structure for the separate parsing/decoding phases. For
 -- when things really aren't that complicated.
-data Err' c e
+data Err c e
   = Parse e
   | Decode (DecodeError, c)
   deriving (Show, Eq, Functor)
