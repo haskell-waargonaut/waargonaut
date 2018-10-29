@@ -258,7 +258,12 @@ gDecoder
   => Options
   -> Tagged t (Decoder f a)
 gDecoder opts = Tagged $ D.Decoder $ \parseFn cursor ->
-  to <$> gDecoderConstructor opts (Proxy :: Proxy (All (JsonDecode t))) parseFn cursor (jsonInfo opts (Proxy :: Proxy a))
+  to <$> gDecoderConstructor
+           opts
+           (Proxy :: Proxy (All (JsonDecode t)))
+           parseFn
+           cursor
+           (jsonInfo opts (Proxy :: Proxy a))
 
 gDecoderConstructor
   :: forall (xss :: [[*]]) f t.
@@ -272,10 +277,9 @@ gDecoderConstructor
   -> NP JsonInfo xss
   -> DecodeResultT Count DecodeError f (SOP I xss)
 gDecoderConstructor opts pJAll parseFn cursor ninfo =
-  foldForRight . hcollapse $ hcliftA2 pJAll (mkGDecoder opts pJDec pT cursor) ninfo injs
+  foldForRight . hcollapse $ hcliftA2 pJAll (mkGDecoder opts pJDec cursor) ninfo injs
   where
     pJDec = Proxy :: Proxy (JsonDecode t)
-    pT    = Proxy :: Proxy t
 
     err = Left ( ConversionFailure "Generic Decoder has failed, please file a bug."
                , CursorHistory' mempty
@@ -300,17 +304,16 @@ mkGDecoder
      )
   => Options
   -> Proxy (JsonDecode t)
-  -> Proxy t
   -> D.JCurs
   -> JsonInfo xs
   -> Injection (NP I) xss xs
   -> K (D.DecodeResult f (SOP I xss)) xs
-mkGDecoder opts pJDec pT cursor info (Fn inj) = K $ do
+mkGDecoder opts pJDec cursor info (Fn inj) = K $ do
   val <- mkGDecoder2 opts pJDec cursor info
   SOP . unK . inj <$> hsequence (hcliftA pJDec aux val)
   where
     aux :: JsonDecode t x => K Count x -> D.DecodeResult f x
-    aux (K rnk) = D.moveToRankN rnk cursor >>= D.focus (T.proxy mkDecoder pT)
+    aux (K rnk) = D.moveToRankN rnk cursor >>= D.focus (T.proxy mkDecoder (Proxy :: Proxy t))
 
 mkGDecoder2
   :: forall t (xs :: [*]) f.

@@ -4,7 +4,6 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeApplications #-}
 module Types.Common
   ( genDecimalDigit
   , genDecimalDigits
@@ -125,6 +124,9 @@ imageDecodeGeneric = SD.withCursor $ SD.fromKey "Image" iDec
 
   -- As above but with the niceness of TypeApplications (GHC > 8), even better
   -- where iDec = T.proxy mkDecoder (Proxy @GWaarg)
+
+  -- Even better with using TypeApplications directly on the 'mkDecoder'
+  -- where iDec = T.untag $ mkDecoder @GWaarg
 
 instance Generic Image
 instance HasDatatypeInfo Image
