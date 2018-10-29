@@ -26,7 +26,7 @@ module Waargonaut.Generic
   , Options (..)
   , defaultOpts
 
-    -- *  Creation
+    -- * Creation
   , gEncoder
   , gDecoder
 
@@ -51,8 +51,8 @@ import qualified Data.Text                     as Text
 import qualified Data.Map                      as Map
 import           Data.Scientific               (Scientific)
 
-import Data.Tagged (Tagged (..))
-import qualified Data.Tagged as T
+import           Data.Tagged                   (Tagged (..))
+import qualified Data.Tagged                   as T
 
 import           Waargonaut                    (Json)
 
@@ -69,24 +69,58 @@ import           Waargonaut.Decode.Error       (DecodeError (..))
 import           Waargonaut.Decode.Internal    (CursorHistory' (..),
                                                 DecodeResultT (..))
 
+-- | This is a provided tag that can be used for tagging the 'JsonEncode' and 'JsonDecode' instances.
 data GWaarg
 
+-- | The two options we currently have for using the 'Generic' mechanism to handle 'newtype' values:
 data NewtypeName
+  -- | Discard the newtype wrapper and encode the inner value.
+  --
+  -- @
+  -- newtype Foo = Foo Text
+  --
+  -- let x = Foo "Fred"
+  -- @
+  --
+  -- Will be encoded as: "Fred"
+  --
   = Unwrap
+
+  -- | Encode the newtype value as an object using the constructor as the "key".
+  --
+  -- @
+  -- newtype Foo = Foo Text
+  --
+  -- let x = Foo "Fred"
+  -- @
+  --
+  -- Will be encoded as: "{\"foo\":\"Fred\"}"
+  --
   | ConstructorNameAsKey
   deriving (Show, Eq)
 
+-- | The configuration options for creating 'Generic' encoder or decoder values.
 data Options = Options
-  { _optionsFieldName           :: String -> String
+  { -- | When encoding/decoding a record type, this function will be used on the field names to
+    -- determine how they will be encoded. Or what keys to look up on the JSON object when it is being
+    -- decoded.
+    _optionsFieldName           :: String -> String
+
+    -- | How to handle 'newtype' values. See 'NewtypeName' for more info.
   , _optionsNewtypeWithConsName :: NewtypeName
   }
 
+-- | Default options for 'Generic' functionality:
+--
+-- * Field names are left untouched (@id@)
+-- * Newtype values are encoded as raw values (@Unwrap@)
+--
 defaultOpts :: Options
 defaultOpts = Options id Unwrap
 
-
 class JsonEncode t a where
   mkEncoder :: Applicative f => Tagged t (Encoder f a)
+
   default mkEncoder :: (Applicative f, Generic a, HasDatatypeInfo a, All2 (JsonEncode t) (Code a)) => Tagged t (Encoder f a)
   mkEncoder = gEncoder defaultOpts
 
@@ -233,18 +267,18 @@ gEncoder' _ pT _ (JsonOne tag) (I a :* Nil) =
   tagVal tag $ E.runEncoder (T.proxy mkEncoder pT) a
 
 gEncoder' p pT _ (JsonMul tag) cs           =
-  tagVal tag . enc . hcollapse $ hcliftA p ik cs
+  tagVal tag . E.runEncoder (E.list E.json) . hcollapse $ hcliftA p ik cs
   where
     ik :: JsonEncode t x => I x -> K Json x
     ik = K . runIdentity . E.runEncoder (T.proxy mkEncoder pT) . unI
-
-    enc = E.runEncoder (E.list E.json)
 
 gEncoder' p pT opts (JsonRec tag fields) cs    =
   tagVal tag . enc . hcollapse $ hcliftA2 p tup fields cs
   where
     tup :: JsonEncode t x => K String x -> I x -> K (Text, Json) x
-    tup f a = K (modFieldName opts (unK f), runIdentity $ E.runEncoder (T.proxy mkEncoder pT) (unI a))
+    tup f a = K ( modFieldName opts (unK f)
+                , runIdentity $ E.runEncoder (T.proxy mkEncoder pT) (unI a)
+                )
 
     enc = E.runEncoder (E.mapToObj E.json id) . Map.fromList
 
@@ -287,7 +321,7 @@ gDecoderConstructor opts pJAll parseFn cursor ninfo =
 
     failure (e,h) = modify (const h) >> throwError e
 
-    -- Pretty sure there is a better way to managTaggedEncoder this, as my intuition about
+    -- Pretty sure there is a better way to manage this, as my intuition about
     -- generic-sop says that I will only have one successful result for any
     -- given type. But I'm not 100% sure that this is actually the case.
     foldForRight :: [D.DecodeResult f (SOP I xss)] -> DecodeResultT Count DecodeError f (SOP I xss)
