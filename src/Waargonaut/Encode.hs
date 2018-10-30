@@ -2,10 +2,10 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE RankNTypes #-}
 -- | Types and functions to encode your data types to 'Json'.
 module Waargonaut.Encode
   (
@@ -77,9 +77,10 @@ import           Control.Monad.Morph        (MFunctor (..), generalize)
 
 import           Control.Applicative        (Applicative (..), (<$>))
 import           Control.Category           (id, (.))
-import           Control.Lens               (AReview, At, Index, IxValue, Prism',
-                                             Rewrapped, Wrapped (..), at, cons,
-                                             iso, ( # ), (?~), _Empty, _Wrapped)
+import           Control.Lens               (AReview, At, Index, IxValue,
+                                             Prism', Rewrapped, Wrapped (..),
+                                             at, cons, iso, ( # ), (?~), _Empty,
+                                             _Wrapped)
 import qualified Control.Lens               as L
 
 import           Prelude                    (Bool, Int, Monad)
@@ -109,11 +110,11 @@ import qualified Data.Map                   as Map
 
 import           Data.Text                  (Text)
 
-import           Waargonaut                 (waargonautBuilder)
 import           Waargonaut.Types           (AsJType (..), JAssoc (..), JObject,
                                              Json, MapLikeObj (..), WS,
                                              textToJString, wsRemover,
                                              _JNumberInt, _JNumberScientific)
+import           Waargonaut.Types.Json      (waargonautBuilder)
 
 -- |
 -- Define an "encoder" as a function from some @a@ to some 'Json' with the

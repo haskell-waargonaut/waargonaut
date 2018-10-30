@@ -1,6 +1,9 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 module Types.Common
   ( genDecimalDigit
   , genDecimalDigits
@@ -36,6 +39,7 @@ import qualified GHC.Generics                as GHC
 import           Control.Lens                (makeClassy, over, _Left)
 import           Control.Monad               ((>=>))
 
+import           Data.Functor.Identity       (Identity)
 import qualified Data.List                   as List
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Maybe                  (fromMaybe)
@@ -53,6 +57,9 @@ import qualified Data.Attoparsec.ByteString  as AB
 import qualified Data.Attoparsec.Text        as AT
 import           Data.Attoparsec.Types       (Parser)
 
+import           Data.Tagged                 (Tagged)
+import qualified Data.Tagged                 as T
+
 import           Data.Digit                  (DecDigit, HeXDigit, HexDigit)
 import qualified Data.Digit                  as D
 
@@ -66,9 +73,10 @@ import qualified Waargonaut.Encode           as E
 import           Waargonaut.Types            (Json)
 import           Waargonaut.Types.Whitespace (Whitespace (..))
 
-import           Waargonaut.Generic          (JsonDecode (..), JsonEncode (..),
-                                              NewtypeName (..), Options (..),
-                                              defaultOpts, gDecoder, gEncoder)
+import           Waargonaut.Generic          (GWaarg, JsonDecode (..),
+                                              JsonEncode (..), NewtypeName (..),
+                                              Options (..), defaultOpts,
+                                              gDecoder, gEncoder)
 
 data Image = Image
   { _imageWidth    :: Int
@@ -107,7 +115,18 @@ imageDecodeManual = D.withCursor $ \c -> do
     <*> D.fromKey "IDs" (D.list D.int) io
 
 imageDecodeGeneric :: Monad f => SD.Decoder f Image
-imageDecodeGeneric = SD.withCursor $ SD.fromKey "Image" mkDecoder
+imageDecodeGeneric = SD.withCursor $ SD.fromKey "Image" iDec
+  -- Without using 'Proxy' type, crunchy.
+  where iDec = T.untag (mkDecoder :: Monad f => Tagged GWaarg (SD.Decoder f Image))
+
+  -- Proxy the decoder using the tag from the typeclass instance, much nicer
+  -- where iDec = T.proxy mkDecoder (Proxy :: Proxy GWaarg)
+
+  -- As above but with the niceness of TypeApplications (GHC > 8), even better
+  -- where iDec = T.proxy mkDecoder (Proxy @GWaarg)
+
+  -- Even better with using TypeApplications directly on the 'mkDecoder'
+  -- where iDec = T.untag $ mkDecoder @GWaarg
 
 instance Generic Image
 instance HasDatatypeInfo Image
@@ -122,8 +141,8 @@ imageOpts = defaultOpts
 -- sure to check your outputs as the Generic system must make some assumptions
 -- about how certain things are structured. These assumptions may not agree with
 -- your expectations so always check.
-instance JsonEncode Image where mkEncoder = gEncoder imageOpts
-instance JsonDecode Image where mkDecoder = gDecoder imageOpts
+instance JsonEncode GWaarg Image where mkEncoder = gEncoder imageOpts
+instance JsonDecode GWaarg Image where mkDecoder = gDecoder imageOpts
 
 newtype Fudge = Fudge Text
   deriving (Eq, Show, GHC.Generic)
@@ -137,8 +156,8 @@ fudgeJsonOpts = defaultOpts
   , _optionsFieldName           = const "fudgey"
   }
 
-instance JsonEncode Fudge where mkEncoder = gEncoder fudgeJsonOpts
-instance JsonDecode Fudge where mkDecoder = gDecoder fudgeJsonOpts
+instance JsonEncode GWaarg Fudge where mkEncoder = gEncoder fudgeJsonOpts
+instance JsonDecode t Fudge where mkDecoder = gDecoder fudgeJsonOpts
 
 testFudge :: Fudge
 testFudge = Fudge "Chocolate"
@@ -235,16 +254,14 @@ parseText :: Text -> Either DecodeError Json
 parseText = parseWith AT.parseOnly parseWaargonaut
 
 prop_generic_tripping
-  :: ( Generic a
-     , HasDatatypeInfo a
-     , JsonEncode a
-     , JsonDecode a
-     , MonadTest m
+  :: ( MonadTest m
      , Show a
      , Eq a
      )
-  => a
+  => Tagged GWaarg (E.Encoder Identity a)
+  -> Tagged GWaarg (SD.Decoder Identity a)
+  -> a
   -> m ()
-prop_generic_tripping a = tripping a
-  (E.simplePureEncodeNoSpaces mkEncoder)
-  (SD.runPureDecode mkDecoder parseBS . SD.mkCursor . BSL8.toStrict)
+prop_generic_tripping e d a = tripping a
+  (E.simplePureEncodeNoSpaces (T.untag e))
+  (SD.runPureDecode (T.untag d) parseBS . SD.mkCursor . BSL8.toStrict)

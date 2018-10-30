@@ -14,9 +14,11 @@ import qualified Waargonaut.Encode    as E
 
 import           Data.ByteString.Lazy (ByteString)
 
-import           Types.Common         (Image (..), testFudge, testImageDataType)
+import           Types.Common         (Fudge, Image (..), testFudge,
+                                       testImageDataType)
 
-import           Waargonaut.Generic   (mkEncoder)
+import           Data.Tagged          (Tagged, untag)
+import           Waargonaut.Generic   (GWaarg, mkEncoder)
 
 testImageEncodedNoSpaces :: ByteString
 testImageEncodedNoSpaces = "{\"Width\":800,\"Height\":600,\"Title\":\"View from 15th Floor\",\"Animated\":false,\"IDs\":[116,943,234,38793]}"
@@ -48,7 +50,13 @@ tCase nm enc a =
 encoderTests :: TestTree
 encoderTests = testGroup "Encoder"
   [ tCase "Encode Image" encodeImage testImageDataType testImageEncodedNoSpaces
-  , tCase "Encode Image (Generic)" mkEncoder testImageDataType testImageGenericEncode
-  , tCase "Encode newtype - with constructor name" mkEncoder testFudge testFudgeEncodedWithConsName
+  , tCase "Encode Image (Generic)" (untag imgE) testImageDataType testImageGenericEncode
+  , tCase "Encode newtype - with constructor name" (untag fudgeE) testFudge testFudgeEncodedWithConsName
   ]
+  where
+    imgE :: Applicative f => Tagged GWaarg (Encoder f Image)
+    imgE = mkEncoder
+
+    fudgeE :: Applicative f => Tagged GWaarg (Encoder f Fudge)
+    fudgeE = mkEncoder
 
