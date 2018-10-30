@@ -31,7 +31,7 @@ module Waargonaut.Generic
   , gDecoder
 
     -- * Reexports
-  , module Data.Tagged
+  , module T
 
   , Generic (..)
   , HasDatatypeInfo (..)
