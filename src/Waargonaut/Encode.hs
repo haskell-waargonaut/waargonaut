@@ -50,6 +50,8 @@ module Waargonaut.Encode
   , nonemptyAt
   , encAt
   , keyValuesAsObj
+  , onObj
+  , keyValueTupleFoldable
 
     -- * Encoders specialised to Identity
   , int'
@@ -521,6 +523,15 @@ keyValuesAsObj
   -> Encoder f a
 keyValuesAsObj xs = encodeA $ \a ->
   (\v -> _JObj # (v,mempty)) <$> foldrM (\f -> f a) (_Empty # ()) xs
+
+keyValueTupleFoldable
+  :: ( Monad f
+     , Foldable g
+     )
+  => Encoder f a
+  -> Encoder f (g (Text, a))
+keyValueTupleFoldable eA = encodeA $ \xs ->
+  (\v -> _JObj # (v,mempty)) <$> foldrM (\(k,v) o -> onObj k v eA o) (_Empty # ()) xs
 
 -- | As per 'keyValuesAsObj' but with the 'f' specialised to 'Identity'.
 keyValuesAsObj'

@@ -39,7 +39,7 @@ import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (lift, throwError)
 import           Control.Monad.State           (modify)
 
-import           Data.Functor.Identity         (runIdentity)
+import           Data.Functor.Identity         (Identity, runIdentity)
 
 import           Data.Maybe                    (fromMaybe)
 
@@ -280,7 +280,7 @@ gEncoder' p pT opts (JsonRec tag fields) cs    =
                 , runIdentity $ E.runEncoder (T.proxy mkEncoder pT) (unI a)
                 )
 
-    enc = E.runEncoder (E.mapToObj E.json id) . Map.fromList
+    enc = pure . E.runPureEncoder (E.keyValueTupleFoldable E.json)
 
 gDecoder
   :: forall f a t.
