@@ -30,6 +30,11 @@ module Waargonaut.Generic
   , gEncoder
   , gDecoder
 
+    -- * Reexports
+  , module Data.Tagged
+
+  , Generic (..)
+  , HasDatatypeInfo (..)
   ) where
 
 import           Generics.SOP
@@ -39,7 +44,7 @@ import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (lift, throwError)
 import           Control.Monad.State           (modify)
 
-import           Data.Functor.Identity         (Identity, runIdentity)
+import           Data.Functor.Identity         (runIdentity)
 
 import           Data.Maybe                    (fromMaybe)
 
@@ -48,7 +53,6 @@ import           Data.List.NonEmpty            (NonEmpty)
 import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
 
-import qualified Data.Map                      as Map
 import           Data.Scientific               (Scientific)
 
 import           Data.Tagged                   (Tagged (..))
