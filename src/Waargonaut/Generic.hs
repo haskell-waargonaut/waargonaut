@@ -31,7 +31,7 @@ module Waargonaut.Generic
   , gDecoder
 
     -- * Reexports
-  , module T
+  , module Data.Tagged
 
   , Generic (..)
   , HasDatatypeInfo (..)
@@ -55,7 +55,7 @@ import qualified Data.Text                     as Text
 
 import           Data.Scientific               (Scientific)
 
-import           Data.Tagged                   (Tagged (..))
+import           Data.Tagged
 import qualified Data.Tagged                   as T
 
 import           Waargonaut                    (Json)
