@@ -96,6 +96,8 @@ newtype CursorHistory' i = CursorHistory'
   }
   deriving (Show, Eq)
 
+-- |
+-- Pretty print the given 'CursorHistory'' to a more useful format compared to a 'Seq' of 'i'.
 ppCursorHistory
   :: CursorHistory' i
   -> Doc a
@@ -218,6 +220,9 @@ recordZipperMove dir i = L._Wrapped %= (`L.snoc` (dir, i))
 try :: MonadError e m => m a -> m (Maybe a)
 try d = catchError (pure <$> d) (const (pure Nothing))
 
+-- |
+-- Build the basis for a 'Decoder' based on a 'Prism''.
+--
 prismDOrFail'
   :: ( AsDecodeError e
      , MonadError e f

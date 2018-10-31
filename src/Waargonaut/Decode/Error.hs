@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
+-- | Types and typeclass for errors in Waargonaut decoding.
 module Waargonaut.Decode.Error
   ( DecodeError (..)
   , AsDecodeError (..)
@@ -36,6 +37,7 @@ data DecodeError
   | ParseFailed Text
   deriving (Show, Eq)
 
+-- | Describes the sorts of errors that may be treated as a 'DecodeError', for use with 'lens'.
 class AsDecodeError r where
   _DecodeError       :: Prism' r DecodeError
   _ConversionFailure :: Prism' r Text

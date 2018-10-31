@@ -3,6 +3,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
+-- |
+--
+-- Types for the succinct data structure decoder
+--
 module Waargonaut.Decode.Types
   ( ParseFn
   , SuccinctCursor
@@ -38,12 +42,16 @@ import           Waargonaut.Decode.Internal            (CursorHistory',
 
 import           Waargonaut.Types                      (Json)
 
+-- | We define the index of our 'CursorHistory'' to be the 'HaskellWorks.Data.Positioning.Count'.
 type CursorHistory =
   CursorHistory' Count
 
+-- | Convenience alias defined for the concrete 'JsonCursor' type.
 type SuccinctCursor =
   JsonCursor ByteString Poppy512 (SimpleBalancedParens (Vector Word64))
 
+-- | Another convenience alias for the type of the function we will use to parse the input string
+-- into the 'Json' structure.
 type ParseFn =
   ByteString -> Either DecodeError Json
 

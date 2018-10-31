@@ -6,6 +6,10 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
+-- |
+--
+-- Types and Functions for turning JSON into Haskell.
+--
 module Waargonaut.Decode
   (
     -- * Types
@@ -554,6 +558,10 @@ runDecode
 runDecode dr p =
   DI.runDecoderResultT . runDecoder dr p
 
+-- |
+-- Using the 'ParseFn', complete a 'DecodeResult' to find out if we have the type we're after. This
+-- is mostly used internally to help build 'Decoder' structures. Exported as it may prove useful
+-- when abstracting over the 'Decoder' types or other such shenanigans.
 runDecodeResult
   :: Monad f
   => ParseFn
@@ -640,6 +648,7 @@ prismD
 prismD p =
   fmap (preview p)
 
+-- | As per 'prismD' but fail the 'Decoder' if unsuccessful.
 prismDOrFail
   :: MonadError DecodeError f
   => DecodeError

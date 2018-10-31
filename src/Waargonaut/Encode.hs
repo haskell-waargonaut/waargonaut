@@ -123,7 +123,7 @@ import           Waargonaut.Types.Json      (waargonautBuilder)
 -- allowance for some context @f@.
 --
 newtype Encoder f a = Encoder
-  { runEncoder :: a -> f Json
+  { runEncoder :: a -> f Json -- ^ Run this 'Encoder' to convert the 'a' to 'Json'
   }
 
 instance (Encoder f a) ~ t => Rewrapped (Encoder f a) t
@@ -160,6 +160,7 @@ encodePureA f = encodeA (Identity . f)
 runPureEncoder :: Encoder' a -> a -> Json
 runPureEncoder enc = runIdentity . runEncoder enc
 
+-- | Encode an @a@ directly to a 'ByteString' using the provided 'Encoder'.
 simpleEncodeNoSpaces
   :: Applicative f
   => Encoder f a
@@ -168,6 +169,7 @@ simpleEncodeNoSpaces
 simpleEncodeNoSpaces enc =
   fmap (BB.toLazyByteString . waargonautBuilder wsRemover) . runEncoder enc
 
+-- | As per 'simpleEncodeNoSpaces' but specialised the 'f' to 'Data.Functor.Identity' and remove it.
 simplePureEncodeNoSpaces
   :: Encoder' a
   -> a
@@ -179,6 +181,7 @@ simplePureEncodeNoSpaces enc =
 json :: Applicative f => Encoder f Json
 json = encodeA pure
 
+-- Internal function for creating an 'Encoder' from an 'Control.Lens.AReview'.
 encToJsonNoSpaces
   :: ( Monoid t
      , Applicative f
@@ -282,24 +285,31 @@ list
 list =
   traversable
 
+-- | As per 'json' but with the 'f' specialised to 'Data.Functor.Identity'.
 json' :: Encoder' Json
 json' = json
 
+-- | As per 'int' but with the 'f' specialised to 'Data.Functor.Identity'.
 int' :: Encoder' Int
 int' = int
 
+-- | As per 'scientific' but with the 'f' specialised to 'Data.Functor.Identity'.
 scientific' :: Encoder' Scientific
 scientific' = scientific
 
+-- | As per 'bool' but with the 'f' specialised to 'Data.Functor.Identity'.
 bool' :: Encoder' Bool
 bool' = bool
 
+-- | As per 'text' but with the 'f' specialised to 'Data.Functor.Identity'.
 text' :: Encoder' Text
 text' = text
 
+-- | As per 'null' but with the 'f' specialised to 'Data.Functor.Identity'.
 null' :: Encoder' ()
 null' = null
 
+-- | As per 'maybe' but with the 'f' specialised to 'Data.Functor.Identity'.
 maybe'
   :: Encoder' ()
   -> Encoder' a
@@ -307,12 +317,14 @@ maybe'
 maybe' =
   maybe
 
+-- | As per 'maybeOrNull' but with the 'f' specialised to 'Data.Functor.Identity'.
 maybeOrNull'
   :: Encoder' a
   -> Encoder' (Maybe a)
 maybeOrNull' =
   maybeOrNull
 
+-- | As per 'either' but with the 'f' specialised to 'Data.Functor.Identity'.
 either'
   :: Encoder' a
   -> Encoder' b
@@ -320,12 +332,14 @@ either'
 either' =
   either
 
+-- | As per 'nonempty' but with the 'f' specialised to 'Data.Functor.Identity'.
 nonempty'
   :: Encoder' a
   -> Encoder' (NonEmpty a)
 nonempty' =
   traversable
 
+-- | As per 'list' but with the 'f' specialised to 'Data.Functor.Identity'.
 list'
   :: Encoder' a
   -> Encoder' [a]
@@ -343,6 +357,7 @@ encodeWithInner
 encodeWithInner f g =
   Encoder $ fmap f . traverse (runEncoder g)
 
+-- | As per 'traversable' but with the 'f' specialised to 'Data.Functor.Identity'.
 traversable'
   :: Traversable t
   => Encoder' a
@@ -524,6 +539,8 @@ keyValuesAsObj
 keyValuesAsObj xs = encodeA $ \a ->
   (\v -> _JObj # (v,mempty)) <$> foldrM (\f -> f a) (_Empty # ()) xs
 
+-- | Encode some 'Data.Foldable.Foldable' of @(Text, a)@ as a JSON object. This permits duplicate
+-- keys.
 keyValueTupleFoldable
   :: ( Monad f
      , Foldable g

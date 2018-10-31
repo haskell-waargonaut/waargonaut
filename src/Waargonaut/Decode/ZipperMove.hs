@@ -1,3 +1,5 @@
+-- | Types and functions for describing the movements of a cursor around the
+-- 'Waargonaut.Types.Json.Json' structure.
 module Waargonaut.Decode.ZipperMove
   ( ZipperMove (..)
   , AsZipperMove (..)
@@ -27,6 +29,8 @@ data ZipperMove
   | R Natural
   deriving (Show, Eq)
 
+-- | Pretty print a given zipper movement, used when printing
+-- 'Waargonaut.Decode.Internal.CursorHistory'' to improve the readability of the errors.
 ppZipperMove :: ZipperMove -> Doc a
 ppZipperMove m = case m of
   U        -> WL.text "up/"
@@ -41,6 +45,7 @@ ppZipperMove m = case m of
     itxt t k' = WL.parens (WL.text t <+> WL.colon <+> WL.text (Text.unpack k'))
     ntxt n'   = WL.parens (WL.char 'i' <+> WL.char '+' <+> WL.text (show n'))
 
+-- | Classy 'Control.Lens.Prism''s for things that may be treated as a 'ZipperMove'.
 class AsZipperMove r where
   _ZipperMove :: Prism' r ZipperMove
   _U          :: Prism' r ()
