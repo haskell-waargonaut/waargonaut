@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 module Common
   ( parseWith
   , parseBS
@@ -14,43 +15,37 @@ module Common
   , Image (..)
   ) where
 
-import           Generics.SOP                (Generic, HasDatatypeInfo)
 import qualified GHC.Generics                as GHC
 
-import           Control.Lens                (makeClassy, over, _Left)
+import           Control.Lens                (over, _Left)
 import           Control.Monad               ((>=>))
+import           Data.Proxy                  (Proxy (..))
 
 import qualified Data.List                   as List
-import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Text                   (Text)
 import qualified Data.Text                   as Text
 
 import           Data.ByteString             (ByteString)
-import qualified Data.ByteString.Lazy.Char8  as BSL8
 
-import Data.Scientific (Scientific)
+import           Data.Scientific             (Scientific)
 
 import qualified Data.Attoparsec.ByteString  as AB
 import qualified Data.Attoparsec.Text        as AT
 import           Data.Attoparsec.Types       (Parser)
 
-import           Data.Digit                  (DecDigit, HeXDigit, HexDigit)
-import qualified Data.Digit                  as D
-
 import           Waargonaut                  (parseWaargonaut)
-import qualified Waargonaut.Decode           as D
+import qualified Waargonaut.Decode.Traversal as D
 
-import qualified Waargonaut.Decode.Succinct  as SD
+import qualified Waargonaut.Decode           as SD
 
 import           Waargonaut.Decode.Error     (DecodeError (ParseFailed))
-import qualified Waargonaut.Encode           as E
 import           Waargonaut.Types            (Json)
-import           Waargonaut.Types.Whitespace (Whitespace (..))
 
-import           Waargonaut.Generic          (JsonDecode (..), JsonEncode (..),
-                                              NewtypeName (..), Options (..),
-                                              defaultOpts, gDecoder, gEncoder)
+import           Waargonaut.Generic          (GWaarg, Generic, HasDatatypeInfo,
+                                              JsonDecode (..), JsonEncode (..),
+                                              Options (..), defaultOpts,
+                                              gDecoder, gEncoder, proxy)
 
 data Image = Image
   { _imageWidth    :: Int
@@ -88,7 +83,7 @@ imageDecodeManual = D.withCursor $ \c -> do
     <*> D.fromKey "IDs" (D.list D.int) io
 
 imageDecodeGeneric :: Monad f => SD.Decoder f Image
-imageDecodeGeneric = SD.withCursor $ SD.fromKey "Image" mkDecoder
+imageDecodeGeneric = SD.withCursor $ SD.fromKey "Image" (proxy mkDecoder (Proxy :: Proxy GWaarg))
 
 instance Generic Image
 instance HasDatatypeInfo Image
@@ -104,11 +99,11 @@ imageOpts = defaultOpts
 -- sure to check your outputs as the Generic system must make some assumptions
 -- about how certain things are structured. These assumptions may not agree with
 -- your expectations so always check.
-instance JsonEncode Image where mkEncoder = gEncoder imageOpts
-instance JsonDecode Image where mkDecoder = gDecoder imageOpts
+instance JsonEncode GWaarg Image where mkEncoder = gEncoder imageOpts
+instance JsonDecode GWaarg Image where mkDecoder = gDecoder imageOpts
 
 decodeScientific :: Monad f => SD.Decoder f [Scientific]
-decodeScientific = mkDecoder
+decodeScientific = proxy mkDecoder (Proxy :: Proxy GWaarg)
 
 parseWith :: (Parser t a -> t -> Either String a) -> Parser t a -> t -> Either DecodeError a
 parseWith f p = over _Left (ParseFailed . Text.pack . show) . f p

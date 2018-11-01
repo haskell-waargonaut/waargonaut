@@ -232,14 +232,14 @@ import           Waargonaut.Decode.Internal    (CursorHistory' (..),
 -- Becomes:
 --
 -- @
--- (proxy mkDecoder @GWaarg) :: Monad f => Decoder f Image
+-- (proxy mkDecoder \@GWaarg) :: Monad f => Decoder f Image
 -- @
 --
 -- You can also use the @TypeApplications@ directly on the 'mkEncoder' or 'mkDecoder' function:
 --
 -- @
--- mkEncoder @GWaarg :: Applicative f => Tagged GWaarg (Encoder f Image)
--- mkDecoder @GWaarg :: Monad f       => Tagged GWaarg (Decoder f Image)
+-- mkEncoder \@GWaarg :: Applicative f => Tagged GWaarg (Encoder f Image)
+-- mkDecoder \@GWaarg :: Monad f       => Tagged GWaarg (Decoder f Image)
 -- @
 --
 
