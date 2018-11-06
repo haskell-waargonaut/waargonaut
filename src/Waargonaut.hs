@@ -81,7 +81,7 @@ import           Waargonaut.Types.Json (JType (..), Json (..), parseWaargonaut,
 --   o     <- D.down c
 --   name  <- D.fromKey "name" D.text o
 --   age   <- D.fromKey "age" D.int o
---   addr  <- D.fromKey "age" D.text o
+--   addr  <- D.fromKey "address" D.text o
 --   lotto <- D.fromKey "numbers" (D.list D.int) o
 --   pure $ Person name age addr lotto
 -- @
