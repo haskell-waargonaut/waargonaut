@@ -34,10 +34,10 @@ data ZipperMove
 ppZipperMove :: ZipperMove -> Doc a
 ppZipperMove m = case m of
   U        -> WL.text "up/"
-  D        -> WL.text "into\\"
+  D        -> WL.text "down\\"
 
-  (L n)    -> WL.text "->-" <+> ntxt n
-  (R n)    -> WL.text "-<-" <+> ntxt n
+  (L n)    -> WL.text "-<-" <+> ntxt n
+  (R n)    -> WL.text "->-" <+> ntxt n
 
   (DAt k)  -> WL.text "into\\" <+> itxt "key" k
   (Item t) -> WL.text "-::" <+> itxt "item" t

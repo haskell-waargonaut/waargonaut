@@ -86,7 +86,7 @@ import           Control.Lens                              (Cons, Lens', Prism',
                                                             Snoc, cons, lens,
                                                             modifying, preview,
                                                             snoc, traverseOf,
-                                                            view, (.~), (^.),
+                                                            view, (.~), (^.), (#),
                                                             _Wrapped)
 
 import           Prelude                                   (Bool, Bounded, Char,
@@ -108,7 +108,7 @@ import           Control.Monad.Reader                      (ReaderT (..), ask,
 import           Control.Monad.State                       (MonadState)
 
 import           Control.Error.Util                        (note)
-import           Control.Monad.Error.Hoist                 ((<?>))
+import           Control.Monad.Error.Hoist                 ((<?>),(<!?>))
 
 import           Data.Either                               (Either (..))
 import           Data.Foldable                             (foldl)
@@ -148,7 +148,7 @@ import           HaskellWorks.Data.Json.Cursor             (JsonCursor (..))
 import qualified HaskellWorks.Data.Json.Cursor             as JC
 
 
-import           Waargonaut.Decode.Error                   (DecodeError (..),
+import           Waargonaut.Decode.Error                   (DecodeError (..), AsDecodeError (..),
                                                             Err (..))
 import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
 
@@ -423,13 +423,16 @@ moveToKey
   => Text
   -> JCurs
   -> DecodeResult f JCurs
-moveToKey k c =
+moveToKey k c = do
   -- Tease out the key
-  focus text c >>= \k' -> if k' == k -- Are we at the key we want to be at ?
-  -- if we are, then move into the THING at the key
-  then moveRight1 c
-  -- if not, then jump to the next key index, the adjacent sibling is opening of the value of the current key
-  else moveRightN 2 c >>= moveToKey k
+  k' <- DI.try (focus text c) <!?> (_KeyDecodeFailed # ())
+
+  -- Are we at the key we want to be at ?
+  if k' == k
+    -- Then move into the THING at the key
+    then moveRight1 c
+    -- Try jump to the next key index
+    else ( DI.try (moveRightN 2 c) <!?> (_KeyNotFound # k) ) >>= moveToKey k
 
 -- | Move to the first occurence of this key, as per 'moveToKey' and then
 -- attempt to run the given 'Decoder' on that value, returning the result.
