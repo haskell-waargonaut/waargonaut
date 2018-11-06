@@ -9,7 +9,7 @@
 }:
 mkDerivation {
   pname = "waargonaut";
-  version = "0.1.0.0";
+  version = "0.1.0.1";
   src = ./.;
   setupHaskellDepends = [ base Cabal cabal-doctest ];
   libraryHaskellDepends = [
@@ -21,9 +21,9 @@ mkDerivation {
   ];
   testHaskellDepends = [
     attoparsec base bytestring digit directory distributive doctest
-    filepath generics-sop hedgehog lens scientific semigroups tasty
-    tasty-expected-failure tasty-hedgehog tasty-hunit template-haskell
-    text vector zippers
+    filepath generics-sop hedgehog lens scientific semigroups tagged
+    tasty tasty-expected-failure tasty-hedgehog tasty-hunit
+    template-haskell text vector zippers
   ];
   homepage = "https://github.com/qfpl/waargonaut";
   description = "JSON wrangling";

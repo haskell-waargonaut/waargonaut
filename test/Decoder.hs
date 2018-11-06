@@ -4,7 +4,7 @@ module Decoder
   ( decoderTests
   ) where
 
-import           Prelude                    (Char, Int, String, print)
+import           Prelude                    (Char, Int, String, print, (==))
 
 import           Control.Applicative        (liftA3, (<$>))
 import           Control.Category           ((.))
@@ -24,6 +24,7 @@ import           Waargonaut.Generic         (mkDecoder)
 import           Waargonaut.Decode.Internal (ppCursorHistory)
 
 import qualified Waargonaut.Decode          as D
+import qualified Waargonaut.Decode.Error    as D
 
 import           Types.Common               (imageDecodeSuccinct, parseBS,
                                              testImageDataType)
@@ -33,7 +34,37 @@ decoderTests = testGroup "Decoding"
   [ testCase "Decode Image (test1.json)" decodeTest1Json
   , testCase "Decode [Int]" decodeTest2Json
   , testCase "Decode (Char,String,[Int])" decodeTest3Json
+  , testCase "Decode Fail with Bad Key" decodeTestBadObjKey
+  , testCase "Decode Fail with Missing Key" decodeTestMissingObjKey
   ]
+
+decodeTestMissingObjKey :: Assertion
+decodeTestMissingObjKey = do
+  let
+    j = "{\"foo\":33}"
+
+    d = D.withCursor $ D.down >=> D.fromKey "bar" D.int
+
+  r <- D.runDecode d parseBS (D.mkCursor j)
+
+  Either.either
+    (\(e, _) -> assertBool "Incorrect Error - Expected KeyDecodeFailed" (e == D.KeyNotFound "bar") )
+    (\_ -> assertFailure "Expected Error!")
+    r
+
+decodeTestBadObjKey :: Assertion
+decodeTestBadObjKey = do
+  let
+    j = "{33:33}"
+
+    d = D.withCursor $ D.down >=> D.fromKey "foo" D.int
+
+  r <- D.runDecode d parseBS (D.mkCursor j)
+
+  Either.either
+    (\(e, _) -> assertBool "Incorrect Error - Expected KeyDecodeFailed" (e == D.KeyDecodeFailed) )
+    (\_ -> assertFailure "Expected Error!")
+    r
 
 decodeTest1Json :: Assertion
 decodeTest1Json = D.runPureDecode imageDecodeSuccinct parseBS . D.mkCursor

@@ -29,7 +29,7 @@ data Err c e
 --
 data DecodeError
   = ConversionFailure Text
-  | KeyDecodeFailed Text
+  | KeyDecodeFailed
   | KeyNotFound Text
   | FailedToMove ZipperMove
   | NumberOutOfBounds JNumber
@@ -41,7 +41,7 @@ data DecodeError
 class AsDecodeError r where
   _DecodeError       :: Prism' r DecodeError
   _ConversionFailure :: Prism' r Text
-  _KeyDecodeFailed   :: Prism' r Text
+  _KeyDecodeFailed   :: Prism' r ()
   _KeyNotFound       :: Prism' r Text
   _FailedToMove      :: Prism' r ZipperMove
   _NumberOutOfBounds :: Prism' r JNumber
@@ -67,10 +67,10 @@ instance AsDecodeError DecodeError where
         )
 
   _KeyDecodeFailed
-    = L.prism KeyDecodeFailed
+    = L.prism (const KeyDecodeFailed)
         (\x -> case x of
-            KeyDecodeFailed y -> Right y
-            _                 -> Left x
+            KeyDecodeFailed -> Right ()
+            _               -> Left x
         )
 
   _KeyNotFound
