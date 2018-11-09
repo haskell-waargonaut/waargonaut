@@ -430,7 +430,7 @@ moveToKey k c = do
   -- Are we at the key we want to be at ?
   if k' == k
     -- Then move into the THING at the key
-    then moveRight1 c
+    then recordRank (DAt k) c >> moveRight1 c
     -- Try jump to the next key index
     else ( DI.try (moveRightN 2 c) <!?> (_KeyNotFound # k) ) >>= moveToKey k
 
