@@ -8,7 +8,7 @@ module Decoder
 import           Prelude                    (Char, Eq, Int, Show, String, print,
                                              (==))
 
-import           Control.Applicative        (liftA3, pure, (<$>), (<|>))
+import           Control.Applicative        (liftA3, pure, (<$>))
 import           Control.Category           ((.))
 import           Control.Monad              (Monad, (>=>), (>>=))
 import           Control.Monad.Except       (throwError)
@@ -17,14 +17,19 @@ import           Test.Tasty                 (TestTree, testGroup)
 import           Test.Tasty.HUnit           (Assertion, assertBool, assertEqual,
                                              assertFailure, testCase, (@?=))
 
+import           Data.Bool                  (Bool (..))
 import qualified Data.ByteString            as BS
 import qualified Data.Either                as Either
 import           Data.Function              (const, ($))
+import           Data.Functor.Alt           ((<!>))
+import qualified Data.Sequence              as Seq
 import           Data.Tagged                (untag)
+import           Data.Text                  (Text)
 
 import           Waargonaut.Generic         (mkDecoder)
 
-import           Waargonaut.Decode.Internal (ppCursorHistory)
+import           Waargonaut.Decode.Internal (ZipperMove (BranchFail),
+                                             ppCursorHistory, unCursorHistory')
 
 import qualified Waargonaut.Decode          as D
 import qualified Waargonaut.Decode.Error    as D
@@ -40,7 +45,8 @@ decoderTests = testGroup "Decoding"
   , testCase "Decode Fail with Bad Key" decodeTestBadObjKey
   , testCase "Decode Fail with Missing Key" decodeTestMissingObjKey
   , testCase "Decode Enum and throwError" decodeTestEnumError
-  , testCase "Decode Using Alternative" decodeAlternative
+  , testCase "Decode Using Alt" decodeAlt
+  , testCase "Decode Using Alt (Error) - Records BranchFail" decodeAltError
   ]
 
 decodeTestMissingObjKey :: Assertion
@@ -117,12 +123,24 @@ decodeTestEnumError = D.runDecode decodeMyEnum parseBS (D.mkCursor "\"WUT\"")
     (\(e, _) -> assertBool "Incorrect Error!" (e == D.ConversionFailure "MyEnum"))
     (const (assertFailure "Should not succeed"))
 
-decodeAlternative :: Assertion
-decodeAlternative = do
-  t <- D.runDecode d parseBS (D.mkCursor "\"FRED\"")
-  i <- D.runDecode d parseBS (D.mkCursor "33")
+decodeEitherAlt :: Monad f => D.Decoder f (Either.Either Text Int)
+decodeEitherAlt = (Either.Left <$> D.text) <!> (Either.Right <$> D.int)
+
+decodeAlt :: Assertion
+decodeAlt = do
+  t <- D.runDecode decodeEitherAlt parseBS (D.mkCursor "\"FRED\"")
+  i <- D.runDecode decodeEitherAlt parseBS (D.mkCursor "33")
 
   t @?= Either.Right (Either.Left "FRED")
   i @?= Either.Right (Either.Right 33)
-  where
-    d = (Either.Left <$> D.text) <|> (Either.Right <$> D.int)
+
+decodeAltError :: Assertion
+decodeAltError = D.runDecode decodeEitherAlt parseBS (D.mkCursor "{\"foo\":33}")
+  >>= Either.either
+                 (\(_,h) -> assertBool "BranchFail error not found in history" $
+                 case Seq.viewr (unCursorHistory' h) of
+                   _ Seq.:> (BranchFail _, _) -> True
+                   _                          -> False
+
+                 )
+                 (\_ -> assertFailure "Alt Error Test should fail")

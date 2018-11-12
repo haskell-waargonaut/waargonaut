@@ -27,6 +27,7 @@ data ZipperMove
   | Item Text
   | L Natural
   | R Natural
+  | BranchFail Text
   deriving (Show, Eq)
 
 -- | Pretty print a given zipper movement, used when printing
@@ -41,6 +42,7 @@ ppZipperMove m = case m of
 
   (DAt k)  -> WL.text "into\\" <+> itxt "key" k
   (Item t) -> WL.text "-::" <+> itxt "item" t
+  (BranchFail t) -> WL.text "(attempted: " <+> ntxt t <+> WL.text ")"
   where
     itxt t k' = WL.parens (WL.text t <+> WL.colon <+> WL.text (Text.unpack k'))
     ntxt n'   = WL.parens (WL.char 'i' <+> WL.char '+' <+> WL.text (show n'))

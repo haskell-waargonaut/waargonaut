@@ -4,9 +4,10 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 module Decoder.Laws (decoderLaws) where
 
-import           Control.Applicative     (Alternative, Applicative, empty,
-                                          liftA3, pure, (<|>))
+import           Control.Applicative     (Applicative, liftA3, pure)
+import           Control.Monad.Except    (throwError)
 
+import           Data.Functor.Alt        (Alt ((<!>)))
 import           Data.Functor.Identity   (Identity)
 
 import           Test.Tasty              (TestTree, testGroup)
@@ -18,7 +19,7 @@ import qualified Hedgehog.Function       as Fn
 import qualified Hedgehog.Gen            as Gen
 
 import qualified Waargonaut.Decode       as D
-import           Waargonaut.Decode.Error (DecodeError)
+import           Waargonaut.Decode.Error (DecodeError (EmptyDecodeFailure))
 import           Waargonaut.Decode.Types (Decoder)
 
 import           Types.Common            (parseBS)
@@ -32,7 +33,10 @@ runSD = runD . unShowDecoder
 newtype ShowDecoder a = SD
   { unShowDecoder :: Decoder Identity a
   }
-  deriving (Functor, Monad, Applicative, Alternative)
+  deriving (Functor, Monad, Applicative)
+
+instance Alt ShowDecoder where
+  (SD a) <!> (SD b) = SD (a <!> b)
 
 instance Eq a => Eq (ShowDecoder a) where
   (SD a) == (SD b) = runD a == runD b
@@ -43,33 +47,40 @@ instance Show a => Show (ShowDecoder a) where
 genShowDecoder :: Gen a -> Gen (ShowDecoder a)
 genShowDecoder genA = Gen.choice
   [ SD . pure <$> genA
-  , SD <$> Gen.constant empty
+  , SD <$> Gen.constant (throwError EmptyDecodeFailure)
   ]
 
 -- |
--- identity
+-- Alt Associative
+-- <!> is associative:             (a <!> b) <!> c = a <!> (b <!> c)
 --
---     (empty <|> a) = a
---     (a <|> empty) = a
-alternative_id :: Property
-alternative_id = property $ do
-  a <- forAll $ genShowDecoder Gen.bool
-
-  runSD (SD empty <|> a) === runSD a
-  runSD (a <|> SD empty) === runSD a
-
--- |
--- associativity
---
---     (a <|> b) <|> c = a <|> (b <|> c)
-alternative_associativity :: Property
-alternative_associativity = property $ do
+alt_associativity :: Property
+alt_associativity = property $ do
   (a,b,c) <- forAll $ liftA3 (,,)
     (genShowDecoder Gen.bool)
     (genShowDecoder Gen.bool)
     (genShowDecoder Gen.bool)
 
-  runSD ((a <|> b) <|> c) === runSD (a <|> (b <|> c))
+  runSD ((a <!> b) <!> c) === runSD (a <!> (b <!> c))
+
+-- |
+-- Alt left distributes
+-- <$> left-distributes over <!>:  f <$> (a <!> b) = (f <$> a) <!> (f <$> b)
+alt_left_distributes
+  :: forall a b.
+     ( Show a, Arg a, Vary a, Eq a
+     , Show b, Arg b, Vary b, Eq b
+     )
+  => Gen a
+  -> Gen b
+  -> Property
+alt_left_distributes genA genB = property $ do
+  f <- Fn.forAllFn $ Fn.fn genA
+
+  a <- forAll (genShowDecoder genB)
+  b <- forAll (genShowDecoder genB)
+
+  runSD ( f <$> (a <!> b) ) === runSD ( (f <$> a) <!> (f <$> b) )
 
 -- |
 -- identity
@@ -147,10 +158,10 @@ applicative_interchange genU genY = property $ do
 
 decoderLaws :: TestTree
 decoderLaws = testGroup "Decoder Laws"
-  [ testProperty "Alternative 'identity'" alternative_id
-  , testProperty "Alternative 'associativity'" alternative_associativity
-  , testProperty "Applicative 'identity'" applicative_id
+  [ testProperty "Applicative 'identity'" applicative_id
   , testProperty "Applicative 'composition'" $ applicative_composition Gen.bool Gen.bool Gen.bool
   , testProperty "Applicative 'homomorphism'" $ applicative_homomorphism Gen.bool Gen.bool
   , testProperty "Applicative 'interchange'" $ applicative_interchange Gen.bool Gen.bool
+  , testProperty "Alt 'associativity'" alt_associativity
+  , testProperty "Alt 'left distributes'" $ alt_left_distributes Gen.bool Gen.bool
   ]
