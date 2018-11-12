@@ -1,14 +1,17 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Decoder
   ( decoderTests
   ) where
 
-import           Prelude                    (Char, Int, String, print, (==))
+import           Prelude                    (Char, Eq, Int, Show, String, print,
+                                             (==))
 
-import           Control.Applicative        (liftA3, (<$>))
+import           Control.Applicative        (liftA3, pure, (<$>))
 import           Control.Category           ((.))
 import           Control.Monad              (Monad, (>=>), (>>=))
+import           Control.Monad.Except       (throwError)
 
 import           Test.Tasty                 (TestTree, testGroup)
 import           Test.Tasty.HUnit           (Assertion, assertBool, assertEqual,
@@ -16,7 +19,7 @@ import           Test.Tasty.HUnit           (Assertion, assertBool, assertEqual,
 
 import qualified Data.ByteString            as BS
 import qualified Data.Either                as Either
-import           Data.Function              (($))
+import           Data.Function              (const, ($))
 import           Data.Tagged                (untag)
 
 import           Waargonaut.Generic         (mkDecoder)
@@ -36,6 +39,7 @@ decoderTests = testGroup "Decoding"
   , testCase "Decode (Char,String,[Int])" decodeTest3Json
   , testCase "Decode Fail with Bad Key" decodeTestBadObjKey
   , testCase "Decode Fail with Missing Key" decodeTestMissingObjKey
+  , testCase "Decode Enum and throwError" decodeTestEnumError
   ]
 
 decodeTestMissingObjKey :: Assertion
@@ -92,3 +96,22 @@ decodeTest3Json = assertBool "(Char,String,[Int]) Decode Success" . Either.isRig
       (D.focus D.unboundedChar fstElem)
       (D.moveRight1 fstElem >>= D.focus D.string)
       (D.moveRightN 2 fstElem >>= D.rightwardSnoc [] D.int)
+
+data MyEnum
+  = A
+  | B
+  | C
+  deriving (Eq, Show)
+
+decodeMyEnum :: Monad f => D.Decoder f MyEnum
+decodeMyEnum = D.text >>= \case
+  "a" -> pure A
+  "b" -> pure B
+  "c" -> pure C
+  _   -> throwError (D.ConversionFailure "MyEnum")
+
+decodeTestEnumError :: Assertion
+decodeTestEnumError = D.runDecode decodeMyEnum parseBS (D.mkCursor "\"WUT\"")
+  >>= Either.either
+    (\(e, _) -> assertBool "Incorrect Error!" (e == D.ConversionFailure "MyEnum"))
+    (const (assertFailure "Should not succeed"))

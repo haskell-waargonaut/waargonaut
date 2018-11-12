@@ -16,9 +16,10 @@ module Waargonaut.Decode.Types
   , JCurs (..)
   ) where
 
+import Control.Applicative (Alternative (..))
 import           Control.Lens                          (Rewrapped, Wrapped (..),
                                                         iso)
-import           Control.Monad.Except                  (MonadError)
+import           Control.Monad.Except                  (MonadError (..))
 import           Control.Monad.Morph                   (MFunctor (..),
                                                         MMonad (..))
 import           Control.Monad.Reader                  (MonadReader,
@@ -64,15 +65,24 @@ newtype Decoder f a = Decoder
   deriving Functor
 
 instance Monad f => Applicative (Decoder f) where
-  pure       = pure
+  pure     a = Decoder $ \_ _ -> pure a
   aToB <*> a = Decoder $ \p c ->
     runDecoder aToB p c <*> runDecoder a p c
+
+instance Monad f => Alternative (Decoder f) where
+  empty = throwError EmptyDecodeFailure
+  a <|> b = Decoder $ \p c -> catchError (runDecoder a p c) (\_ -> runDecoder b p c)
 
 instance Monad f => Monad (Decoder f) where
   return      = pure
   a >>= aToFb = Decoder $ \p c -> do
     r <- runDecoder a p c
     runDecoder (aToFb r) p c
+
+instance Monad f => MonadError DecodeError (Decoder f) where
+  throwError e        = Decoder (\_ _ -> throwError e)
+  catchError d handle = Decoder $ \p c ->
+    catchError (runDecoder d p c) (\e -> runDecoder (handle e) p c)
 
 instance MFunctor Decoder where
   hoist nat (Decoder pjdr) = Decoder (\p -> hoist nat . pjdr p)

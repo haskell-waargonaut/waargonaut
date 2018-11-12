@@ -50,6 +50,7 @@ import qualified Types.Json                  as J
 import qualified Types.Whitespace            as WS
 
 import qualified Decoder
+import qualified Decoder.Laws
 import qualified Encoder
 
 encodeText
@@ -245,5 +246,6 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
   , regressionTests
 
   , Decoder.decoderTests
+  , Decoder.Laws.decoderLaws
   , Encoder.encoderTests
   ]

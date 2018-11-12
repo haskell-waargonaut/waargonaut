@@ -178,6 +178,7 @@ test-suite waarg-tests
                      , tasty-hunit            >= 0.10   && < 0.11
                      , tasty-expected-failure >= 0.11   && < 0.12
                      , hedgehog               >= 0.6    && < 0.7
+                     , hedgehog-fn            >= 0.6    && < 0.7
                      , tasty-hedgehog         >= 0.2    && < 0.3
                      , lens                   >= 4.15   && < 5
                      , distributive           >= 0.5    && < 0.7
@@ -191,6 +192,7 @@ test-suite waarg-tests
                      , attoparsec             >= 0.13   && < 0.15
                      , scientific             >= 0.3    && < 0.4
                      , tagged                 >= 0.8.6  && < 0.9
+                     , mtl                    >= 2.2.2  && < 3
  
 
                      , waargonaut
