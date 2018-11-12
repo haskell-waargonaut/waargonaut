@@ -64,7 +64,7 @@ newtype Decoder f a = Decoder
   deriving Functor
 
 instance Monad f => Applicative (Decoder f) where
-  pure       = pure
+  pure     a = Decoder $ \_ _ -> pure a
   aToB <*> a = Decoder $ \p c ->
     runDecoder aToB p c <*> runDecoder a p c
 
