@@ -8,14 +8,14 @@ module Decoder
 import           Prelude                    (Char, Eq, Int, Show, String, print,
                                              (==))
 
-import           Control.Applicative        (liftA3, pure, (<$>))
+import           Control.Applicative        (liftA3, pure, (<$>), (<|>))
 import           Control.Category           ((.))
 import           Control.Monad              (Monad, (>=>), (>>=))
 import           Control.Monad.Except       (throwError)
 
 import           Test.Tasty                 (TestTree, testGroup)
 import           Test.Tasty.HUnit           (Assertion, assertBool, assertEqual,
-                                             assertFailure, testCase)
+                                             assertFailure, testCase, (@?=))
 
 import qualified Data.ByteString            as BS
 import qualified Data.Either                as Either
@@ -40,6 +40,7 @@ decoderTests = testGroup "Decoding"
   , testCase "Decode Fail with Bad Key" decodeTestBadObjKey
   , testCase "Decode Fail with Missing Key" decodeTestMissingObjKey
   , testCase "Decode Enum and throwError" decodeTestEnumError
+  , testCase "Decode Using Alternative" decodeAlternative
   ]
 
 decodeTestMissingObjKey :: Assertion
@@ -115,3 +116,13 @@ decodeTestEnumError = D.runDecode decodeMyEnum parseBS (D.mkCursor "\"WUT\"")
   >>= Either.either
     (\(e, _) -> assertBool "Incorrect Error!" (e == D.ConversionFailure "MyEnum"))
     (const (assertFailure "Should not succeed"))
+
+decodeAlternative :: Assertion
+decodeAlternative = do
+  t <- D.runDecode d parseBS (D.mkCursor "\"FRED\"")
+  i <- D.runDecode d parseBS (D.mkCursor "33")
+
+  t @?= Either.Right (Either.Left "FRED")
+  i @?= Either.Right (Either.Right 33)
+  where
+    d = (Either.Left <$> D.text) <|> (Either.Right <$> D.int)
