@@ -168,7 +168,9 @@ test-suite waarg-tests
 
                      , Utils
                      , Encoder
+                     , Encoder.Laws
                      , Decoder
+                     , Decoder.Laws
 
   type:                exitcode-stdio-1.0
   main-is:             Main.hs

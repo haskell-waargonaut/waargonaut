@@ -52,6 +52,7 @@ import qualified Types.Whitespace            as WS
 import qualified Decoder
 import qualified Decoder.Laws
 import qualified Encoder
+import qualified Encoder.Laws
 
 encodeText
   :: Json
@@ -246,6 +247,8 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
   , regressionTests
 
   , Decoder.decoderTests
-  , Decoder.Laws.decoderLaws
   , Encoder.encoderTests
+
+  , Decoder.Laws.decoderLaws
+  , Encoder.Laws.encoderLaws
   ]
