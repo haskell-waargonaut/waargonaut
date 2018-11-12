@@ -156,6 +156,63 @@ applicative_interchange genU genY = property $ do
 
   runD (dU <*> pure y) === runD (pure ($ y) <*> dU)
 
+-- |
+-- monad
+--
+--    return a >>= k = k a
+monad_return_bind
+  :: forall a k.
+     ( Show a, Arg a, Vary a, Eq a
+     , Show k, Arg k, Vary k, Eq k
+     )
+  => Gen a
+  -> Gen k
+  -> Property
+monad_return_bind genA genK = property $ do
+  k' <- Fn.forAllFn $ Fn.fn genK
+  a <- forAll genA
+
+  let
+    k = SD . pure . k'
+
+  runSD (return a >>= k) === runSD (k a)
+
+-- |
+-- monad
+--
+--     m >>= return  =  m
+monad_bind_return :: Property
+monad_bind_return = property $ do
+  m <- forAll (genShowDecoder Gen.bool)
+
+  runSD (m >>= return) === runSD m
+
+-- |
+-- monad
+--
+--     m >>= (\x -> k x >>= h)  =  (m >>= k) >>= h
+monad_associativity
+  :: forall m k h.
+     ( Show m, Arg m, Vary m, Eq m
+     , Show k, Arg k, Vary k, Eq k
+     , Show h, Arg h, Vary h, Eq h
+     )
+  => Gen m
+  -> Gen k
+  -> Gen h
+  -> Property
+monad_associativity genM genK genH = property $ do
+  m <- forAll (genShowDecoder genM)
+
+  k' <- Fn.forAllFn $ Fn.fn genK
+  h' <- Fn.forAllFn $ Fn.fn genH
+
+  let
+    k = SD . pure . k'
+    h = SD . pure . h'
+
+  runSD (m >>= (\x -> k x >>= h)) === runSD ( (m >>= k) >>= h )
+
 decoderLaws :: TestTree
 decoderLaws = testGroup "Decoder Laws"
   [ testProperty "Applicative 'identity'" applicative_id
@@ -164,4 +221,7 @@ decoderLaws = testGroup "Decoder Laws"
   , testProperty "Applicative 'interchange'" $ applicative_interchange Gen.bool Gen.bool
   , testProperty "Alt 'associativity'" alt_associativity
   , testProperty "Alt 'left distributes'" $ alt_left_distributes Gen.bool Gen.bool
+  , testProperty "Monad 'return a >>= k = k a'" $ monad_return_bind Gen.bool Gen.bool
+  , testProperty "Monad 'm >>= return = m'" monad_bind_return
+  , testProperty "Monad 'associativity'" $ monad_associativity Gen.bool Gen.bool Gen.bool
   ]
