@@ -118,7 +118,7 @@ library
                      , hoist-error         >= 0.2     && < 0.3
                      , containers          >= 0.5.6   && < 0.7
                      , witherable          >= 0.2     && < 0.3
-                     , generics-sop        >= 0.3.2   && < 4
+                     , generics-sop        >= 0.3.2   && < 0.4
                      , mmorph              >= 1.1     && < 2
                      , transformers        >= 0.4     && < 0.6
                      , bifunctors          >= 5       && < 6
