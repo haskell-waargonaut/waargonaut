@@ -1,9 +1,11 @@
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 module Decoder.Laws (decoderLaws) where
 
-import           Control.Applicative     (empty, liftA3, pure, (<|>))
+import           Control.Applicative     (Alternative, Applicative, empty,
+                                          liftA3, pure, (<|>))
 
 import           Data.Functor.Identity   (Identity)
 
@@ -24,6 +26,26 @@ import           Types.Common            (parseBS)
 runD :: Decoder Identity a -> Either (DecodeError, D.CursorHistory) a
 runD d = D.runPureDecode d parseBS (D.mkCursor "true")
 
+runSD :: ShowDecoder a -> Either (DecodeError, D.CursorHistory) a
+runSD = runD . unShowDecoder
+
+newtype ShowDecoder a = SD
+  { unShowDecoder :: Decoder Identity a
+  }
+  deriving (Functor, Monad, Applicative, Alternative)
+
+instance Eq a => Eq (ShowDecoder a) where
+  (SD a) == (SD b) = runD a == runD b
+
+instance Show a => Show (ShowDecoder a) where
+  show (SD d) = show $ runD d
+
+genShowDecoder :: Gen a -> Gen (ShowDecoder a)
+genShowDecoder genA = Gen.choice
+  [ SD . pure <$> genA
+  , SD <$> Gen.constant empty
+  ]
+
 -- |
 -- identity
 --
@@ -31,10 +53,10 @@ runD d = D.runPureDecode d parseBS (D.mkCursor "true")
 --     (a <|> empty) = a
 alternative_id :: Property
 alternative_id = property $ do
-  a <- forAll Gen.bool
+  a <- forAll $ genShowDecoder Gen.bool
 
-  runD (empty <|> pure a) === pure a
-  runD (pure a <|> empty) === pure a
+  runSD (SD empty <|> a) === runSD a
+  runSD (a <|> SD empty) === runSD a
 
 -- |
 -- associativity
@@ -42,14 +64,12 @@ alternative_id = property $ do
 --     (a <|> b) <|> c = a <|> (b <|> c)
 alternative_associativity :: Property
 alternative_associativity = property $ do
-  (a,b,c) <- forAll (liftA3 (,,) Gen.bool Gen.bool Gen.bool)
+  (a,b,c) <- forAll $ liftA3 (,,)
+    (genShowDecoder Gen.bool)
+    (genShowDecoder Gen.bool)
+    (genShowDecoder Gen.bool)
 
-  let
-    dA = pure a
-    dB = pure b
-    dC = pure c
-
-  runD ((dA <|> dB) <|> dC) === runD (dA <|> (dB <|> dC))
+  runSD ((a <|> b) <|> c) === runSD (a <|> (b <|> c))
 
 -- |
 -- identity
@@ -57,8 +77,8 @@ alternative_associativity = property $ do
 --     pure id <*> v = v
 applicative_id :: Property
 applicative_id = property $ do
-  a <- forAll Gen.bool
-  runD (pure id <*> pure a) === pure a
+  a <- forAll (genShowDecoder Gen.bool)
+  runSD (pure id <*> a) === runSD a
 
 -- |
 -- composition
@@ -78,15 +98,13 @@ applicative_composition genA genB genC = property $ do
   u <- Fn.forAllFn $ Fn.fn genB
   v <- Fn.forAllFn $ Fn.fn genC
 
-  w <- forAll genA
+  w <- forAll (genShowDecoder genA)
 
   let
     dU = pure u
     dV = pure v
 
-    dW = pure w
-
-  runD ( pure (.) <*> dU <*> dV <*> dW ) === runD ( dU <*> ( dV <*> dW ) )
+  runSD ( pure (.) <*> dU <*> dV <*> w ) === runSD ( dU <*> ( dV <*> w ) )
 
 -- |
 -- homomorphism
