@@ -4,6 +4,7 @@
 
 * Add `MonadError` and `Alt` instance for `Decoder`
 * Add property tests for the typeclass laws for `Encoder` and `Decoder`
+* Removed need for `MonadError` constraint on `prismDOrFail`
 
 ## 0.2.0.2  -- 2018-11-12
 
