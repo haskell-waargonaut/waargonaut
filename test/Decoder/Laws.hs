@@ -19,7 +19,7 @@ import qualified Hedgehog.Function       as Fn
 import qualified Hedgehog.Gen            as Gen
 
 import qualified Waargonaut.Decode       as D
-import           Waargonaut.Decode.Error (DecodeError (EmptyDecodeFailure))
+import           Waargonaut.Decode.Error (DecodeError (ConversionFailure))
 import           Waargonaut.Decode.Types (Decoder)
 
 import           Types.Common            (parseBS)
@@ -47,7 +47,7 @@ instance Show a => Show (ShowDecoder a) where
 genShowDecoder :: Gen a -> Gen (ShowDecoder a)
 genShowDecoder genA = Gen.choice
   [ SD . pure <$> genA
-  , SD <$> Gen.constant (throwError EmptyDecodeFailure)
+  , SD <$> Gen.constant (throwError $ ConversionFailure "Intentional DecodeError (TEST)")
   ]
 
 -- |

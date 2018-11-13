@@ -35,7 +35,6 @@ data DecodeError
   | NumberOutOfBounds JNumber
   | InputOutOfBounds Word64
   | ParseFailed Text
-  | EmptyDecodeFailure
   deriving (Show, Eq)
 
 -- | Describes the sorts of errors that may be treated as a 'DecodeError', for use with 'lens'.
@@ -48,7 +47,6 @@ class AsDecodeError r where
   _NumberOutOfBounds :: Prism' r JNumber
   _InputOutOfBounds  :: Prism' r Word64
   _ParseFailed       :: Prism' r Text
-  _EmptyDecodeFailure :: Prism' r ()
 
   _ConversionFailure = _DecodeError . _ConversionFailure
   _KeyDecodeFailed   = _DecodeError . _KeyDecodeFailed
@@ -57,7 +55,6 @@ class AsDecodeError r where
   _NumberOutOfBounds = _DecodeError . _NumberOutOfBounds
   _InputOutOfBounds  = _DecodeError . _InputOutOfBounds
   _ParseFailed       = _DecodeError . _ParseFailed
-  _EmptyDecodeFailure       = _DecodeError . _EmptyDecodeFailure
 
 instance AsDecodeError DecodeError where
   _DecodeError = id
