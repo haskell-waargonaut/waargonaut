@@ -1,5 +1,11 @@
 # Revision history for waargonaut
 
+## 0.2.1.0  -- 2018-11-13
+
+* Add `MonadError` and `Alt` instance for `Decoder`
+* Add property tests for the typeclass laws for `Encoder` and `Decoder`
+* Removed need for `MonadError` constraint on `prismDOrFail`
+
 ## 0.2.0.2  -- 2018-11-12
 
 * Fix `Applicative` instance for `Decoder`.

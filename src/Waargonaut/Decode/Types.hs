@@ -18,13 +18,16 @@ module Waargonaut.Decode.Types
 
 import           Control.Lens                          (Rewrapped, Wrapped (..),
                                                         iso)
-import           Control.Monad.Except                  (MonadError)
+import           Control.Monad.Except                  (MonadError (..))
 import           Control.Monad.Morph                   (MFunctor (..),
                                                         MMonad (..))
 import           Control.Monad.Reader                  (MonadReader,
                                                         ReaderT (..))
 import           Control.Monad.State                   (MonadState)
 import           Control.Monad.Trans.Class             (MonadTrans (lift))
+
+import           Data.Functor.Alt                      (Alt (..))
+import qualified Data.Text                             as Text
 
 import           GHC.Word                              (Word64)
 
@@ -38,7 +41,9 @@ import           HaskellWorks.Data.RankSelect.Poppy512 (Poppy512)
 
 import           Waargonaut.Decode.Internal            (CursorHistory',
                                                         DecodeError (..),
-                                                        DecodeResultT (..))
+                                                        DecodeResultT (..),
+                                                        ZipperMove (BranchFail),
+                                                        recordZipperMove)
 
 import           Waargonaut.Types                      (Json)
 
@@ -68,11 +73,21 @@ instance Monad f => Applicative (Decoder f) where
   aToB <*> a = Decoder $ \p c ->
     runDecoder aToB p c <*> runDecoder a p c
 
+instance Monad f => Alt (Decoder f) where
+  a <!> b = Decoder $ \p c -> catchError (runDecoder a p c) $ \e -> do
+    recordZipperMove (BranchFail . Text.pack $ show e) (cursorRank $ unJCurs c)
+    runDecoder b p c
+
 instance Monad f => Monad (Decoder f) where
   return      = pure
   a >>= aToFb = Decoder $ \p c -> do
     r <- runDecoder a p c
     runDecoder (aToFb r) p c
+
+instance Monad f => MonadError DecodeError (Decoder f) where
+  throwError e        = Decoder (\_ _ -> throwError e)
+  catchError d handle = Decoder $ \p c ->
+    catchError (runDecoder d p c) (\e -> runDecoder (handle e) p c)
 
 instance MFunctor Decoder where
   hoist nat (Decoder pjdr) = Decoder (\p -> hoist nat . pjdr p)

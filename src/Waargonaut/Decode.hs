@@ -86,8 +86,8 @@ import           Control.Lens                              (Cons, Lens', Prism',
                                                             Snoc, cons, lens,
                                                             modifying, preview,
                                                             snoc, traverseOf,
-                                                            view, (.~), (^.), (#),
-                                                            _Wrapped)
+                                                            view, ( # ), (.~),
+                                                            (^.), _Wrapped)
 
 import           Prelude                                   (Bool, Bounded, Char,
                                                             Int, Integral,
@@ -100,15 +100,14 @@ import           Control.Category                          ((.))
 import           Control.Monad                             (Monad (..), (>=>))
 import           Control.Monad.Morph                       (embed, generalize)
 
-import           Control.Monad.Except                      (MonadError, lift,
-                                                            liftEither,
+import           Control.Monad.Except                      (lift, liftEither,
                                                             throwError)
 import           Control.Monad.Reader                      (ReaderT (..), ask,
                                                             local, runReaderT)
 import           Control.Monad.State                       (MonadState)
 
 import           Control.Error.Util                        (note)
-import           Control.Monad.Error.Hoist                 ((<?>),(<!?>))
+import           Control.Monad.Error.Hoist                 ((<!?>), (<?>))
 
 import           Data.Either                               (Either (..))
 import           Data.Foldable                             (foldl)
@@ -148,7 +147,8 @@ import           HaskellWorks.Data.Json.Cursor             (JsonCursor (..))
 import qualified HaskellWorks.Data.Json.Cursor             as JC
 
 
-import           Waargonaut.Decode.Error                   (DecodeError (..), AsDecodeError (..),
+import           Waargonaut.Decode.Error                   (AsDecodeError (..),
+                                                            DecodeError (..),
                                                             Err (..))
 import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
 
@@ -653,13 +653,13 @@ prismD p =
 
 -- | As per 'prismD' but fail the 'Decoder' if unsuccessful.
 prismDOrFail
-  :: MonadError DecodeError f
+  :: Monad f
   => DecodeError
   -> Prism' a b
   -> Decoder f a
   -> Decoder f b
-prismDOrFail e p d = Decoder $ \pf ->
-  DI.prismDOrFail' e p (DI.Decoder' $ runDecoder d pf)
+prismDOrFail e p d = withCursor $
+  focus d >=> \a -> preview p a <?> e
 
 -- | Decode an 'Int'.
 int :: Monad f => Decoder f Int

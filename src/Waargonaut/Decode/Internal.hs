@@ -3,9 +3,9 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE RankNTypes #-}
 -- | Internal types and functions for building Decoder infrastructure.
 module Waargonaut.Decode.Internal
   ( CursorHistory' (..)
@@ -54,7 +54,7 @@ import           Control.Monad.Except          (ExceptT (..), MonadError (..),
 import           Control.Monad.State           (MonadState (..), StateT (..))
 import           Control.Monad.Trans.Class     (MonadTrans (lift))
 
-import           Control.Monad.Error.Hoist                 ((<!?>))
+import           Control.Monad.Error.Hoist     ((<!?>))
 import           Control.Monad.Morph           (MFunctor (..), MMonad (..))
 
 import           Data.Bifunctor                (first)

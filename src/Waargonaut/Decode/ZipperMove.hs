@@ -27,20 +27,22 @@ data ZipperMove
   | Item Text
   | L Natural
   | R Natural
+  | BranchFail Text
   deriving (Show, Eq)
 
 -- | Pretty print a given zipper movement, used when printing
 -- 'Waargonaut.Decode.Internal.CursorHistory'' to improve the readability of the errors.
 ppZipperMove :: ZipperMove -> Doc a
 ppZipperMove m = case m of
-  U        -> WL.text "up/"
-  D        -> WL.text "down\\"
+  U              -> WL.text "up/"
+  D              -> WL.text "down\\"
 
-  (L n)    -> WL.text "-<-" <+> ntxt n
-  (R n)    -> WL.text "->-" <+> ntxt n
+  (L n)          -> WL.text "-<-" <+> ntxt n
+  (R n)          -> WL.text "->-" <+> ntxt n
 
-  (DAt k)  -> WL.text "into\\" <+> itxt "key" k
-  (Item t) -> WL.text "-::" <+> itxt "item" t
+  (DAt k)        -> WL.text "into\\" <+> itxt "key" k
+  (Item t)       -> WL.text "-::" <+> itxt "item" t
+  (BranchFail t) -> WL.text "(attempted: " <+> ntxt t <+> WL.text ")"
   where
     itxt t k' = WL.parens (WL.text t <+> WL.colon <+> WL.text (Text.unpack k'))
     ntxt n'   = WL.parens (WL.char 'i' <+> WL.char '+' <+> WL.text (show n'))

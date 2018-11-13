@@ -25,6 +25,7 @@ module Waargonaut.Encode
 
     -- * Provided encoders
   , int
+  , integral
   , scientific
   , bool
   , text
@@ -55,6 +56,7 @@ module Waargonaut.Encode
 
     -- * Encoders specialised to Identity
   , int'
+  , integral'
   , scientific'
   , bool'
   , text'
@@ -81,11 +83,12 @@ import           Control.Applicative        (Applicative (..), (<$>))
 import           Control.Category           (id, (.))
 import           Control.Lens               (AReview, At, Index, IxValue,
                                              Prism', Rewrapped, Wrapped (..),
-                                             at, cons, iso, ( # ), (?~), _Empty,
-                                             _Wrapped)
+                                             at, cons, iso, review, ( # ), (?~),
+                                             _Empty, _Wrapped)
 import qualified Control.Lens               as L
 
-import           Prelude                    (Bool, Int, Monad)
+import           Prelude                    (Bool, Int, Integral, Monad,
+                                             fromIntegral)
 
 import           Data.Foldable              (Foldable, foldr, foldrM)
 import           Data.Function              (const, flip, ($), (&))
@@ -190,7 +193,7 @@ encToJsonNoSpaces
   -> (a -> b)
   -> Encoder f a
 encToJsonNoSpaces c f =
-  encodeA (pure . (c #) . (,mempty) . f)
+  encodeA (pure . review c . (,mempty) . f)
 
 -- | Build an 'Encoder' using a 'Control.Lens.Prism''
 prismE
@@ -207,6 +210,10 @@ int = encToJsonNoSpaces _JNum (_JNumberInt #)
 -- | Encode an 'Scientific'
 scientific :: Applicative f => Encoder f Scientific
 scientific = encToJsonNoSpaces _JNum (_JNumberScientific #)
+
+-- | Encode a numeric value of the typeclass 'Integral'
+integral :: (Applicative f, Integral n) => Encoder f n
+integral = encToJsonNoSpaces _JNum (review _JNumberScientific . fromIntegral)
 
 -- | Encode a 'Bool'
 bool :: Applicative f => Encoder f Bool
@@ -292,6 +299,10 @@ json' = json
 -- | As per 'int' but with the 'f' specialised to 'Data.Functor.Identity'.
 int' :: Encoder' Int
 int' = int
+
+-- | As per 'integral' but with the 'f' specialised to 'Data.Functor.Identity'.
+integral' :: Integral n => Encoder' n
+integral' = integral
 
 -- | As per 'scientific' but with the 'f' specialised to 'Data.Functor.Identity'.
 scientific' :: Encoder' Scientific

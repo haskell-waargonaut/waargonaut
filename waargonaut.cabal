@@ -10,7 +10,7 @@ name:                waargonaut
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.2.0.2
+version:             0.2.1.0
 
 -- A short (one-line) description of the package.
 synopsis:            JSON wrangling
@@ -130,6 +130,7 @@ library
                      , hw-rankselect       >= 0.10    && < 0.13
                      , hw-bits             >= 0.7     && < 0.8
                      , tagged              >= 0.8.6   && < 0.9
+                     , semigroupoids       >= 5.2.2   && < 6
 
   -- Directories containing source files.
   hs-source-dirs:      src
@@ -167,7 +168,9 @@ test-suite waarg-tests
 
                      , Utils
                      , Encoder
+                     , Encoder.Laws
                      , Decoder
+                     , Decoder.Laws
 
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
@@ -178,6 +181,7 @@ test-suite waarg-tests
                      , tasty-hunit            >= 0.10   && < 0.11
                      , tasty-expected-failure >= 0.11   && < 0.12
                      , hedgehog               >= 0.6    && < 0.7
+                     , hedgehog-fn            >= 0.6    && < 0.7
                      , tasty-hedgehog         >= 0.2    && < 0.3
                      , lens                   >= 4.15   && < 5
                      , distributive           >= 0.5    && < 0.7
@@ -191,6 +195,9 @@ test-suite waarg-tests
                      , attoparsec             >= 0.13   && < 0.15
                      , scientific             >= 0.3    && < 0.4
                      , tagged                 >= 0.8.6  && < 0.9
+                     , mtl                    >= 2.2.2  && < 3
+                     , semigroupoids          >= 5.2.2  && < 6
+                     , containers             >= 0.5.6  && < 0.7
  
 
                      , waargonaut
