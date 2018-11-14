@@ -1,5 +1,9 @@
 # Revision history for waargonaut
 
+## 0.3.0.0  -- 2018-11-14
+
+* Change to use the `natural` package for `Natural` numbers.
+
 ## 0.2.1.0  -- 2018-11-13
 
 * Add `MonadError` and `Alt` instance for `Decoder`
