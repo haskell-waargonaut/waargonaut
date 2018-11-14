@@ -120,17 +120,15 @@ import           Data.Monoid                               (mempty)
 
 import           Data.Scientific                           (Scientific)
 
-import           Data.List                                 (replicate)
 import           Data.List.NonEmpty                        (NonEmpty ((:|)))
 import           Data.Maybe                                (Maybe (..),
                                                             fromMaybe, maybe)
+import           Natural                                   (Natural, replicate, zero', successor')
 
 import           Data.Text                                 (Text)
 
 import           Data.ByteString.Char8                     (ByteString)
 import qualified Data.ByteString.Char8                     as BS8
-
-import           Numeric.Natural                           (Natural)
 
 import           Waargonaut.Types
 
@@ -212,7 +210,7 @@ cursorRankL = lens JC.cursorRank (\c r -> c { cursorRank = r })
 
 -- | Execute the given function 'n' times'.
 manyMoves :: Monad m => Natural -> (b -> m b) -> b -> m b
-manyMoves i g = foldl (>=>) pure (replicate (fromIntegral i) g)
+manyMoves i g = foldl (>=>) pure (replicate i g)
 
 -- | Generalise a 'Decoder' that has been specialised to 'Identity' back to some 'Monad f'.
 generaliseDecoder :: Monad f => Decoder Identity a -> Decoder f a
@@ -320,7 +318,7 @@ moveRight1
   => JCurs
   -> DecodeResult f JCurs
 moveRight1 =
-  moveRightN 1
+  moveRightN (successor' zero')
 
 -- | Helper function to move left once.
 --
@@ -432,7 +430,7 @@ moveToKey k c = do
     -- Then move into the THING at the key
     then recordRank (DAt k) c >> moveRight1 c
     -- Try jump to the next key index
-    else ( DI.try (moveRightN 2 c) <!?> (_KeyNotFound # k) ) >>= moveToKey k
+    else ( DI.try (moveRightN (successor' (successor' zero')) c) <!?> (_KeyNotFound # k) ) >>= moveToKey k
 
 -- | Move to the first occurence of this key, as per 'moveToKey' and then
 -- attempt to run the given 'Decoder' on that value, returning the result.

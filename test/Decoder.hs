@@ -26,6 +26,8 @@ import qualified Data.Sequence              as Seq
 import           Data.Tagged                (untag)
 import           Data.Text                  (Text)
 
+import qualified Natural                    as N
+
 import           Waargonaut.Generic         (mkDecoder)
 
 import           Waargonaut.Decode.Internal (ZipperMove (BranchFail),
@@ -102,7 +104,7 @@ decodeTest3Json = assertBool "(Char,String,[Int]) Decode Success" . Either.isRig
     decoder = D.withCursor $ D.down >=> \fstElem -> liftA3 (,,)
       (D.focus D.unboundedChar fstElem)
       (D.moveRight1 fstElem >>= D.focus D.string)
-      (D.moveRightN 2 fstElem >>= D.rightwardSnoc [] D.int)
+      (D.moveRightN (N.successor' (N.successor' N.zero')) fstElem >>= D.rightwardSnoc [] D.int)
 
 data MyEnum
   = A

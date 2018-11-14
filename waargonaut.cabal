@@ -10,7 +10,7 @@ name:                waargonaut
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.2.1.0
+version:             0.3.0.0
 
 -- A short (one-line) description of the package.
 synopsis:            JSON wrangling
@@ -131,6 +131,7 @@ library
                      , hw-bits             >= 0.7     && < 0.8
                      , tagged              >= 0.8.6   && < 0.9
                      , semigroupoids       >= 5.2.2   && < 6
+                     , natural             >= 0.3     && < 4
 
   -- Directories containing source files.
   hs-source-dirs:      src
@@ -198,7 +199,7 @@ test-suite waarg-tests
                      , mtl                    >= 2.2.2  && < 3
                      , semigroupoids          >= 5.2.2  && < 6
                      , containers             >= 0.5.6  && < 0.7
- 
+                     , natural                >= 0.3    && < 4
 
                      , waargonaut
 

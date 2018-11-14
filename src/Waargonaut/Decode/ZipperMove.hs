@@ -12,7 +12,7 @@ import qualified Control.Lens                  as L
 import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
 
-import           Numeric.Natural               (Natural)
+import           Natural                       (Natural)
 
 import           Text.PrettyPrint.Annotated.WL (Doc, (<+>))
 import qualified Text.PrettyPrint.Annotated.WL as WL
