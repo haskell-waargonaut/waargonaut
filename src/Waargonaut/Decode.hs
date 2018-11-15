@@ -466,8 +466,8 @@ fromKey k d =
 --
 -- myRecDecoder :: Decoder f MyRec
 -- myRecDecoder = MyRec
---   <$> atKey "field_a" text
---   <*> atKey "field_b" int
+--   \<$> atKey "field_a" text
+--   \<*> atKey "field_b" int
 -- @
 --
 atKey
@@ -705,8 +705,9 @@ nonemptyAt
   -> DecodeResult f (NonEmpty a)
 nonemptyAt elemD = down >=> \curs -> do
   h <- focus elemD curs
-  xs <- moveRight1 curs
-  (h :|) <$> rightwardSnoc [] elemD xs
+  DI.try (moveRight1 curs) >>= maybe
+    (pure $ h :| [])
+    (fmap (h :|) . rightwardSnoc [] elemD)
 
 -- | Helper to create a 'NonEmpty a' 'Decoder'.
 nonempty :: Monad f => Decoder f a -> Decoder f (NonEmpty a)

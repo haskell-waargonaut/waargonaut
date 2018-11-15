@@ -39,8 +39,8 @@ module Waargonaut.Types.CommaSep
   , unconsCommaSep
   ) where
 
-import           Prelude                 (Eq, Int, Show (showsPrec), otherwise,
-                                          showString, shows, (&&), (<=), (==))
+import           Prelude                 (Eq, Int, Show (showsPrec),
+                                          showString, shows, (&&), (==), (||))
 
 import           Control.Applicative     (Applicative (..), liftA2, pure, (*>),
                                           (<*), (<*>))
@@ -318,12 +318,10 @@ instance Ixed (CommaSeparated ws a) where
 
   ix _ _ c@(CommaSeparated _ Nothing) = pure c
 
-  ix i f c@(CommaSeparated w (Just es))
-    | i == 0 && es ^. elemsElems . to V.null =
-      CommaSeparated w . Just <$> (es & elemsLast . traverse %%~ f)
-    | i <= es ^. elemsElems . to length =
-      CommaSeparated w . Just <$> (es & elemsElems . ix i . traverse %%~ f)
-    | otherwise = pure c
+  ix i f (CommaSeparated w (Just es)) = CommaSeparated w . Just <$>
+    if i == 0 && es ^. elemsElems . to V.null || i == es ^. elemsElems . to length
+    then es & elemsLast . traverse %%~ f
+    else es & elemsElems . ix i . traverse %%~ f
 
 -- | Convert a list of 'a' to a 'CommaSeparated' list, with no whitespace.
 fromList :: (Monoid ws, Semigroup ws) => [a] -> CommaSeparated ws a

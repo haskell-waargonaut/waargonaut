@@ -23,6 +23,7 @@ module Waargonaut.Types.JObject
   , MapLikeObj
   , toMapLikeObj
   , fromMapLikeObj
+  , _MapLikeObj
 
     -- * Parser / Builder
   , jObjectBuilder
@@ -35,10 +36,11 @@ import           Prelude                   (Eq, Int, Show, elem, not, otherwise,
 import           Control.Applicative       ((<*), (<*>))
 import           Control.Category          (id, (.))
 import           Control.Lens              (AsEmpty (..), At (..), Index,
-                                            IxValue, Ixed (..), Lens',
+                                            IxValue, Ixed (..), Lens', Prism,
                                             Rewrapped, Wrapped (..), cons,
                                             isn't, iso, nearly, re, to, ( # ),
-                                            (.~), (<&>), (^.), (^?), _Wrapped)
+                                            (.~), (<&>), (^.), (^?),
+                                            _Unwrapping, _Wrapped)
 
 import           Control.Monad             (Monad)
 import           Data.Bifoldable           (Bifoldable (bifoldMap))
@@ -222,6 +224,9 @@ instance Monoid ws => Ixed (MapLikeObj ws a) where
 instance Monoid ws => At (MapLikeObj ws a) where
   at k f (MLO (JObject cs)) = jAssocAlterF k f (find (textKeyMatch k) cs) <&>
     MLO . JObject . maybe (W.filter (not . textKeyMatch k) cs) (`cons` cs)
+
+_MapLikeObj :: Prism (JObject ws a) (JObject ws a) (MapLikeObj ws a) (MapLikeObj ws a)
+_MapLikeObj = _Unwrapping MLO
 
 instance Bifunctor MapLikeObj where
   bimap f g (MLO o) = MLO (bimap f g o)

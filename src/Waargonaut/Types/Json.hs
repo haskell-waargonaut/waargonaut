@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
-{-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE DeriveTraversable      #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
@@ -30,16 +29,22 @@ module Waargonaut.Types.Json
   , jsonWSTraversal
   , jtypeTraversal
   , jtypeWSTraversal
+
+  -- * Optics
+  , oat
+  , oix
   ) where
 
 
-import           Prelude                     (Eq, Show)
+import           Prelude                     (Eq, Int, Show)
 
-import           Control.Applicative         (pure, (<$>), (<*>), (<|>))
+import           Control.Applicative         (Applicative, pure, (<$>), (<*>),
+                                              (<|>))
 import           Control.Category            (id, (.))
 import           Control.Lens                (Prism', Rewrapped, Traversal,
-                                              Traversal', Wrapped (..), iso,
-                                              prism, traverseOf, _Wrapped)
+                                              Traversal', Wrapped (..), at, iso,
+                                              ix, prism, traverseOf, _1,
+                                              _Wrapped)
 
 import           Control.Monad               (Monad)
 
@@ -59,6 +64,8 @@ import           Data.Tuple                  (uncurry)
 
 import           Data.ByteString.Builder     (Builder)
 import qualified Data.ByteString.Builder     as BB
+import           Data.Maybe                  (Maybe)
+import           Data.Text                   (Text)
 
 import           Text.Parser.Char            (CharParsing, text)
 
@@ -67,7 +74,7 @@ import           Waargonaut.Types.JArray     (JArray (..), jArrayBuilder,
 import           Waargonaut.Types.JNumber    (JNumber, jNumberBuilder,
                                               parseJNumber)
 import           Waargonaut.Types.JObject    (JObject (..), jObjectBuilder,
-                                              parseJObject)
+                                              parseJObject, _MapLikeObj)
 import           Waargonaut.Types.JString    (JString, jStringBuilder,
                                               parseJString)
 import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
@@ -212,6 +219,30 @@ jTypesBuilder s (JNum jn tws)   = jNumberBuilder jn                             
 jTypesBuilder s (JStr js tws)   = jStringBuilder js                             <> s tws
 jTypesBuilder s (JArr js tws)   = jArrayBuilder s waargonautBuilder js          <> s tws
 jTypesBuilder s (JObj jobj tws) = jObjectBuilder s waargonautBuilder jobj       <> s tws
+
+oat
+  :: ( AsJType r ws a
+     , Applicative f
+     , Monoid ws
+     )
+  => Text
+  -> (Maybe a -> f (Maybe a))
+  -> r
+  -> f r
+oat k =
+  _JObj . _1 . _MapLikeObj . at k
+
+oix
+  :: ( AsJType r ws a
+     , Applicative f
+     , Monoid ws
+     )
+  => Int
+  -> (a -> f a)
+  -> r
+  -> f r
+oix i =
+  _JObj . _1 . ix i
 
 -- | Parse a 'null' value.
 --
