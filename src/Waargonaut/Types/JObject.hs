@@ -30,17 +30,17 @@ module Waargonaut.Types.JObject
   , parseJObject
   ) where
 
-import           Prelude                   (Eq, Int, Show, elem, not, otherwise,
-                                            (==))
+import           Prelude                   (Eq, Int, Show, elem, fst, not,
+                                            otherwise, (==))
 
 import           Control.Applicative       ((<*), (<*>))
 import           Control.Category          (id, (.))
-import           Control.Lens              (AsEmpty (..), At (..), Index,
-                                            IxValue, Ixed (..), Lens', Prism,
-                                            Rewrapped, Wrapped (..), cons,
-                                            isn't, iso, nearly, re, to, ( # ),
-                                            (.~), (<&>), (^.), (^?),
-                                            _Unwrapping, _Wrapped)
+import           Control.Lens              (AsEmpty (..), At (..), Index, 
+                                            IxValue, Ixed (..), Lens', Prism',
+                                            Rewrapped, Wrapped (..), cons, 
+                                            isn't, iso, nearly, prism', re, to,
+                                            ( # ), (.~), (<&>), (^.), (^?),
+                                            _Wrapped)
 
 import           Control.Monad             (Monad)
 import           Data.Bifoldable           (Bifoldable (bifoldMap))
@@ -204,6 +204,9 @@ newtype MapLikeObj ws a = MLO
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
+_MapLikeObj :: Monoid ws => Prism' (JObject ws a) (MapLikeObj ws a)
+_MapLikeObj = prism' fromMapLikeObj (Just . fst . toMapLikeObj)
+
 instance MapLikeObj ws a ~ t => Rewrapped (MapLikeObj ws a) t
 
 instance Wrapped (MapLikeObj ws a) where
@@ -224,9 +227,6 @@ instance Monoid ws => Ixed (MapLikeObj ws a) where
 instance Monoid ws => At (MapLikeObj ws a) where
   at k f (MLO (JObject cs)) = jAssocAlterF k f (find (textKeyMatch k) cs) <&>
     MLO . JObject . maybe (W.filter (not . textKeyMatch k) cs) (`cons` cs)
-
-_MapLikeObj :: Prism (JObject ws a) (JObject ws a) (MapLikeObj ws a) (MapLikeObj ws a)
-_MapLikeObj = _Unwrapping MLO
 
 instance Bifunctor MapLikeObj where
   bimap f g (MLO o) = MLO (bimap f g o)
