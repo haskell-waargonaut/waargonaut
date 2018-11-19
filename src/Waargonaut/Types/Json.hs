@@ -58,7 +58,7 @@ import           Data.Foldable               (Foldable (..), asum)
 import           Data.Function               (flip)
 import           Data.Functor                (Functor (..))
 import           Data.Monoid                 (Monoid (..))
-import           Data.Semigroup              ((<>))
+import           Data.Semigroup              (Semigroup, (<>))
 import           Data.Traversable            (Traversable (..))
 import           Data.Tuple                  (uncurry)
 

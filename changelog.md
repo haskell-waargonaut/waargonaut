@@ -10,6 +10,8 @@
 * Fixed bug in documentation for `atKey`
 * Added `_MapLikeObj` `Prism`
 * Added some optics into object / maplikeobj keys
+* Fixed bug in `maybeOrNull` decoder to be more strict in what it accepts
+* Rewrote `either` decoder in terms of the alternative instance to allow for better errors
 
 ## 0.3.0.0  -- 2018-11-14
 
