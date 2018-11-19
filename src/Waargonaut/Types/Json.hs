@@ -235,17 +235,17 @@ jTypesBuilder s (JObj jobj tws) = jObjectBuilder s waargonautBuilder jobj       
 -- >>> E.simplePureEncodeNoSpaces E.json (obj & oat "d" ?~ E.runPureEncoder E.text "sally")
 -- "{\"d\":\"sally\",\"a\":33,\"b\":\"Fred\"}"
 --
-oat :: (AsJType r ws a, Monoid ws) => Text -> Traversal' r (Maybe a)
+oat :: (AsJType r ws a, Semigroup ws, Monoid ws) => Text -> Traversal' r (Maybe a)
 oat k = _JObj . _1 . _MapLikeObj . at k
 
 -- |
 -- A 'Control.Lens.Traversal'' over the 'a' at the given 'Int' position in a JSON object.
-oix :: (Monoid ws, AsJType r ws a) => Int -> Traversal' r a
+oix :: (Semigroup ws, Monoid ws, AsJType r ws a) => Int -> Traversal' r a
 oix i = _JObj . _1 . ix i
 
 -- |
 -- A 'Control.Lens.Traversal'' over the 'a' at the given 'Int' position in a JSON array.
-aix :: (AsJType r ws a, Monoid ws) => Int -> Traversal' r a
+aix :: (AsJType r ws a, Semigroup ws, Monoid ws) => Int -> Traversal' r a
 aix i = _JArr . _1 . ix i
 
 
