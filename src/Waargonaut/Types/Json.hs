@@ -240,11 +240,21 @@ oat k = _JObj . _1 . _MapLikeObj . at k
 
 -- |
 -- A 'Control.Lens.Traversal'' over the 'a' at the given 'Int' position in a JSON object.
+--
+-- >>> E.simplePureEncodeNoSpaces E.json (obj & oix 0 .~ E.runPureEncoder E.int 1)
+-- "{\"a\":1,\"b\":\"Fred\"}"
+-- >>> E.simplePureEncodeNoSpaces E.json (obj & oix 1 .~ E.runPureEncoder E.text "sally")
+-- "{\"a\":33,\"b\":\"sally\"}"
 oix :: (Semigroup ws, Monoid ws, AsJType r ws a) => Int -> Traversal' r a
 oix i = _JObj . _1 . ix i
 
 -- |
 -- A 'Control.Lens.Traversal'' over the 'a' at the given 'Int' position in a JSON array.
+--
+-- >>> E.simplePureEncodeNoSpaces E.json ((E.runPureEncoder (E.list E.int) [1,2,3]) & aix 0 .~ E.runPureEncoder E.int 99)
+-- "[99,2,3]"
+-- >>> E.simplePureEncodeNoSpaces E.json ((E.runPureEncoder (E.list E.int) [1,2,3]) & aix 2 .~ E.runPureEncoder E.int 44)
+-- "[1,2,44]"
 aix :: (AsJType r ws a, Semigroup ws, Monoid ws) => Int -> Traversal' r a
 aix i = _JArr . _1 . ix i
 
