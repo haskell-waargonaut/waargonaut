@@ -14,15 +14,21 @@ module Laws
   , monad_return_bind
   , monad_bind_return_id
   , monad_associativity
+
+  , contravariant_identity
+  , contravariant_composition
+  , contravariant_identity_with_run
+  , contravariant_composition_with_run
   ) where
 
-import           Control.Applicative (liftA3)
+import           Control.Applicative        (liftA3)
 
-import           Data.Functor.Alt    (Alt (..))
+import           Data.Functor.Alt           (Alt (..))
+import           Data.Functor.Contravariant (Contravariant, contramap)
 
 import           Hedgehog
-import           Hedgehog.Function   (Arg, Vary)
-import qualified Hedgehog.Function   as Fn
+import           Hedgehog.Function          (Arg, Vary)
+import qualified Hedgehog.Function          as Fn
 
 fmap_compose
   :: forall f a b c
@@ -252,3 +258,94 @@ monad_associativity genF genM genK genH = property $ do
   h <- Fn.forAllFn $ Fn.fn (genF genH)
 
   (m >>= (\x -> k x >>= h)) === ( (m >>= k) >>= h )
+
+-- |
+-- contravariant
+--
+--     contramap f . contramap g = contramap (g . f)
+contravariant_composition
+  :: forall f a b c.
+     ( Contravariant f
+     , Show a, Arg a, Vary a, Eq (f a), Show (f a)
+     , Show b, Arg b, Vary b, Eq b
+     , Show c, Show (f c)
+     )
+  => (forall x. Gen x -> Gen (f x))
+  -> Gen a
+  -> Gen b
+  -> Gen c
+  -> Property
+contravariant_composition genF _genA genB genC = property $ do
+  f <- Fn.forAllFn $ (Fn.fn genB :: Gen (Fn.Fn a b))
+  g <- Fn.forAllFn $ (Fn.fn genC :: Gen (Fn.Fn b c))
+
+  fc <- forAll (genF genC)
+
+  (contramap f . contramap g) fc === contramap (g . f) fc
+
+-- |
+-- contravariant
+--
+--     contramap id a = a
+contravariant_identity
+  :: forall f a.
+     ( Contravariant f
+     , Show a, Arg a, Vary a
+     , Show (f a)
+     , Eq (f a)
+     )
+  => (forall x. Gen x -> Gen (f x))
+  -> Gen a
+  -> Property
+contravariant_identity genF genA = property $ do
+  a <- forAll (genF genA)
+
+  contramap id a === a
+
+-- |
+-- contravariant
+--
+--     contramap f . contramap g = contramap (g . f)
+contravariant_composition_with_run
+  :: forall f a b c x.
+     ( Contravariant f
+     , Show a, Arg a, Vary a
+     , Show b, Arg b, Vary b, Eq b
+     , Show c, Show (f c)
+     , Eq x, Show x
+     )
+  => (Gen c -> Gen (f c))
+  -> (f a -> a -> x)
+  -> Gen a
+  -> Gen b
+  -> Gen c
+  -> Property
+contravariant_composition_with_run genF runF genA genB genC = property $ do
+  f <- Fn.forAllFn $ (Fn.fn genB :: Gen (Fn.Fn a b))
+  g <- Fn.forAllFn $ (Fn.fn genC :: Gen (Fn.Fn b c))
+
+  a <- forAll genA
+  fc <- forAll (genF genC)
+
+  runF ((contramap f . contramap g) fc) a === runF (contramap (g . f) fc) a
+
+-- |
+-- contravariant
+--
+--     contramap id a = a
+contravariant_identity_with_run
+  :: forall f a b.
+     ( Contravariant f
+     , Show a, Arg a, Vary a, Eq a
+     , Show b, Eq b
+     , Show (f a)
+     )
+  => (Gen a -> Gen (f a))
+  -> (f a -> a -> b)
+  -> Gen a
+  -> Property
+contravariant_identity_with_run genF runF genA = property $ do
+  fa <- forAll (genF genA)
+  a <- forAll genA
+
+  runF (contramap id fa) a === runF fa a

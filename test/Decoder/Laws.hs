@@ -42,7 +42,7 @@ instance Show a => Show (ShowDecoder a) where
 genShowDecoder :: Gen a -> Gen (ShowDecoder a)
 genShowDecoder genA = Gen.choice
   [ SD . pure <$> genA
-  , SD <$> Gen.constant (throwError $ ConversionFailure "Intentional DecodeError (TEST)")
+  , SD        <$> Gen.constant (throwError $ ConversionFailure "Intentional DecodeError (TEST)")
   ]
 
 decoderLaws :: TestTree

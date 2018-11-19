@@ -10,7 +10,7 @@
 }:
 mkDerivation {
   pname = "waargonaut";
-  version = "0.3.0.0";
+  version = "0.4.0.0";
   src = ./.;
   setupHaskellDepends = [ base Cabal cabal-doctest ];
   libraryHaskellDepends = [
@@ -21,9 +21,9 @@ mkDerivation {
     transformers vector witherable wl-pprint-annotated zippers
   ];
   testHaskellDepends = [
-    attoparsec base bytestring containers digit directory distributive
-    doctest filepath generics-sop hedgehog hedgehog-fn lens mtl natural
-    scientific semigroupoids semigroups tagged tasty
+    attoparsec base bytestring containers contravariant digit directory
+    distributive doctest filepath generics-sop hedgehog hedgehog-fn
+    lens mtl natural scientific semigroupoids semigroups tagged tasty
     tasty-expected-failure tasty-hedgehog tasty-hunit template-haskell
     text vector zippers
   ];
