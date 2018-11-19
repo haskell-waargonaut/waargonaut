@@ -12,7 +12,6 @@
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeFamilies           #-}
 -- | Top level types and functions for Waargonaut 'Json' types.
-
 module Waargonaut.Types.Json
   (
     -- * Inner JSON types
@@ -198,6 +197,7 @@ jsonWSTraversal = traverseOf (_Wrapped . jtypeWSTraversal)
 jtypeWSTraversal :: Traversal (JType ws a) (JType ws' a) ws ws'
 jtypeWSTraversal = flip bitraverse pure
 
+-- | Traverse the possible values of a 'JType', skipping whitespace.
 jtypeTraversal :: Traversal (JType ws a) (JType ws a') a a'
 jtypeTraversal = bitraverse pure
 

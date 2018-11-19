@@ -1,19 +1,35 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DefaultSignatures          #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GADTs                      #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures             #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE PolyKinds                  #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
+-- |
+--
+-- This module contains the types and functions that power the 'Generic' functions for Waargonaut. Code
+-- that writes the code so you don't have to.
+--
 module Waargonaut.Generic
   (
+    -- * Rationale
+    -- $rationale
+
+    -- * Quick Start
+    -- $quick
+
+    -- * Tagged
+    -- $tagged
+
+    -- * GHC >= 8 Convenience
+    -- $nice
+
     -- * TypeClasses
     JsonEncode (..)
   , JsonDecode (..)
@@ -25,6 +41,7 @@ module Waargonaut.Generic
   , NewtypeName (..)
   , Options (..)
   , defaultOpts
+  , trimPrefixLowerFirst
 
     -- * Creation
   , gEncoder
@@ -32,7 +49,6 @@ module Waargonaut.Generic
 
     -- * Reexports
   , module Data.Tagged
-
   , Generic (..)
   , HasDatatypeInfo (..)
   ) where
@@ -46,6 +62,7 @@ import           Control.Monad.State           (modify)
 
 import           Data.Functor.Identity         (runIdentity)
 
+import qualified Data.Char                     as Char
 import           Data.Maybe                    (fromMaybe)
 
 import           Data.List.NonEmpty            (NonEmpty)
@@ -73,11 +90,166 @@ import           Waargonaut.Decode.Error       (DecodeError (..))
 import           Waargonaut.Decode.Internal    (CursorHistory' (..),
                                                 DecodeResultT (..))
 
--- | This is a provided tag that can be used for tagging the 'JsonEncode' and 'JsonDecode' instances.
+-- $setup
+-- >>> :set -XOverloadedStrings
+
+-- $rationale
+-- Although creating your 'Decoder's and 'Encoder's explicitly is the preferred way of utilising
+-- Waargonaut. The 'Generic' mechanism within Haskell provides immense opportunity to reduce or
+-- eliminate the need to write code. Given the mechanical nature of JSON this a benefit that cannot
+-- be ignored. 
+--
+-- There are two typeclasses provided, 'JsonEncode' and 'JsonDecode'. Each with a single function
+-- that will generate a 'Encoder' or 'Decoder' for that type. Normally, typeclasses such as these
+-- are only parameterised over the type that is to be encoded/decoded. Which is acceptable if there
+-- is only ever a single possible way to encode or decode a value of that type. However this is
+-- rarely the case, even with respect to strings or numbers.
+--
+-- To account for this, the 'JsonEncode' and 'JsonDecode' typeclasses require an additional type
+-- parameter @ t @. This parameter allows you to differentiate between the alternative ways of
+-- encoding or decoding a single type @ a @. This parameter is attached to the 'Encoder' or
+-- 'Decoder' using the 'Tagged' newtype. Allowing the type system to help you keep track of them.
+--
+
+-- $quick
+-- A quick example on how to use the Waargonaut 'Generic' functionality. We will use the following
+-- type and let GHC and 'Generic' write our 'Encoder' and 'Decoder' for us.
+--
+-- @
+-- data Image = Image
+--   { _imageWidth    :: Int
+--   , _imageHeight   :: Int
+--   , _imageTitle    :: Text
+--   , _imageAnimated :: Bool
+--   , _imageIDs      :: [Int]
+--   }
+--   deriving (Eq, Show)
+-- @
+--
+-- Ensure we have the required imports and language options:
+--
+-- @
+-- {-\# LANGUAGE DeriveGeneric \#-}
+-- import qualified GHC.Generic as GHC
+-- import Waargonaut.Generic (Generic, HasDatatypeInfo, JsonEncode, JsonDecode, GWaarg)
+-- @
+--
+-- Update our data type 'deriving' to have GHC to do the heavy lifting:
+--
+-- @
+-- data Image = Image
+--   ...
+--   deriving (..., GHC.Generic)
+-- @
+--
+-- Because Waargonaut uses the <https://hackage.haskell.org/package/generics-sop 'generics-sop'>
+-- package to make the 'Generic' functions easier to write and maintain. We need two more instances,
+-- note that we don't have to write these either. We can leave these empty and the default
+-- implementations, courtesy of 'Generic', will handle it for us.
+--
+-- @
+-- instance HasDatatypeInfo Image
+-- instance Generic Image
+-- @
+--
+-- Now we can define our 'JsonEncode' and 'JsonDecode' instances. We need to provide the @ t @
+-- parameter. Assume we have no special requirements, so we can use the 'GWaarg' tag.
+--
+-- @
+-- instance JsonEncode GWaarg Image
+-- instance JsonDecode GWaarg Image
+-- @
+--
+-- That's it! We can now use 'mkEncoder' and 'mkDecoder' to write the code for our @Image@ type.
+-- These will be tagged with our 'GWaarg' phantom type parameter:
+--
+-- @
+-- mkEncoder :: Applicative f => Tagged GWaarg (Encoder f Image)
+-- mkDecoder :: Monad f       => Tagged GWaarg (Decoder f Image)
+-- @
+--
+-- The encoding and decoding "runner" functions will require that you remove the tag. You can use
+-- the 'untag' function for this. The next section will discuss the 'Tagged' type.
+--
+-- There is Template Haskell available that can write all of the 'Generic' deriving for you, see the
+-- <https://hackage.haskell.org/package/generics-sop/docs/Generics-SOP-TH.html 'Generics.SOP.TH'>
+-- module in the 'generics-sop' package for more. Given how little boilerplate code is required and
+-- that the Template Haskell extension enforces a strict ordering of code within the file. It is not
+-- the recommended solution. But I'm not your supervisor, I'm just a library.
+
+-- $tagged
+-- #tagged#
+-- The 'Tagged' type comes from the <https://hackage.haskell.org/package/tagged 'tagged'> package.
+-- It is a 'newtype' that provides a phantom type parameter. As well as having a several useful
+-- typeclass instances and helpful functions already written for us.
+--
+-- When dealing with the 'Tagged' 'Encoder's and 'Decoder's there are two functions that are
+-- particularly useful; 'untag', and 'proxy'.
+--
+-- The 'untag' function removes the tag from the inner type:
+-- 
+-- @
+-- untag :: -- forall k (s :: k) b. Tagged s b -> b
+-- @
+--
+-- When used with one of the 'Tagged' 'Generic' functions:
+--
+-- @
+-- let e = mkEncoder :: Applicative f => Tagged GWaarg (Encoder f Image)
+--
+-- untag e :: Applicative f => Encoder f Image
+-- @
+--
+-- The other function 'proxy', allows you to use 'mkEncoder' or 'mkDecoder' with the desired @ t @
+-- parameter and then immediately remove the tag. This function requires the use of some @proxy@
+-- that carries the same @ t @ of your instance:
+--
+-- @
+-- proxy :: Tagged s a -> proxy s -> a
+-- @
+--
+-- One way to utilise this function is in combination with 'Data.Proxy.Proxy' from @base@:
+--
+-- @
+-- (proxy mkDecoder (Proxy :: Proxy GWaarg)) :: Monad f => Decoder f Image
+-- @
+--
+-- This lets you skip the 'untag' step but without losing the safety of the 'Tagged' phantom type.
+--
+
+-- $nice
+-- All of the techniques described above are explicit and will work in all versions of GHC that
+-- Waargonaut supports. Should you be running a GHC that is version 8.0.1 or later, then you have
+-- access to a language extension called <https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/glasgow_exts.html#extension-TypeApplications TypeApplications>.
+--
+-- This extension allows you to avoid much of the explicit type annotations described in Tagged
+-- section of "Waargonaut.Generic#tagged". For example the 'proxy' function may be utilised like so:
+--
+-- @
+-- (proxy mkDecoder (Proxy :: Proxy GWaarg)) :: Monad f => Decoder f Image
+-- @
+--
+-- Becomes:
+--
+-- @
+-- (proxy mkDecoder \@GWaarg) :: Monad f => Decoder f Image
+-- @
+--
+-- You can also use the @TypeApplications@ directly on the 'mkEncoder' or 'mkDecoder' function:
+--
+-- @
+-- mkEncoder \@GWaarg :: Applicative f => Tagged GWaarg (Encoder f Image)
+-- mkDecoder \@GWaarg :: Monad f       => Tagged GWaarg (Decoder f Image)
+-- @
+--
+
+-- | This is a provided tag that may be used for tagging the 'JsonEncode' and 'JsonDecode'
+-- instances. You are encouraged to make your own tags for full control of your own instances.
 data GWaarg
 
--- | The two options we currently have for using the 'Generic' mechanism to handle 'newtype' values:
+-- | The options we currently have for using the 'Generic' mechanism to handle 'newtype' values:
 data NewtypeName
+
   -- | Discard the newtype wrapper and encode the inner value.
   --
   -- @
@@ -86,7 +258,7 @@ data NewtypeName
   -- let x = Foo "Fred"
   -- @
   --
-  -- Will be encoded as: "Fred"
+  -- Will be encoded as: @ "Fred" @
   --
   = Unwrap
 
@@ -98,7 +270,7 @@ data NewtypeName
   -- let x = Foo "Fred"
   -- @
   --
-  -- Will be encoded as: "{\"foo\":\"Fred\"}"
+  -- Will be encoded as: @ {"Foo":"Fred"} @
   --
   | ConstructorNameAsKey
   deriving (Show, Eq)
@@ -116,17 +288,63 @@ data Options = Options
 
 -- | Default options for 'Generic' functionality:
 --
--- * Field names are left untouched (@id@)
--- * Newtype values are encoded as raw values (@Unwrap@)
+-- * Field names are left untouched: ('id')
+-- * Newtype values are encoded as raw values: ('Unwrap')
 --
 defaultOpts :: Options
 defaultOpts = Options id Unwrap
 
+-- |
+-- Helper function to alter record field names for encoding and decoding. Intended use is to be
+-- given the prefix you would like to have removed and then included in the 'Options' for the
+-- typeclass you are implementing.
+--
+-- A common use case when encoding Haskell record types is to remove a prefix and then lower-case
+-- the first letter:
+--
+-- >>> trimPrefixLowerFirst "_image" "_imageHeight"
+-- "height"
+--
+-- >>> trimPrefixLowerFirst "_image" "Height"
+-- "Height"
+--
+-- >>> trimPrefixLowerFirst "_image" ""
+-- ""
+--
+-- >>> trimPrefixLowerFirst "" "_imageHeight"
+-- "_imageHeight"
+--
+trimPrefixLowerFirst :: Text -> String -> String
+trimPrefixLowerFirst p n = maybe n f
+  $ Text.uncons =<< Text.stripPrefix p (Text.pack n)
+  where f (h',t') = Text.unpack $ Text.cons (Char.toLower h') t'
+
+-- |
+-- Encoding Typeclass for Waargonaut.
+--
+-- This type class is responsible for creating an 'Encoder' for the type of @ a @, differentiated
+-- from the other possible instances of this typeclass for type @ a @ by the tag type @ t @.
+--
+-- To create a 'Tagged' 'Encoder' for the purposes of writing an instance your self, you need only
+-- data constructor 'Tagged' from 'Data.Tagged'. It has been re-exported from this module.
+--
+-- @
+-- instance JsonEncode GWaarg Foo where
+--   mkEncoder = Tagged fooEncoderIWroteEarlier
+-- @
+--
 class JsonEncode t a where
   mkEncoder :: Applicative f => Tagged t (Encoder f a)
 
-  default mkEncoder :: (Applicative f, Generic a, HasDatatypeInfo a, All2 (JsonEncode t) (Code a)) => Tagged t (Encoder f a)
-  mkEncoder = gEncoder defaultOpts
+  default mkEncoder
+    :: ( Applicative f
+       , Generic a
+       , HasDatatypeInfo a
+       , All2 (JsonEncode t) (Code a)
+       )
+    => Tagged t (Encoder f a)
+  mkEncoder =
+    gEncoder defaultOpts
 
 instance JsonEncode t a                   => JsonEncode t (Maybe a)    where mkEncoder = E.maybeOrNull <$> mkEncoder
 instance (JsonEncode t a, JsonEncode t b) => JsonEncode t (Either a b) where mkEncoder = E.either <$> mkEncoder <*> mkEncoder
@@ -137,10 +355,31 @@ instance JsonEncode t Int                                              where mkE
 instance JsonEncode t Scientific                                       where mkEncoder = Tagged E.scientific
 instance JsonEncode t Bool                                             where mkEncoder = Tagged E.bool
 
+-- |
+-- Decoding Typeclass for Waargonaut
+--
+-- Responsible for creating a 'Decoder' for the type @ a @, differentiated from the other possible
+-- instances of this typeclass for type @ a @ by the tag type @ t @.
+--
+-- To create a 'Tagged' 'Decoder' for the purposes of writing an instance your self, you need only
+-- data constructor 'Tagged' from 'Data.Tagged'. It has been re-exported from this module.
+--
+-- @
+-- instance JsonDecode GWaarg Foo where
+--   mkDecoder = Tagged fooDecoderIWroteEarlier
+-- @
+--
 class JsonDecode t a where
   mkDecoder :: Monad f => Tagged t (Decoder f a)
-  default mkDecoder :: (Monad f, Generic a, HasDatatypeInfo a, All2 (JsonDecode t) (Code a)) => Tagged t (Decoder f a)
-  mkDecoder = gDecoder defaultOpts
+
+  default mkDecoder
+    :: ( Monad f
+       , Generic a
+       , HasDatatypeInfo a
+       , All2 (JsonDecode t) (Code a)
+       ) => Tagged t (Decoder f a)
+  mkDecoder =
+    gDecoder defaultOpts
 
 instance JsonDecode t a                   => JsonDecode t (Maybe a)    where mkDecoder = D.maybeOrNull <$> mkDecoder
 instance (JsonDecode t a, JsonDecode t b) => JsonDecode t (Either a b) where mkDecoder = D.either <$> mkDecoder <*> mkDecoder
@@ -235,6 +474,23 @@ jsonInfo opts pa =
     tag (_ :* Nil) = const NoTag
     tag _          = Tag
 
+-- |
+-- Create a 'Tagged' 'Encoder' for type @ a @, tagged by @ t @, using the given 'Options'.
+--
+-- Combined with the 'defaultOpts' this is the default implementation of 'JsonEncode'.
+--
+-- Some examples:
+--
+-- @
+-- instance JsonEncode GWaarg Image where
+--   mkEncoder = gEncoder defaultOpts
+-- @
+--
+-- @
+-- instance JsonEncode GWaarg Image where
+--   mkEncoder = gEncoder (defaultOpts { _optionsFieldName = trimPrefixLowerFirst "_image" })
+-- @
+--
 gEncoder
   :: forall t a f.
      ( Generic a
@@ -286,6 +542,23 @@ gEncoder' p pT opts (JsonRec tag fields) cs    =
 
     enc = pure . E.runPureEncoder (E.keyValueTupleFoldable E.json)
 
+-- |
+-- Create a 'Tagged' 'Decoder' for type @ a @, tagged by @ t @, using the given 'Options'.
+--
+-- Combined with the 'defaultOpts' this is the default implementation of 'JsonEncode'.
+--
+-- Some examples:
+--
+-- @
+-- instance JsonEncode GWaarg Image where
+--   mkDecoder = gDecoder defaultOpts
+-- @
+--
+-- @
+-- instance JsonEncode GWaarg Image where
+--   mkDecoder = gDecoder (defaultOpts { _optionsFieldName = trimPrefixLowerFirst "_image" })
+-- @
+--
 gDecoder
   :: forall f a t.
      ( Generic a

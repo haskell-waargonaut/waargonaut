@@ -79,10 +79,11 @@ module Waargonaut.Decode.Traversal
 
 import           Prelude                       hiding (either, maybe, null)
 
-import           Numeric.Natural               (Natural)
+import           Natural                       (Natural, successor', zero',
+                                                _Natural)
 
 import           Control.Lens                  (Bazaar', Cons, LensLike', Snoc,
-                                                (^.), (^?))
+                                                re, (^.), (^?))
 import qualified Control.Lens                  as L
 
 import           Control.Lens.Internal.Indexed (Indexed, Indexing)
@@ -331,7 +332,7 @@ moveLeftN
   -> JCursor h a
   -> DecodeResult f (JCursor h a)
 moveLeftN n cur =
-  moveAndKeepHistory (L n) (Z.jerks Z.leftward (fromIntegral n) cur)
+  moveAndKeepHistory (L n) (Z.jerks Z.leftward (n ^. re _Natural) cur)
 
 -- | From the current cursor location, try to move 'n' steps to the right.
 moveRightN
@@ -340,7 +341,7 @@ moveRightN
   -> JCursor h a
   -> DecodeResult f (JCursor h a)
 moveRightN n cur =
-  moveAndKeepHistory (R n) (Z.jerks Z.rightward (fromIntegral n) cur)
+  moveAndKeepHistory (R n) (Z.jerks Z.rightward (n ^. re _Natural) cur)
 
 -- | From the current cursor location, try to move 1 step to the left.
 moveLeft1
@@ -348,7 +349,7 @@ moveLeft1
   => JCursor h a
   -> DecodeResult f (JCursor h a)
 moveLeft1 =
-  moveLeftN 1
+  moveLeftN (successor' zero')
 
 -- | From the current cursor location, try to move 1 step to the right.
 moveRight1
@@ -356,7 +357,7 @@ moveRight1
   => JCursor h a
   -> DecodeResult f (JCursor h a)
 moveRight1 =
-  moveRightN 1
+  moveRightN (successor' zero')
 
 -- | Provide a 'conversion' function and create a 'Decoder' that uses the
 -- current cursor and runs the given function. Fails with 'ConversionFailure' and

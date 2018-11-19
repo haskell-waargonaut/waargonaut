@@ -6,6 +6,10 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
+-- |
+--
+-- Types and Functions for turning JSON into Haskell.
+--
 module Waargonaut.Decode
   (
     -- * Types
@@ -82,8 +86,8 @@ import           Control.Lens                              (Cons, Lens', Prism',
                                                             Snoc, cons, lens,
                                                             modifying, preview,
                                                             snoc, traverseOf,
-                                                            view, (.~), (^.),
-                                                            _Wrapped)
+                                                            view, ( # ), (.~),
+                                                            (^.), _Wrapped)
 
 import           Prelude                                   (Bool, Bounded, Char,
                                                             Int, Integral,
@@ -96,15 +100,14 @@ import           Control.Category                          ((.))
 import           Control.Monad                             (Monad (..), (>=>))
 import           Control.Monad.Morph                       (embed, generalize)
 
-import           Control.Monad.Except                      (MonadError, lift,
-                                                            liftEither,
+import           Control.Monad.Except                      (lift, liftEither,
                                                             throwError)
 import           Control.Monad.Reader                      (ReaderT (..), ask,
                                                             local, runReaderT)
 import           Control.Monad.State                       (MonadState)
 
 import           Control.Error.Util                        (note)
-import           Control.Monad.Error.Hoist                 ((<?>))
+import           Control.Monad.Error.Hoist                 ((<!?>), (<?>))
 
 import           Data.Either                               (Either (..))
 import           Data.Foldable                             (foldl)
@@ -117,17 +120,15 @@ import           Data.Monoid                               (mempty)
 
 import           Data.Scientific                           (Scientific)
 
-import           Data.List                                 (replicate)
 import           Data.List.NonEmpty                        (NonEmpty ((:|)))
 import           Data.Maybe                                (Maybe (..),
                                                             fromMaybe, maybe)
+import           Natural                                   (Natural, replicate, zero', successor')
 
 import           Data.Text                                 (Text)
 
 import           Data.ByteString.Char8                     (ByteString)
 import qualified Data.ByteString.Char8                     as BS8
-
-import           Numeric.Natural                           (Natural)
 
 import           Waargonaut.Types
 
@@ -144,7 +145,8 @@ import           HaskellWorks.Data.Json.Cursor             (JsonCursor (..))
 import qualified HaskellWorks.Data.Json.Cursor             as JC
 
 
-import           Waargonaut.Decode.Error                   (DecodeError (..),
+import           Waargonaut.Decode.Error                   (AsDecodeError (..),
+                                                            DecodeError (..),
                                                             Err (..))
 import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
 
@@ -208,7 +210,7 @@ cursorRankL = lens JC.cursorRank (\c r -> c { cursorRank = r })
 
 -- | Execute the given function 'n' times'.
 manyMoves :: Monad m => Natural -> (b -> m b) -> b -> m b
-manyMoves i g = foldl (>=>) pure (replicate (fromIntegral i) g)
+manyMoves i g = foldl (>=>) pure (replicate i g)
 
 -- | Generalise a 'Decoder' that has been specialised to 'Identity' back to some 'Monad f'.
 generaliseDecoder :: Monad f => Decoder Identity a -> Decoder f a
@@ -316,7 +318,7 @@ moveRight1
   => JCurs
   -> DecodeResult f JCurs
 moveRight1 =
-  moveRightN 1
+  moveRightN (successor' zero')
 
 -- | Helper function to move left once.
 --
@@ -419,13 +421,16 @@ moveToKey
   => Text
   -> JCurs
   -> DecodeResult f JCurs
-moveToKey k c =
+moveToKey k c = do
   -- Tease out the key
-  focus text c >>= \k' -> if k' == k -- Are we at the key we want to be at ?
-  -- if we are, then move into the THING at the key
-  then moveRight1 c
-  -- if not, then jump to the next key index, the adjacent sibling is opening of the value of the current key
-  else moveRightN 2 c >>= moveToKey k
+  k' <- DI.try (focus text c) <!?> (_KeyDecodeFailed # ())
+
+  -- Are we at the key we want to be at ?
+  if k' == k
+    -- Then move into the THING at the key
+    then recordRank (DAt k) c >> moveRight1 c
+    -- Try jump to the next key index
+    else ( DI.try (moveRightN (successor' (successor' zero')) c) <!?> (_KeyNotFound # k) ) >>= moveToKey k
 
 -- | Move to the first occurence of this key, as per 'moveToKey' and then
 -- attempt to run the given 'Decoder' on that value, returning the result.
@@ -554,6 +559,10 @@ runDecode
 runDecode dr p =
   DI.runDecoderResultT . runDecoder dr p
 
+-- |
+-- Using the 'ParseFn', complete a 'DecodeResult' to find out if we have the type we're after. This
+-- is mostly used internally to help build 'Decoder' structures. Exported as it may prove useful
+-- when abstracting over the 'Decoder' types or other such shenanigans.
 runDecodeResult
   :: Monad f
   => ParseFn
@@ -640,14 +649,15 @@ prismD
 prismD p =
   fmap (preview p)
 
+-- | As per 'prismD' but fail the 'Decoder' if unsuccessful.
 prismDOrFail
-  :: MonadError DecodeError f
+  :: Monad f
   => DecodeError
   -> Prism' a b
   -> Decoder f a
   -> Decoder f b
-prismDOrFail e p d = Decoder $ \pf ->
-  DI.prismDOrFail' e p (DI.Decoder' $ runDecoder d pf)
+prismDOrFail e p d = withCursor $
+  focus d >=> \a -> preview p a <?> e
 
 -- | Decode an 'Int'.
 int :: Monad f => Decoder f Int

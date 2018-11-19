@@ -10,6 +10,7 @@ module Waargonaut.Types.JString
   (
     -- * Types
     JString
+  , JString' (..)
   , AsJString (..)
 
     -- * Parser / Builder
@@ -82,6 +83,7 @@ instance Wrapped (JString' digit) where
   type Unwrapped (JString' digit) = Vector (JChar digit)
   _Wrapped' = iso (\ (JString' x) -> x) JString'
 
+-- | Classy 'Control.Lens.Prism'' for things that may be treated as a 'JString'.
 class AsJString a where
   _JString :: Prism' a JString
 

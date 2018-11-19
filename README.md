@@ -4,12 +4,8 @@
 
 # Waargonaut
 
-_NB:_ **BETA Release**
-
 Flexible, precise, and efficient JSON decoding/encoding library. This package
 provides a plethora of tools for decoding, encoding, and manipulating JSON data.
-
-Pending a proper Hackage release, Haddocks may be found here: https://qfpl.github.io/waargonaut
 
 ## Features
 
@@ -174,8 +170,8 @@ possibility of failure. Computers being what they are.
 In no particular order...
 
 - [ ] improve/bikeshed encoding object api 
-- [ ] gather feedback on tests/benchmarks that matter to people
+- [ ] gather feedback on tests/benchmarks that matter
 - [ ] provide testing functions so users can be more confident in their Encoder/Decoder construction
-- [ ] documentation in the various modules to explain any weirdness or things that users may consider to be 'missing' or 'wrong'.
-- [ ] provide greater rationale behind lack of reliance in typeclasses for encoding/decoding
+- [x] (feedback required) documentation in the various modules to explain any weirdness or things that users may consider to be 'missing' or 'wrong'.
+- [x] (mostly) provide greater rationale behind lack of reliance in typeclasses for encoding/decoding
 - [ ] provide functions to add preset whitespace layouts to encoded json.

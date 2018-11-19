@@ -1,0 +1,69 @@
+Running 1 benchmarks...
+Benchmark bench: RUNNING...
+benchmarked Parse - Attoparsec/jp100
+time                 27.96 ms   (27.71 ms .. 28.14 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 28.84 ms   (28.53 ms .. 29.39 ms)
+std dev              906.7 μs   (626.8 μs .. 1.153 ms)
+
+benchmarked Parse - Attoparsec/twitter100
+time                 19.68 ms   (19.53 ms .. 19.91 ms)
+                     1.000 R²   (0.999 R² .. 1.000 R²)
+mean                 20.41 ms   (20.18 ms .. 20.80 ms)
+std dev              718.6 μs   (427.1 μs .. 1.191 ms)
+
+benchmarked Parse - Attoparsec/numbers
+time                 4.365 ms   (4.344 ms .. 4.387 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 4.439 ms   (4.414 ms .. 4.474 ms)
+std dev              93.28 μs   (69.92 μs .. 113.0 μs)
+
+benchmarked Succinct Index/jp100
+time                 895.6 μs   (892.7 μs .. 898.3 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 894.4 μs   (893.3 μs .. 896.0 μs)
+std dev              4.528 μs   (3.456 μs .. 6.925 μs)
+
+benchmarked Succinct Index/twitter100
+time                 698.5 μs   (687.1 μs .. 716.2 μs)
+                     0.998 R²   (0.998 R² .. 0.999 R²)
+mean                 720.2 μs   (716.2 μs .. 722.7 μs)
+std dev              10.87 μs   (6.649 μs .. 15.16 μs)
+
+benchmarked Succinct Index/numbers
+time                 137.6 μs   (137.2 μs .. 138.0 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 137.8 μs   (137.6 μs .. 138.0 μs)
+std dev              613.8 ns   (504.7 ns .. 761.2 ns)
+
+benchmarked Decode/Image Decode (manual - traversal)
+time                 124.9 μs   (124.6 μs .. 125.2 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 124.9 μs   (124.8 μs .. 125.1 μs)
+std dev              533.3 ns   (390.9 ns .. 754.9 ns)
+
+benchmarked Decode/Image Decode (manual - succinct)
+time                 117.3 μs   (117.1 μs .. 117.5 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 117.1 μs   (117.0 μs .. 117.3 μs)
+std dev              557.0 ns   (433.1 ns .. 779.0 ns)
+
+benchmarked Decode/Image Decode (generic)
+time                 65.69 μs   (65.54 μs .. 65.83 μs)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 65.66 μs   (65.56 μs .. 65.77 μs)
+std dev              351.0 ns   (280.0 ns .. 470.9 ns)
+
+benchmarked Decode/[Scientific] (manual - traversal)
+time                 10.39 ms   (10.34 ms .. 10.44 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 10.37 ms   (10.34 ms .. 10.47 ms)
+std dev              146.8 μs   (57.29 μs .. 240.4 μs)
+
+benchmarked Decode/[Scientific] (generic)
+time                 7.706 ms   (7.673 ms .. 7.741 ms)
+                     1.000 R²   (1.000 R² .. 1.000 R²)
+mean                 7.819 ms   (7.772 ms .. 7.901 ms)
+std dev              176.9 μs   (114.5 μs .. 256.2 μs)
+
+Benchmark bench: FINISH

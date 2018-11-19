@@ -1,5 +1,7 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric             #-}
+{-# LANGUAGE FlexibleContexts          #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings         #-}
 module Encoder
   ( encoderTests
   , encodeImage
@@ -9,16 +11,16 @@ module Encoder
 import           Test.Tasty           (TestName, TestTree, testGroup)
 import           Test.Tasty.HUnit     (assertEqual, testCase)
 
+import           Data.Proxy           (Proxy (..))
+
 import           Waargonaut.Encode    (Encoder, Encoder')
 import qualified Waargonaut.Encode    as E
 
 import           Data.ByteString.Lazy (ByteString)
 
-import           Types.Common         (Fudge, Image (..), testFudge,
-                                       testImageDataType)
+import           Types.Common         (Image (..), testFudge, testImageDataType)
 
-import           Data.Tagged          (Tagged, untag)
-import           Waargonaut.Generic   (GWaarg, mkEncoder)
+import           Waargonaut.Generic   (GWaarg, mkEncoder, proxy)
 
 testImageEncodedNoSpaces :: ByteString
 testImageEncodedNoSpaces = "{\"Width\":800,\"Height\":600,\"Title\":\"View from 15th Floor\",\"Animated\":false,\"IDs\":[116,943,234,38793]}"
@@ -47,13 +49,8 @@ tCase nm enc a =
 encoderTests :: TestTree
 encoderTests = testGroup "Encoder"
   [ tCase "Encode Image" encodeImage testImageDataType testImageEncodedNoSpaces
-  , tCase "Encode Image (Generic)" (untag imgE) testImageDataType testImageEncodedNoSpaces
-  , tCase "Encode newtype - with constructor name" (untag fudgeE) testFudge testFudgeEncodedWithConsName
+  , tCase "Encode Image (Generic)" enc testImageDataType testImageEncodedNoSpaces
+  , tCase "Encode newtype - with constructor name" enc testFudge testFudgeEncodedWithConsName
   ]
   where
-    imgE :: Applicative f => Tagged GWaarg (Encoder f Image)
-    imgE = mkEncoder
-
-    fudgeE :: Applicative f => Tagged GWaarg (Encoder f Fudge)
-    fudgeE = mkEncoder
-
+    enc = proxy mkEncoder (Proxy :: Proxy GWaarg)

@@ -3,6 +3,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE TypeFamilies               #-}
+-- |
+--
+-- Types for the succinct data structure decoder
+--
 module Waargonaut.Decode.Types
   ( ParseFn
   , SuccinctCursor
@@ -14,13 +18,16 @@ module Waargonaut.Decode.Types
 
 import           Control.Lens                          (Rewrapped, Wrapped (..),
                                                         iso)
-import           Control.Monad.Except                  (MonadError)
+import           Control.Monad.Except                  (MonadError (..))
 import           Control.Monad.Morph                   (MFunctor (..),
                                                         MMonad (..))
 import           Control.Monad.Reader                  (MonadReader,
                                                         ReaderT (..))
 import           Control.Monad.State                   (MonadState)
 import           Control.Monad.Trans.Class             (MonadTrans (lift))
+
+import           Data.Functor.Alt                      (Alt (..))
+import qualified Data.Text                             as Text
 
 import           GHC.Word                              (Word64)
 
@@ -34,16 +41,22 @@ import           HaskellWorks.Data.RankSelect.Poppy512 (Poppy512)
 
 import           Waargonaut.Decode.Internal            (CursorHistory',
                                                         DecodeError (..),
-                                                        DecodeResultT (..))
+                                                        DecodeResultT (..),
+                                                        ZipperMove (BranchFail),
+                                                        recordZipperMove)
 
 import           Waargonaut.Types                      (Json)
 
+-- | We define the index of our 'CursorHistory'' to be the 'HaskellWorks.Data.Positioning.Count'.
 type CursorHistory =
   CursorHistory' Count
 
+-- | Convenience alias defined for the concrete 'JsonCursor' type.
 type SuccinctCursor =
   JsonCursor ByteString Poppy512 (SimpleBalancedParens (Vector Word64))
 
+-- | Another convenience alias for the type of the function we will use to parse the input string
+-- into the 'Json' structure.
 type ParseFn =
   ByteString -> Either DecodeError Json
 
@@ -56,15 +69,25 @@ newtype Decoder f a = Decoder
   deriving Functor
 
 instance Monad f => Applicative (Decoder f) where
-  pure       = pure
+  pure     a = Decoder $ \_ _ -> pure a
   aToB <*> a = Decoder $ \p c ->
     runDecoder aToB p c <*> runDecoder a p c
+
+instance Monad f => Alt (Decoder f) where
+  a <!> b = Decoder $ \p c -> catchError (runDecoder a p c) $ \e -> do
+    recordZipperMove (BranchFail . Text.pack $ show e) (cursorRank $ unJCurs c)
+    runDecoder b p c
 
 instance Monad f => Monad (Decoder f) where
   return      = pure
   a >>= aToFb = Decoder $ \p c -> do
     r <- runDecoder a p c
     runDecoder (aToFb r) p c
+
+instance Monad f => MonadError DecodeError (Decoder f) where
+  throwError e        = Decoder (\_ _ -> throwError e)
+  catchError d handle = Decoder $ \p c ->
+    catchError (runDecoder d p c) (\e -> runDecoder (handle e) p c)
 
 instance MFunctor Decoder where
   hoist nat (Decoder pjdr) = Decoder (\p -> hoist nat . pjdr p)
