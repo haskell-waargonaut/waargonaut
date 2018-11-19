@@ -204,7 +204,13 @@ newtype MapLikeObj ws a = MLO
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
-_MapLikeObj :: Monoid ws => Prism' (JObject ws a) (MapLikeObj ws a)
+-- |
+-- 'Prism' for working with a 'JObject' as a 'MapLikeObj'. This optic will keep
+-- the first unique key on a given 'JObject' and this information is not
+-- recoverable. If you want to create a 'MapLikeObj' from a 'JObject' and keep
+-- what is removed, then use the 'toMapLikeObj' function.
+--
+_MapLikeObj :: (Semigroup ws, Monoid ws) => Prism' (JObject ws a) (MapLikeObj ws a)
 _MapLikeObj = prism' fromMapLikeObj (Just . fst . toMapLikeObj)
 
 instance MapLikeObj ws a ~ t => Rewrapped (MapLikeObj ws a) t
