@@ -8,10 +8,9 @@ module Decoder
 import           Prelude                    (Char, Eq, Int, Show, String, print,
                                              (==))
 
-import           Control.Applicative        (liftA3, pure, (<$>))
+import           Control.Applicative        (liftA3, (<$>))
 import           Control.Category           ((.))
 import           Control.Monad              (Monad, (>=>), (>>=))
-import           Control.Monad.Except       (throwError)
 
 import           Test.Tasty                 (TestTree, testGroup)
 import           Test.Tasty.HUnit           (Assertion, assertBool, assertEqual,
@@ -46,6 +45,7 @@ decoderTests = testGroup "Decoding"
   , testCase "(Char,String,[Int])" decodeTest3Json
   , testCase "Fail with Bad Key" decodeTestBadObjKey
   , testCase "Fail with Missing Key" decodeTestMissingObjKey
+  , testCase "Enum" decodeTestEnum
   , testCase "Enum and throwError" decodeTestEnumError
   , testCase "Using Alt" decodeAlt
   , testCase "Using Alt (Error) - Records BranchFail" decodeAltError
@@ -145,11 +145,20 @@ data MyEnum
   deriving (Eq, Show)
 
 decodeMyEnum :: Monad f => D.Decoder f MyEnum
-decodeMyEnum = D.text >>= \case
-  "a" -> pure A
-  "b" -> pure B
-  "c" -> pure C
-  _   -> throwError (D.ConversionFailure "MyEnum")
+decodeMyEnum = D.oneOf D.text "MyEnum"
+  [ ("a", A)
+  , ("b", B)
+  , ("c", C)
+  ]
+
+decodeTestEnum :: Assertion
+decodeTestEnum = do
+  chk "\"a\"" A
+  chk "\"b\"" B
+  chk "\"c\"" C
+  where
+    chk i o =
+      D.runPureDecode decodeMyEnum parseBS (D.mkCursor i) @?= (Either.Right o)
 
 decodeTestEnumError :: Assertion
 decodeTestEnumError = D.runDecode decodeMyEnum parseBS (D.mkCursor "\"WUT\"")

@@ -77,6 +77,7 @@ module Waargonaut.Decode
   , withDefault
   , maybeOrNull
   , either
+  , oneOf
 
   ) where
 
@@ -90,7 +91,7 @@ import           Control.Lens                              (Cons, Lens', Prism',
                                                             (^.), _Wrapped)
 
 import           Prelude                                   (Bool, Bounded, Char,
-                                                            Int, Integral,
+                                                            Eq, Int, Integral,
                                                             String,
                                                             fromIntegral, (-),
                                                             (==))
@@ -110,15 +111,16 @@ import           Control.Error.Util                        (note)
 import           Control.Monad.Error.Hoist                 ((<!?>), (<?>))
 
 import           Data.Either                               (Either (..))
-import           Data.Foldable                             (foldl)
+import           Data.Foldable                             (Foldable, foldl,
+                                                            foldr)
 import           Data.Function                             (const, flip, ($),
                                                             (&))
-import           Data.Functor                              (fmap, (<$), (<$>))
+import           Data.Functor                              (Functor, fmap, (<$),
+                                                            (<$>))
 import           Data.Functor.Alt                          ((<!>))
 import           Data.Functor.Identity                     (Identity,
                                                             runIdentity)
 import           Data.Monoid                               (mempty)
-
 import           Data.Scientific                           (Scientific)
 
 import           Data.List.NonEmpty                        (NonEmpty ((:|)))
@@ -500,7 +502,7 @@ atCursor m c = withCursor $ \curs -> do
 -- movements. This lets you combine arbitrary cursor movements with an accumulating
 -- function.
 --
--- The functions 'leftwardCons' and 'rightwardSnoc' are both impelemented using
+-- The functions 'leftwardCons' and 'rightwardSnoc' are both implemented using
 -- this function.
 --
 -- @
@@ -524,6 +526,49 @@ foldCursor nom f s elemD curs = DecodeResult . ReaderT $ \p ->
     (flip runReaderT p . unDecodeResult . f)
     (DI.Decoder' $ runDecoder elemD p)
     curs
+
+-- | Helper function for "pattern matching" on a decoded value to some Haskell
+-- value. The 'Text' argument is used in the error message should this decoder
+-- fail. Normally it would simply be the name of the type you are writing the
+-- decoder for.
+--
+-- This is useful for decoding sum types, such as:
+--
+-- @
+-- data MyEnum
+--   = A
+--   | B
+--   | C
+--
+-- decodeMyEnum :: Monad f => Decoder f MyEnum
+-- decodeMyEnum = D.oneOf D.text "MyEnum"
+--   [ ("a", A)
+--   , ("b", B)
+--   , ("c", C)
+--   ]
+--
+-- decodeMyEnumFromInt :: Monad f => Decoder f MyEnum
+-- decodeMyEnumFromInt = D.oneOf D.int "MyEnum"
+--   [ (1, A)
+--   , (2, B)
+--   , (3, C)
+--   ]
+-- @
+--
+oneOf
+  :: ( Foldable g
+     , Functor g
+     , Monad f
+     , Eq a
+     )
+  => Decoder f a
+  -> Text
+  -> g (a, b)
+  -> Decoder f b
+oneOf d l = foldr (<!>) err
+  . fmap (\(a,b) -> d >>= \t -> if t == a then pure b else err)
+  where
+    err = throwError (ConversionFailure l)
 
 -- | From the current cursor position, move leftwards one position at a time and
 -- push each 'a' onto the front of some 'Cons' structure.
