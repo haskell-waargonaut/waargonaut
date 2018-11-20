@@ -115,8 +115,7 @@ import           Data.Foldable                             (Foldable, foldl,
                                                             foldr)
 import           Data.Function                             (const, flip, ($),
                                                             (&))
-import           Data.Functor                              (Functor, fmap, (<$),
-                                                            (<$>))
+import           Data.Functor                              (fmap, (<$), (<$>))
 import           Data.Functor.Alt                          ((<!>))
 import           Data.Functor.Identity                     (Identity,
                                                             runIdentity)
