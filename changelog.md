@@ -1,5 +1,18 @@
 # Revision history for waargonaut
 
+## 0.4.0.0  -- 2018-11-19
+
+* Redesign & rebuild of `Encoder` internals to allow for greater control and flexibility
+* Factor our law tests into their own module (a recheck of these tests is needed)
+* Fixed bug in `list` and `nonempty` decoders
+* Fixed bug in `foldCursor` function
+* Fixed bug in `Cons` instance for `CommaSep`
+* Fixed bug in documentation for `atKey`
+* Added `_MapLikeObj` `Prism`
+* Added some optics into object / maplikeobj keys
+* Fixed bug in `maybeOrNull` decoder to be more strict in what it accepts
+* Rewrote `either` decoder in terms of the alternative instance to allow for better errors
+
 ## 0.3.0.0  -- 2018-11-14
 
 * Change to use the `natural` package for `Natural` numbers.

@@ -41,15 +41,47 @@ import           Types.Common               (imageDecodeSuccinct, parseBS,
 
 decoderTests :: TestTree
 decoderTests = testGroup "Decoding"
-  [ testCase "Decode Image (test1.json)" decodeTest1Json
-  , testCase "Decode [Int]" decodeTest2Json
-  , testCase "Decode (Char,String,[Int])" decodeTest3Json
-  , testCase "Decode Fail with Bad Key" decodeTestBadObjKey
-  , testCase "Decode Fail with Missing Key" decodeTestMissingObjKey
-  , testCase "Decode Enum and throwError" decodeTestEnumError
-  , testCase "Decode Using Alt" decodeAlt
-  , testCase "Decode Using Alt (Error) - Records BranchFail" decodeAltError
+  [ testCase "Image (test1.json)" decodeTest1Json
+  , testCase "[Int]" decodeTest2Json
+  , testCase "(Char,String,[Int])" decodeTest3Json
+  , testCase "Fail with Bad Key" decodeTestBadObjKey
+  , testCase "Fail with Missing Key" decodeTestMissingObjKey
+  , testCase "Enum and throwError" decodeTestEnumError
+  , testCase "Using Alt" decodeAlt
+  , testCase "Using Alt (Error) - Records BranchFail" decodeAltError
+  , testCase "List Decoder" listDecoder
+  , testCase "NonEmpty List Decoder" nonEmptyDecoder
   ]
+
+nonEmptyDecoder :: Assertion
+nonEmptyDecoder = do
+  let
+    dec = D.runPureDecode (D.nonempty D.int) parseBS . D.mkCursor
+
+    ok = "[1]"
+    notOkay = "[]"
+
+    badElem = "[1, \"fred\"]"
+
+  assertBool "NonEmpty Decoder - fail! non-empty list decoder BROKEN. Start panicking" (Either.isRight (dec ok))
+  assertBool "NonEmpty Decoder - empty list shouldn't succeed" (Either.isLeft (dec notOkay))
+  assertBool "NonEmpty Decoder - invalid element decoder accepted" (Either.isLeft (dec badElem))
+
+listDecoder :: Assertion
+listDecoder = do
+  let
+    dec = D.runPureDecode (D.list D.int) parseBS . D.mkCursor
+
+    ok = "[1,2,3]"
+    okE = "[]"
+
+    badShape = "{}"
+    badElem = "[\"fred\", \"susan\"]"
+
+  assertBool "List Decoder - fail! List Decoder BROKEN. Start panicking." (Either.isRight (dec ok))
+  assertBool "List Decoder - empty list fail" (Either.isRight (dec okE))
+  assertBool "List Decoder - move down should return empty list" (Either.isRight (dec badShape))
+  assertBool "List Decoder - invalid element decoder accepted" (Either.isLeft (dec badElem))
 
 decodeTestMissingObjKey :: Assertion
 decodeTestMissingObjKey = do

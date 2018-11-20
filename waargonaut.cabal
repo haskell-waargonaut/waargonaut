@@ -10,7 +10,7 @@ name:                waargonaut
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.3.0.0
+version:             0.4.0.0
 
 -- A short (one-line) description of the package.
 synopsis:            JSON wrangling
@@ -88,6 +88,7 @@ library
                      , Waargonaut.Decode.ZipperMove
                      , Waargonaut.Decode.Error
                      , Waargonaut.Decode.Types
+                     , Waargonaut.Encode.Types
 
                      , Waargonaut.Decode
                      , Waargonaut.Decode.Traversal
@@ -167,6 +168,7 @@ test-suite waarg-tests
                      , Types.Json
                      , Types.Whitespace
 
+                     , Laws
                      , Utils
                      , Encoder
                      , Encoder.Laws
@@ -200,6 +202,7 @@ test-suite waarg-tests
                      , semigroupoids          >= 5.2.2  && < 6
                      , containers             >= 0.5.6  && < 0.7
                      , natural                >= 0.3    && < 4
+                     , contravariant       >= 1.4     && < 2
 
                      , waargonaut
 

@@ -329,10 +329,11 @@ foldCursor' empty scons mvCurs elemD =
   go empty
   where
     go acc cur = do
-      me <- fmap (scons acc) <$> try (runDecoder' elemD cur)
-      maybe (pure acc)
-        (\r -> try (mvCurs cur) >>= maybe (pure r) (go r))
-        me
+      acc' <- scons acc <$> runDecoder' elemD cur
+
+      try (mvCurs cur) >>= maybe
+        (pure acc')
+        (go acc')
 
 -- |
 -- Provide a generalised and low level way of turning a JSON object into a

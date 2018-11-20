@@ -10,12 +10,16 @@
 module Waargonaut.Encode
   (
     -- * Encoder type
-    Encoder (Encoder)
+    Encoder
   , Encoder'
+  , ObjEncoder
+  , ObjEncoder'
 
     -- * Creation
   , encodeA
   , encodePureA
+  , jsonEncoder
+  , objEncoder
 
     -- * Runners
   , runPureEncoder
@@ -53,6 +57,9 @@ module Waargonaut.Encode
   , keyValuesAsObj
   , onObj
   , keyValueTupleFoldable
+  , extendObject
+  , extendMapLikeObject
+  , combineObjects
 
     -- * Encoders specialised to Identity
   , int'
@@ -72,96 +79,74 @@ module Waargonaut.Encode
   , mapToObj'
   , keyValuesAsObj'
   , json'
-  , generaliseEncoder'
-
+  , generaliseEncoder
   ) where
 
 
-import           Control.Monad.Morph        (MFunctor (..), generalize)
+import           Control.Applicative                  (Applicative (..), (<$>))
+import           Control.Category                     (id, (.))
+import           Control.Lens                         (AReview, At, Index,
+                                                       IxValue, Prism', at,
+                                                       cons, review, ( # ),
+                                                       (?~), _Empty, _Wrapped)
+import qualified Control.Lens                         as L
 
-import           Control.Applicative        (Applicative (..), (<$>))
-import           Control.Category           (id, (.))
-import           Control.Lens               (AReview, At, Index, IxValue,
-                                             Prism', Rewrapped, Wrapped (..),
-                                             at, cons, iso, review, ( # ), (?~),
-                                             _Empty, _Wrapped)
-import qualified Control.Lens               as L
+import           Prelude                              (Bool, Int, Integral,
+                                                       Monad, fromIntegral, fst)
 
-import           Prelude                    (Bool, Int, Integral, Monad,
-                                             fromIntegral)
+import           Data.Foldable                        (Foldable, foldr, foldrM)
+import           Data.Function                        (const, flip, ($), (&))
+import           Data.Functor                         (Functor, fmap)
+import           Data.Functor.Contravariant           ((>$<))
+import           Data.Functor.Contravariant.Divisible (divide)
+import           Data.Functor.Identity                (Identity (..))
+import           Data.Traversable                     (Traversable, traverse)
 
-import           Data.Foldable              (Foldable, foldr, foldrM)
-import           Data.Function              (const, flip, ($), (&))
-import           Data.Functor               (Functor, fmap)
-import           Data.Functor.Contravariant (Contravariant (..), (>$<))
-import           Data.Functor.Identity      (Identity (..))
-import           Data.Traversable           (Traversable, traverse)
+import           Data.Either                          (Either)
+import qualified Data.Either                          as Either
+import           Data.List.NonEmpty                   (NonEmpty)
+import           Data.Maybe                           (Maybe)
+import qualified Data.Maybe                           as Maybe
+import           Data.Scientific                      (Scientific)
 
-import           Data.Either                (Either)
-import qualified Data.Either                as Either
-import           Data.List.NonEmpty         (NonEmpty)
-import           Data.Maybe                 (Maybe)
-import qualified Data.Maybe                 as Maybe
-import           Data.Scientific            (Scientific)
+import           Data.Monoid                          (Monoid, mempty)
+import           Data.Semigroup                       (Semigroup)
 
-import           Data.Monoid                (Monoid, mempty)
-import           Data.Semigroup             (Semigroup)
+import qualified Data.ByteString.Builder              as BB
+import           Data.ByteString.Lazy                 (ByteString)
 
-import qualified Data.ByteString.Builder    as BB
-import           Data.ByteString.Lazy       (ByteString)
+import           Data.Map                             (Map)
+import qualified Data.Map                             as Map
 
-import           Data.Map                   (Map)
-import qualified Data.Map                   as Map
+import           Data.Text                            (Text)
 
-import           Data.Text                  (Text)
+import           Waargonaut.Encode.Types              (Encoder, Encoder',
+                                                       ObjEncoder, ObjEncoder',
+                                                       finaliseEncoding,
+                                                       generaliseEncoder,
+                                                       initialEncoding,
+                                                       jsonEncoder, objEncoder,
+                                                       runEncoder,
+                                                       runPureEncoder)
 
-import           Waargonaut.Types           (AsJType (..), JAssoc (..), JObject,
-                                             Json, MapLikeObj (..), WS,
-                                             textToJString, wsRemover,
-                                             _JNumberInt, _JNumberScientific)
-import           Waargonaut.Types.Json      (waargonautBuilder)
+import           Waargonaut.Types                     (AsJType (..),
+                                                       JAssoc (..), JObject,
+                                                       Json, MapLikeObj (..),
+                                                       WS, textToJString,
+                                                       toMapLikeObj, wsRemover,
+                                                       _JNumberInt,
+                                                       _JNumberScientific)
+import           Waargonaut.Types.Json                (waargonautBuilder)
 
--- |
--- Define an "encoder" as a function from some @a@ to some 'Json' with the
--- allowance for some context @f@.
---
-newtype Encoder f a = Encoder
-  { runEncoder :: a -> f Json -- ^ Run this 'Encoder' to convert the 'a' to 'Json'
-  }
-
-instance (Encoder f a) ~ t => Rewrapped (Encoder f a) t
-
-instance Wrapped (Encoder f a) where
-  type Unwrapped (Encoder f a) = a -> f Json
-  _Wrapped' = iso runEncoder Encoder
-
-instance Contravariant (Encoder f) where
-  contramap f (Encoder g) = Encoder (g . f)
-
-instance MFunctor Encoder where
-  hoist nat (Encoder eFn) = Encoder (nat . eFn)
-
--- | Generalise an 'Encoder' a' to 'Encoder f a'
-generaliseEncoder' :: Monad f => Encoder' a -> Encoder f a
-generaliseEncoder' = Encoder . fmap generalize . runEncoder
-{-# INLINE generaliseEncoder' #-}
-
--- |
--- As a convenience, this type is a pure Encoder over 'Identity' in place of the @f@.
-type Encoder' = Encoder Identity
 
 -- | Create an 'Encoder'' for 'a' by providing a function from 'a -> f Json'.
 encodeA :: (a -> f Json) -> Encoder f a
-encodeA = Encoder
+encodeA = jsonEncoder
 
 -- | As 'encodeA' but specialised to 'Identity' when the additional flexibility
 -- isn't needed.
 encodePureA :: (a -> Json) -> Encoder' a
 encodePureA f = encodeA (Identity . f)
-
--- | Run the given 'Encoder' to produce a lazy 'ByteString'.
-runPureEncoder :: Encoder' a -> a -> Json
-runPureEncoder enc = runIdentity . runEncoder enc
 
 -- | Encode an @a@ directly to a 'ByteString' using the provided 'Encoder'.
 simpleEncodeNoSpaces
@@ -174,7 +159,7 @@ simpleEncodeNoSpaces enc =
 
 -- | As per 'simpleEncodeNoSpaces' but specialised the 'f' to 'Data.Functor.Identity' and remove it.
 simplePureEncodeNoSpaces
-  :: Encoder' a
+  :: Encoder Identity a
   -> a
   -> ByteString
 simplePureEncodeNoSpaces enc =
@@ -230,7 +215,8 @@ null = encodeA $ const (pure $ _JNull # mempty)
 -- | Encode a 'Maybe' value, using the provided 'Encoder''s to handle the
 -- different choices.
 maybe
-  :: Encoder f ()
+  :: Functor f
+  => Encoder f ()
   -> Encoder f a
   -> Encoder f (Maybe a)
 maybe encN = encodeA
@@ -247,7 +233,8 @@ maybeOrNull =
 
 -- | Encode an 'Either' value using the given 'Encoder's
 either
-  :: Encoder f a
+  :: Functor f
+  => Encoder f a
   -> Encoder f b
   -> Encoder f (Either a b)
 either eA = encodeA
@@ -366,7 +353,7 @@ encodeWithInner
   -> Encoder f a
   -> Encoder f (t a)
 encodeWithInner f g =
-  Encoder $ fmap f . traverse (runEncoder g)
+  jsonEncoder $ fmap f . traverse (runEncoder g)
 
 -- | As per 'traversable' but with the 'f' specialised to 'Data.Functor.Identity'.
 traversable'
@@ -527,6 +514,67 @@ mapLikeObj'
   -> Encoder' i
 mapLikeObj' f = encodePureA $ \a ->
   _JObj # (fromMapLikeObj $ f a (_Empty # ()), mempty)
+
+-- |
+-- This function allows you to extend the fields on a JSON object created by a
+-- separate encoder.
+--
+extendObject
+  :: Functor f
+  => ObjEncoder f a
+  -> a
+  -> (JObject WS Json -> JObject WS Json)
+  -> f Json
+extendObject encA a f =
+  finaliseEncoding encA . f <$> initialEncoding encA a
+
+-- |
+-- This function lets you extend the fields on a JSON object but enforces the
+-- uniqueness of the keys by working through the 'MapLikeObj' structure.
+--
+-- This will keep the first occurence of each unique key in the map. So be sure
+-- to check your output.
+--
+extendMapLikeObject
+  :: Functor f
+  => ObjEncoder f a
+  -> a
+  -> (MapLikeObj WS Json -> MapLikeObj WS Json)
+  -> f Json
+extendMapLikeObject encA a f =
+  finaliseEncoding encA . floopObj <$> initialEncoding encA a
+  where
+    floopObj = fromMapLikeObj . f . fst . toMapLikeObj
+
+-- |
+-- Given encoders for things that are represented in JSON as 'objects', and a
+-- way to get to the 'b' and 'c' from the 'a'. This function lets you create an
+-- encoder for 'a'. The two objects are combined to make one single JSON object.
+--
+-- Given
+--
+-- @
+-- encodeFoo :: ObjEncoder f Foo
+-- encodeBar :: ObjEncoder f Bar
+-- -- and some wrapping type:
+-- data A = { _foo :: Foo, _bar :: Bar }
+-- @
+--
+-- We can use this function to utilise our already defined 'ObjEncoder'
+-- structures to give us an encoder for 'A':
+--
+-- @
+-- combineObjects (\aRecord -> (_foo aRecord, _bar aRecord)) encodeFoo encodeBar :: ObjEncoder f Bar
+-- @
+--
+combineObjects
+  :: Applicative f
+  => (a -> (b, c))
+  -> ObjEncoder f b
+  -> ObjEncoder f c
+  -> ObjEncoder f a
+combineObjects f eB eC =
+  divide f eB eC
 
 -- | When encoding a JSON object that may contain duplicate keys, this function
 -- works the same as the 'atKey' function for 'MapLikeObj'.

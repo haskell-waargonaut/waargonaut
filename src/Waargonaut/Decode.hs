@@ -114,6 +114,7 @@ import           Data.Foldable                             (foldl)
 import           Data.Function                             (const, flip, ($),
                                                             (&))
 import           Data.Functor                              (fmap, (<$), (<$>))
+import           Data.Functor.Alt                          ((<!>))
 import           Data.Functor.Identity                     (Identity,
                                                             runIdentity)
 import           Data.Monoid                               (mempty)
@@ -123,7 +124,8 @@ import           Data.Scientific                           (Scientific)
 import           Data.List.NonEmpty                        (NonEmpty ((:|)))
 import           Data.Maybe                                (Maybe (..),
                                                             fromMaybe, maybe)
-import           Natural                                   (Natural, replicate, zero', successor')
+import           Natural                                   (Natural, replicate,
+                                                            successor', zero')
 
 import           Data.Text                                 (Text)
 
@@ -466,8 +468,8 @@ fromKey k d =
 --
 -- myRecDecoder :: Decoder f MyRec
 -- myRecDecoder = MyRec
---   <$> atKey "field_a" text
---   <*> atKey "field_b" int
+--   \<$> atKey "field_a" text
+--   \<*> atKey "field_b" int
 -- @
 --
 atKey
@@ -705,8 +707,9 @@ nonemptyAt
   -> DecodeResult f (NonEmpty a)
 nonemptyAt elemD = down >=> \curs -> do
   h <- focus elemD curs
-  xs <- moveRight1 curs
-  (h :|) <$> rightwardSnoc [] elemD xs
+  DI.try (moveRight1 curs) >>= maybe
+    (pure $ h :| [])
+    (fmap (h :|) . rightwardSnoc [] elemD)
 
 -- | Helper to create a 'NonEmpty a' 'Decoder'.
 nonempty :: Monad f => Decoder f a -> Decoder f (NonEmpty a)
@@ -735,7 +738,7 @@ withDefault
   -> Decoder f (Maybe a)
   -> Decoder f a
 withDefault def hasD =
-  withCursor (fmap (fromMaybe def) . focus hasD)
+  fromMaybe def <$> hasD
 
 -- | Named to match it's 'Encoder' counterpart, this function will decode an
 -- optional value.
@@ -744,7 +747,7 @@ maybeOrNull
   => Decoder f a
   -> Decoder f (Maybe a)
 maybeOrNull a =
-  withCursor (DI.try . focus a)
+  (Nothing <$ null) <!> (Just <$> a)
 
 -- | Decode either an 'a' or a 'b', failing if neither 'Decoder' succeeds. The
 -- 'Right' decoder is attempted first.
@@ -754,6 +757,4 @@ either
   -> Decoder f b
   -> Decoder f (Either a b)
 either leftD rightD =
-  withCursor $ \c ->
-    DI.try (focus (Right <$> rightD) c) >>=
-    maybe (focus (Left <$> leftD) c) pure
+  (Left <$> leftD) <!> (Right <$> rightD)

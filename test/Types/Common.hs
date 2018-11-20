@@ -31,6 +31,7 @@ module Types.Common
   , Image (..)
   , Fudge (..)
   , HasImage (..)
+  , Overlayed (..)
   ) where
 
 import           Generics.SOP                (Generic, HasDatatypeInfo)
@@ -161,6 +162,13 @@ instance JsonDecode t Fudge where mkDecoder = gDecoder fudgeJsonOpts
 
 testFudge :: Fudge
 testFudge = Fudge "Chocolate"
+
+data Overlayed = Overlayed
+  { _overId :: Text
+  , _overFu :: Fudge
+  }
+  deriving (Show, GHC.Generic)
+
 genDecimalDigit :: Gen DecDigit
 genDecimalDigit = Gen.element decimalDigit
 

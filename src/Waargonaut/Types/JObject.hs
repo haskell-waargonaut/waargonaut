@@ -23,22 +23,24 @@ module Waargonaut.Types.JObject
   , MapLikeObj
   , toMapLikeObj
   , fromMapLikeObj
+  , _MapLikeObj
 
     -- * Parser / Builder
   , jObjectBuilder
   , parseJObject
   ) where
 
-import           Prelude                   (Eq, Int, Show, elem, not, otherwise,
-                                            (==))
+import           Prelude                   (Eq, Int, Show, elem, fst, not,
+                                            otherwise, (==))
 
 import           Control.Applicative       ((<*), (<*>))
 import           Control.Category          (id, (.))
-import           Control.Lens              (AsEmpty (..), At (..), Index,
-                                            IxValue, Ixed (..), Lens',
-                                            Rewrapped, Wrapped (..), cons,
-                                            isn't, iso, nearly, re, to, ( # ),
-                                            (.~), (<&>), (^.), (^?), _Wrapped)
+import           Control.Lens              (AsEmpty (..), At (..), Index, 
+                                            IxValue, Ixed (..), Lens', Prism',
+                                            Rewrapped, Wrapped (..), cons, 
+                                            isn't, iso, nearly, prism', re, to,
+                                            ( # ), (.~), (<&>), (^.), (^?),
+                                            _Wrapped)
 
 import           Control.Monad             (Monad)
 import           Data.Bifoldable           (Bifoldable (bifoldMap))
@@ -201,6 +203,15 @@ newtype MapLikeObj ws a = MLO
   { fromMapLikeObj :: JObject ws a -- ^ Access the underlying 'JObject'.
   }
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+-- |
+-- 'Prism' for working with a 'JObject' as a 'MapLikeObj'. This optic will keep
+-- the first unique key on a given 'JObject' and this information is not
+-- recoverable. If you want to create a 'MapLikeObj' from a 'JObject' and keep
+-- what is removed, then use the 'toMapLikeObj' function.
+--
+_MapLikeObj :: (Semigroup ws, Monoid ws) => Prism' (JObject ws a) (MapLikeObj ws a)
+_MapLikeObj = prism' fromMapLikeObj (Just . fst . toMapLikeObj)
 
 instance MapLikeObj ws a ~ t => Rewrapped (MapLikeObj ws a) t
 

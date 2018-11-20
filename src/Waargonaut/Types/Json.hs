@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
-{-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE DeriveTraversable      #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
@@ -30,16 +29,22 @@ module Waargonaut.Types.Json
   , jsonWSTraversal
   , jtypeTraversal
   , jtypeWSTraversal
+
+  -- * Optics
+  , oat
+  , oix
+  , aix
   ) where
 
 
-import           Prelude                     (Eq, Show)
+import           Prelude                     (Eq, Int, Show)
 
 import           Control.Applicative         (pure, (<$>), (<*>), (<|>))
 import           Control.Category            (id, (.))
 import           Control.Lens                (Prism', Rewrapped, Traversal,
-                                              Traversal', Wrapped (..), iso,
-                                              prism, traverseOf, _Wrapped)
+                                              Traversal', Wrapped (..), at, iso,
+                                              ix, prism, traverseOf, _1,
+                                              _Wrapped)
 
 import           Control.Monad               (Monad)
 
@@ -53,12 +58,14 @@ import           Data.Foldable               (Foldable (..), asum)
 import           Data.Function               (flip)
 import           Data.Functor                (Functor (..))
 import           Data.Monoid                 (Monoid (..))
-import           Data.Semigroup              ((<>))
+import           Data.Semigroup              (Semigroup, (<>))
 import           Data.Traversable            (Traversable (..))
 import           Data.Tuple                  (uncurry)
 
 import           Data.ByteString.Builder     (Builder)
 import qualified Data.ByteString.Builder     as BB
+import           Data.Maybe                  (Maybe)
+import           Data.Text                   (Text)
 
 import           Text.Parser.Char            (CharParsing, text)
 
@@ -67,7 +74,7 @@ import           Waargonaut.Types.JArray     (JArray (..), jArrayBuilder,
 import           Waargonaut.Types.JNumber    (JNumber, jNumberBuilder,
                                               parseJNumber)
 import           Waargonaut.Types.JObject    (JObject (..), jObjectBuilder,
-                                              parseJObject)
+                                              parseJObject, _MapLikeObj)
 import           Waargonaut.Types.JString    (JString, jStringBuilder,
                                               parseJString)
 import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
@@ -75,10 +82,17 @@ import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
 -- $setup
 -- >>> :set -XOverloadedStrings
 -- >>> import Utils
+-- >>> import Control.Lens
 -- >>> import Control.Monad (return)
 -- >>> import Data.Either (Either (..), isLeft)
+-- >>> import Data.Function (($))
 -- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Data.Digit (HeXDigit)
+-- >>> import qualified Waargonaut.Encode as E
+-- >>> let intList = E.runPureEncoder (E.list E.int) [1,2,3]
+-- >>> data Foo = Foo { fooA :: Int, fooB :: Text } deriving Show
+-- >>> let encodeFoo = E.mapLikeObj $ \(Foo i t) -> E.atKey' "a" E.int i . E.atKey' "b" E.text t
+-- >>> let obj = E.runPureEncoder encodeFoo (Foo 33 "Fred")
 ----
 
 -- | Individual JSON Types and their trailing whitespace.
@@ -212,6 +226,38 @@ jTypesBuilder s (JNum jn tws)   = jNumberBuilder jn                             
 jTypesBuilder s (JStr js tws)   = jStringBuilder js                             <> s tws
 jTypesBuilder s (JArr js tws)   = jArrayBuilder s waargonautBuilder js          <> s tws
 jTypesBuilder s (JObj jobj tws) = jObjectBuilder s waargonautBuilder jobj       <> s tws
+
+-- |
+-- A 'Control.Lens.Traversal'' over the 'a' at the given 'Text' key on a JSON object.
+--
+-- >>> E.simplePureEncodeNoSpaces E.json (obj & oat "c" ?~ E.runPureEncoder E.int 33)
+-- "{\"c\":33,\"a\":33,\"b\":\"Fred\"}"
+-- >>> E.simplePureEncodeNoSpaces E.json (obj & oat "d" ?~ E.runPureEncoder E.text "sally")
+-- "{\"d\":\"sally\",\"a\":33,\"b\":\"Fred\"}"
+--
+oat :: (AsJType r ws a, Semigroup ws, Monoid ws) => Text -> Traversal' r (Maybe a)
+oat k = _JObj . _1 . _MapLikeObj . at k
+
+-- |
+-- A 'Control.Lens.Traversal'' over the 'a' at the given 'Int' position in a JSON object.
+--
+-- >>> E.simplePureEncodeNoSpaces E.json (obj & oix 0 .~ E.runPureEncoder E.int 1)
+-- "{\"a\":1,\"b\":\"Fred\"}"
+-- >>> E.simplePureEncodeNoSpaces E.json (obj & oix 1 .~ E.runPureEncoder E.text "sally")
+-- "{\"a\":33,\"b\":\"sally\"}"
+oix :: (Semigroup ws, Monoid ws, AsJType r ws a) => Int -> Traversal' r a
+oix i = _JObj . _1 . ix i
+
+-- |
+-- A 'Control.Lens.Traversal'' over the 'a' at the given 'Int' position in a JSON array.
+--
+-- >>> E.simplePureEncodeNoSpaces E.json ((E.runPureEncoder (E.list E.int) [1,2,3]) & aix 0 .~ E.runPureEncoder E.int 99)
+-- "[99,2,3]"
+-- >>> E.simplePureEncodeNoSpaces E.json ((E.runPureEncoder (E.list E.int) [1,2,3]) & aix 2 .~ E.runPureEncoder E.int 44)
+-- "[1,2,44]"
+aix :: (AsJType r ws a, Semigroup ws, Monoid ws) => Int -> Traversal' r a
+aix i = _JArr . _1 . ix i
+
 
 -- | Parse a 'null' value.
 --

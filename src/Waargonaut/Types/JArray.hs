@@ -17,11 +17,11 @@ module Waargonaut.Types.JArray
   , jArrayBuilder
   ) where
 
-import           Prelude                   (Eq, Show)
+import           Prelude                   (Eq, Show, Int)
 
 import           Control.Category          ((.))
 import           Control.Error.Util        (note)
-import           Control.Lens              (AsEmpty (..), Cons (..), Rewrapped,
+import           Control.Lens              (AsEmpty (..), Cons (..), Rewrapped, Ixed (..), Index, IxValue,
                                             Wrapped (..), cons, isn't, iso,
                                             nearly, over, prism, to, ( # ),
                                             (^.), (^?), _2, _Wrapped)
@@ -83,6 +83,12 @@ instance (Monoid ws, Semigroup ws) => Semigroup (JArray ws a) where
 instance (Semigroup ws, Monoid ws) => Monoid (JArray ws a) where
   mempty = JArray mempty
   mappend = (<>)
+
+type instance IxValue (JArray ws a) = a
+type instance Index (JArray ws a)   = Int
+
+instance Ixed (JArray ws a) where
+  ix i f (JArray cs) = JArray <$> ix i f cs
 
 instance Bifunctor JArray where
   bimap f g (JArray cs) = JArray (bimap f g cs)

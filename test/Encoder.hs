@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
@@ -8,19 +7,23 @@ module Encoder
   , testImageDataType
   ) where
 
-import           Test.Tasty           (TestName, TestTree, testGroup)
-import           Test.Tasty.HUnit     (assertEqual, testCase)
+import           Control.Lens          ((<&>), (?~))
 
-import           Data.Proxy           (Proxy (..))
+import           Test.Tasty            (TestName, TestTree, testGroup)
+import           Test.Tasty.HUnit      (testCase, (@?=))
 
-import           Waargonaut.Encode    (Encoder, Encoder')
-import qualified Waargonaut.Encode    as E
+import           Data.Proxy            (Proxy (..))
 
-import           Data.ByteString.Lazy (ByteString)
+import           Waargonaut.Encode     (Encoder, Encoder')
+import qualified Waargonaut.Encode     as E
 
-import           Types.Common         (Image (..), testFudge, testImageDataType)
+import           Data.ByteString.Lazy  (ByteString)
 
-import           Waargonaut.Generic   (GWaarg, mkEncoder, proxy)
+import           Types.Common          (Image (..), Overlayed (..), testFudge,
+                                        testImageDataType)
+
+import           Waargonaut.Generic    (GWaarg, mkEncoder, proxy)
+import           Waargonaut.Types.Json (oat)
 
 testImageEncodedNoSpaces :: ByteString
 testImageEncodedNoSpaces = "{\"Width\":800,\"Height\":600,\"Title\":\"View from 15th Floor\",\"Animated\":false,\"IDs\":[116,943,234,38793]}"
@@ -37,20 +40,33 @@ encodeImage = E.mapLikeObj $ \img ->
 testFudgeEncodedWithConsName :: ByteString
 testFudgeEncodedWithConsName = "{\"fudgey\":\"Chocolate\"}"
 
+testOverlayed :: Overlayed
+testOverlayed = Overlayed "fred" testFudge
+
+testOverlayedOut :: ByteString
+testOverlayedOut = "{\"id\":\"fred\",\"fudgey\":\"Chocolate\"}"
+
+encodeOverlay :: Applicative f => Encoder f Overlayed
+encodeOverlay = E.encodeA $ \(Overlayed i f) -> E.runEncoder fudgeEnc f
+  <&> oat "id" ?~ E.runPureEncoder E.text i
+  where
+    fudgeEnc = proxy mkEncoder (Proxy :: Proxy GWaarg)
+
 tCase
   :: TestName
   -> Encoder' a
   -> a
   -> ByteString
   -> TestTree
-tCase nm enc a =
-  testCase nm . assertEqual nm (E.simplePureEncodeNoSpaces enc a)
+tCase nm enc a expected = testCase nm $
+  E.simplePureEncodeNoSpaces enc a @?= expected
 
 encoderTests :: TestTree
 encoderTests = testGroup "Encoder"
-  [ tCase "Encode Image" encodeImage testImageDataType testImageEncodedNoSpaces
-  , tCase "Encode Image (Generic)" enc testImageDataType testImageEncodedNoSpaces
-  , tCase "Encode newtype - with constructor name" enc testFudge testFudgeEncodedWithConsName
+  [ tCase "Image" encodeImage testImageDataType testImageEncodedNoSpaces
+  , tCase "Image (Generic)" enc testImageDataType testImageEncodedNoSpaces
+  , tCase "newtype - with constructor name" enc testFudge testFudgeEncodedWithConsName
+  , tCase "Overlayed" encodeOverlay testOverlayed testOverlayedOut
   ]
   where
     enc = proxy mkEncoder (Proxy :: Proxy GWaarg)
