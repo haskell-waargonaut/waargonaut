@@ -557,7 +557,6 @@ foldCursor nom f s elemD curs = DecodeResult . ReaderT $ \p ->
 --
 oneOf
   :: ( Foldable g
-     , Functor g
      , Monad f
      , Eq a
      )
@@ -565,9 +564,10 @@ oneOf
   -> Text
   -> g (a, b)
   -> Decoder f b
-oneOf d l = foldr (<!>) err
-  . fmap (\(a,b) -> d >>= \t -> if t == a then pure b else err)
+oneOf d l =
+  foldr (\i x -> g i <!> x) err
   where
+    g (a,b) = d >>= \t -> if t == a then pure b else err
     err = throwError (ConversionFailure l)
 
 -- | From the current cursor position, move leftwards one position at a time and
