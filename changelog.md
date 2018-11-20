@@ -1,5 +1,9 @@
 # Revision history for waargonaut
 
+## 0.4.1.0  -- 2018-11-20
+
+* Add `oneOf` decoder and tests
+
 ## 0.4.0.0  -- 2018-11-19
 
 * Redesign & rebuild of `Encoder` internals to allow for greater control and flexibility
