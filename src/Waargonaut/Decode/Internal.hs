@@ -59,6 +59,9 @@ import           Control.Monad.Morph           (MFunctor (..), MMonad (..))
 
 import           Data.Bifunctor                (first)
 import           Data.Functor                  (($>))
+import           Data.Functor.Alt              (Alt (..))
+import           Data.Functor.Apply            (Apply (..))
+import           Data.Functor.Bind             (Bind (..))
 import           Data.Sequence                 (Seq)
 
 import           Data.Text                     (Text)
@@ -148,6 +151,15 @@ instance MMonad (DecodeResultT i e) where
       where
         runner = flip runStateT (CursorHistory' mempty)
           . runExceptT . runDecodeResult
+
+instance (Monad f, Apply f) => Apply (DecodeResultT i e f) where
+  (DecodeResultT a) <.> (DecodeResultT b) = DecodeResultT (a <.> b)
+
+instance (Monad f, Bind f) => Bind (DecodeResultT i e f) where
+  (DecodeResultT a) >>- f = DecodeResultT (a >>- runDecodeResult . f)
+
+instance (Monad f, Bind f, Semigroup e, Alt f) => Alt (DecodeResultT i e f) where
+  (DecodeResultT a) <!> (DecodeResultT b) = DecodeResultT (a <!> b)
 
 -- |
 -- Wrapper type to describe a "Decoder" from something that has a 'Json'ish

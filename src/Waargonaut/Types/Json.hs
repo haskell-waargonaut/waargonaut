@@ -30,6 +30,8 @@ module Waargonaut.Types.Json
   , jtypeTraversal
   , jtypeWSTraversal
 
+  , prettyJson
+
   -- * Optics
   , oat
   , oix
@@ -37,14 +39,17 @@ module Waargonaut.Types.Json
   ) where
 
 
-import           Prelude                     (Eq, Int, Show)
+import           Prelude                     (Eq, Int, Show, (==))
 
 import           Control.Applicative         (pure, (<$>), (<*>), (<|>))
 import           Control.Category            (id, (.))
 import           Control.Lens                (Prism', Rewrapped, Traversal,
                                               Traversal', Wrapped (..), at, iso,
-                                              ix, prism, traverseOf, _1,
-                                              _Wrapped)
+                                              ix, over, prism, traverseOf, (%~), (<>~),
+                                              (.~), _1, _2, _Just, _Wrapped)
+
+import qualified Control.Lens         as L
+import qualified Control.Lens.Plated         as P
 
 import           Control.Monad               (Monad)
 
@@ -55,20 +60,23 @@ import           Data.Bool                   (Bool (..))
 import           Data.Distributive           (distribute)
 import           Data.Either                 (Either (..))
 import           Data.Foldable               (Foldable (..), asum)
-import           Data.Function               (flip)
+import           Data.Function               (const, flip, ($))
 import           Data.Functor                (Functor (..))
 import           Data.Monoid                 (Monoid (..))
 import           Data.Semigroup              (Semigroup, (<>))
 import           Data.Traversable            (Traversable (..))
 import           Data.Tuple                  (uncurry)
 
+import qualified Data.Vector                 as V
+
 import           Data.ByteString.Builder     (Builder)
 import qualified Data.ByteString.Builder     as BB
-import           Data.Maybe                  (Maybe)
+import           Data.Maybe                  (Maybe (..), maybe)
 import           Data.Text                   (Text)
 
 import           Text.Parser.Char            (CharParsing, text)
-
+import           Waargonaut.Types.CommaSep   (_CommaSeparated)
+import qualified Waargonaut.Types.CommaSep   as CS
 import           Waargonaut.Types.JArray     (JArray (..), jArrayBuilder,
                                               parseJArray)
 import           Waargonaut.Types.JNumber    (JNumber, jNumberBuilder,
@@ -77,7 +85,8 @@ import           Waargonaut.Types.JObject    (JObject (..), jObjectBuilder,
                                               parseJObject, _MapLikeObj)
 import           Waargonaut.Types.JString    (JString, jStringBuilder,
                                               parseJString)
-import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
+import           Waargonaut.Types.Whitespace (WS (..), Whitespace (..),
+                                              parseWhitespace)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -226,6 +235,30 @@ jTypesBuilder s (JNum jn tws)   = jNumberBuilder jn                             
 jTypesBuilder s (JStr js tws)   = jStringBuilder js                             <> s tws
 jTypesBuilder s (JArr js tws)   = jArrayBuilder s waargonautBuilder js          <> s tws
 jTypesBuilder s (JObj jobj tws) = jObjectBuilder s waargonautBuilder jobj       <> s tws
+
+prettyCommaSep :: CS.CommaSeparated WS a -> CS.CommaSeparated WS a
+prettyCommaSep = _CommaSeparated %~ bimap g (lst . et)
+  where
+    onews w    = WS (V.fromList [w])
+    oneSpace   = onews Space
+    oneNewline = onews NewLine
+
+    g currentWS = if maybe False (== NewLine) (currentWS L.^? _Wrapped . L._head)
+                  then currentWS <> oneSpace
+                  else oneNewline <> oneSpace <> oneSpace
+
+    et  = _Just . CS.elemsElems . traverse . CS.elemTrailing . fmap . _2 %~ g
+
+    lst = _Just . CS.elemsLast . CS.elemTrailing . _Just . _2 <>~ oneNewline
+
+prettyObj :: JType WS Json -> JType WS Json
+prettyObj = over (_JObj . _1 . _Wrapped) prettyCommaSep
+
+prettyArr :: JType WS Json -> JType WS Json
+prettyArr = over (_JArr . _1 . _Wrapped) prettyCommaSep
+
+prettyJson :: Json -> Json
+prettyJson = P.transformOf jsonTraversal (_JType %~ (prettyArr . prettyObj))
 
 -- |
 -- A 'Control.Lens.Traversal'' over the 'a' at the given 'Text' key on a JSON object.

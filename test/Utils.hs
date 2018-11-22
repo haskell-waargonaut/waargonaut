@@ -4,24 +4,23 @@
 module Utils where
 
 import           Control.Applicative     ((<$>), (<*), (<*>))
-
-import           Data.Char               (Char)
-import           Data.Either             (Either (..))
-import           Data.Text               (Text)
+import           Control.Category        ((.))
 
 import           Data.Attoparsec.Text    (Parser, anyChar, endOfInput,
                                           parseOnly)
+import           Data.Bifunctor          (first)
+import           Data.Char               (Char)
+import           Data.Either             (Either (..))
+import           Data.Text               (Text, pack)
 
-import           Waargonaut.Decode.Error (DecodeError)
-
-import           Types.Common            (parseWith)
+import           Waargonaut.Decode.Error (DecodeError (ParseFailed))
 
 testparse
   :: Parser a
   -> Text
   -> Either DecodeError a
-testparse =
-  parseWith parseOnly
+testparse p =
+  first (ParseFailed . pack) . parseOnly p
 
 testparsetheneof
   :: Parser a
