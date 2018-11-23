@@ -61,6 +61,7 @@ import           Control.Monad.Morph           (MFunctor (..), MMonad (..))
 import           Data.Bifunctor                (first)
 import qualified Data.Foldable                 as F
 import           Data.Functor                  (($>))
+import           Data.Semigroup                ((<>))
 import           Data.Sequence                 (Seq, fromList)
 
 import           Data.Text                     (Text)
