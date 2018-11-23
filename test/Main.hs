@@ -101,17 +101,20 @@ prop_history_condense = property $ do
   -- * [L n, R m]   = [L (n + m)]
   compressHistory (mcA L L n m) === mcB L (n + m) ixb
 
+  let
+    rlch = compressHistory (mcA R L n m)
+    lrch = compressHistory (mcA L R n m)
   when (n > m) $ do
     -- * [R n, L m]   = [R (n - m)] where n > m
-    compressHistory (mcA R L n m) === mcB R (n - m) ixa
+    rlch === mcB R (n - m) ixa
     -- * [L n, R m]   = [L (n - m)] where n > m
-    compressHistory (mcA L R n m) === mcB L (n - m) ixa
+    lrch === mcB L (n - m) ixa
 
   when (n < m) $ do
     -- * [R n, L m]   = [L (m - n)] where n < m
-    compressHistory (mcA R L n m) === mcB L (m - n) ixb
+    rlch === mcB L (m - n) ixb
     -- * [L n, R m]   = [R (m - n)] where n < m
-    compressHistory (mcA L R n m) === mcB R (m - n) ixb
+    lrch === mcB R (m - n) ixb
 
   -- * [DAt k, R n] = [DAt k]
   compressHistory (mkCH [(DAt "KeyName", ixa), (R (n ^. _Natural), ixb)]) === mkCH [(DAt "KeyName", ixa)]
