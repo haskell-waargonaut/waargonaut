@@ -18,7 +18,7 @@
             "keepnr": 5,
             "inputs": {
                 "waargonaut": { "type": "git", "value": "https://github.com/qfpl/waargonaut", "emailresponsible": false },
-                "nixpkgs": { "type": "git", "value": "https://github.com/NixOS/nixpkgs.git release-18.03", "emailresponsible": false }
+                "nixpkgs": { "type": "git", "value": "https://github.com/NixOS/nixpkgs.git release-18.09", "emailresponsible": false }
             }
         }
     }
