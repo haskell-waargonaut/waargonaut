@@ -1,5 +1,9 @@
 # Revision history for waargonaut
 
+## 0.4.2.0  -- 2018-11-23
+
+* Improved pretty printing of CursorHistory by condensing multiple numeric movements and removing the single movements following searching for keys.
+
 ## 0.4.1.0  -- 2018-11-20
 
 * Add `oneOf` decoder and tests
