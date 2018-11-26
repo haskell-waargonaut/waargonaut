@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections     #-}
 module Main (main) where
 
 import           Control.Lens                (( # ), (^.), (^?), _2)
 import qualified Control.Lens                as L
+import           Control.Monad               (when)
 
 import           Data.Either                 (isLeft)
 
@@ -18,6 +20,8 @@ import           Data.Semigroup              ((<>))
 import           Data.Text                   (Text)
 import qualified Data.Text.Encoding          as Text
 
+import qualified Data.Sequence               as S
+
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
 import qualified Hedgehog.Range              as Range
@@ -25,6 +29,8 @@ import qualified Hedgehog.Range              as Range
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Test.Tasty.HUnit
+
+import           Natural                     (_Natural)
 
 import           Data.Digit                  (HeXDigit)
 
@@ -40,6 +46,8 @@ import qualified Waargonaut.Types.Whitespace as WS
 
 import qualified Waargonaut.Decode           as D
 import           Waargonaut.Decode.Error     (DecodeError)
+import           Waargonaut.Decode.Internal  (CursorHistory' (..),
+                                              ZipperMove (..), compressHistory)
 import qualified Waargonaut.Encode           as E
 
 import           Waargonaut.Generic          (mkDecoder, mkEncoder)
@@ -74,6 +82,42 @@ decode
   -> Either DecodeError Json
 decode =
   Common.parseText
+
+prop_history_condense :: Property
+prop_history_condense = property $ do
+  n <- forAll $ Gen.int (Range.linear 1 10)
+  m <- forAll $ Gen.int (Range.linear 1 10)
+
+  let
+    ixa = 1 :: Int
+    ixb = 2
+    mkCH = CursorHistory' . S.fromList
+    mcA cn cm n' m' = mkCH [(cn (n' ^. _Natural), ixa), (cm (m' ^. _Natural), ixb)]
+    mcB c x i = mkCH [(c (x ^. _Natural), i)]
+
+  -- * [R n, R m]   = [R (n + m)]
+  compressHistory (mcA R R n m) === mcB R (n + m) ixb
+
+  -- * [L n, R m]   = [L (n + m)]
+  compressHistory (mcA L L n m) === mcB L (n + m) ixb
+
+  let
+    rlch = compressHistory (mcA R L n m)
+    lrch = compressHistory (mcA L R n m)
+  when (n > m) $ do
+    -- * [R n, L m]   = [R (n - m)] where n > m
+    rlch === mcB R (n - m) ixa
+    -- * [L n, R m]   = [L (n - m)] where n > m
+    lrch === mcB L (n - m) ixa
+
+  when (n < m) $ do
+    -- * [R n, L m]   = [L (m - n)] where n < m
+    rlch === mcB L (m - n) ixb
+    -- * [L n, R m]   = [R (m - n)] where n < m
+    lrch === mcB R (m - n) ixb
+
+  -- * [DAt k, R n] = [DAt k]
+  compressHistory (mkCH [(DAt "KeyName", ixa), (R (n ^. _Natural), ixb)]) === mkCH [(DAt "KeyName", ixa)]
 
 prop_uncons_consCommaSep :: Property
 prop_uncons_consCommaSep = property $ do
@@ -177,7 +221,7 @@ prop_maybe_maybe = withTests 1 . property $ do
       -- $ D.atKey "beep" (D.maybeOrNull D.bool)
 
 tripping_properties :: TestTree
-tripping_properties = testGroup "Round Trip"
+tripping_properties = testGroup "Properties"
   [ testProperty "CommaSeparated: cons . uncons = id"                  prop_uncons_consCommaSep
   , testProperty "CommaSeparated (disregard WS): cons . uncons = id"   prop_uncons_consCommaSepVal
   , testProperty "Char -> JChar Digit -> Maybe Char = Just id"         prop_jchar
@@ -188,6 +232,7 @@ tripping_properties = testGroup "Round Trip"
   , testProperty "Maybe Bool (generic)"                                prop_tripping_maybe_bool_generic
   , testProperty "Image record (generic)"                              prop_tripping_image_record_generic
   , testProperty "Newtype with Options (generic)"                      prop_tripping_newtype_fudge_generic
+  , testProperty "Condensing History"                                  prop_history_condense
   ]
 
 parser_properties :: TestTree
