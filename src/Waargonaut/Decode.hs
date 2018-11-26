@@ -53,6 +53,10 @@ module Waargonaut.Decode
   , atKey
   , focus
 
+    -- * Attempting decoding
+  , fromKeyOptional
+  , atKeyOptional
+
     -- * Provided Decoders
   , leftwardCons
   , rightwardSnoc
@@ -99,10 +103,12 @@ import           Prelude                                   (Bool, Bounded, Char,
 
 import           Control.Applicative                       (Applicative (..))
 import           Control.Category                          ((.))
-import           Control.Monad                             (Monad (..), (>=>))
+import           Control.Monad                             (Monad (..), (=<<),
+                                                            (>=>))
 import           Control.Monad.Morph                       (embed, generalize)
 
-import           Control.Monad.Except                      (lift, liftEither,
+import           Control.Monad.Except                      (catchError, lift,
+                                                            liftEither,
                                                             throwError)
 import           Control.Monad.Reader                      (ReaderT (..), ask,
                                                             local, runReaderT)
@@ -482,6 +488,39 @@ atKey
   -> Decoder f a
 atKey k d =
   withCursor (down >=> fromKey k d)
+
+-- | A version of 'fromKey' that returns its result in 'Maybe'. If the key is
+-- not present in the object, 'Nothing' is returned. If the key is present,
+-- decoding will be performed as with 'fromKey'.
+--
+-- For example, if a key could be absent and could be null if present,
+-- it could be decoded as follows:
+--
+-- @
+-- join <$> fromKeyOptional "key" (maybeOrNull text)
+-- @
+fromKeyOptional
+  :: Monad f
+  => Text
+  -> Decoder f b
+  -> JCurs
+  -> DecodeResult f (Maybe b)
+fromKeyOptional k d c =
+  focus' =<< catchError (pure <$> moveToKey k c) (\de -> case de of
+    KeyNotFound _ -> pure Nothing
+    _             -> throwError de)
+  where
+    focus' = maybe (pure Nothing) (fmap Just . focus d)
+
+-- | A version of 'atKey' that returns its result in 'Maybe'. If the key is
+-- not present in the object, 'Nothing' is returned. If the key is present,
+-- decoding will be performed as with 'atKey'.
+atKeyOptional
+  :: Monad f
+  => Text
+  -> Decoder f b
+  -> Decoder f (Maybe b)
+atKeyOptional k d = withCursor (down >=> fromKeyOptional k d)
 
 -- | Used internally in the construction of the basic 'Decoder's. Takes a 'Text'
 -- description of the thing you expect to find at the current cursor, and a
