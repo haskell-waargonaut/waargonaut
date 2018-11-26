@@ -29,8 +29,9 @@ import qualified Natural                    as N
 
 import           Waargonaut.Generic         (mkDecoder)
 
-import           Waargonaut.Decode.Internal (ZipperMove (BranchFail),
+import           Waargonaut.Decode.Internal (CursorHistory' (CursorHistory'), ZipperMove (BranchFail),
                                              ppCursorHistory, unCursorHistory')
+import           Waargonaut.Decode.Traversal
 
 import qualified Waargonaut.Decode          as D
 import qualified Waargonaut.Decode.Error    as D
@@ -51,6 +52,7 @@ decoderTests = testGroup "Decoding"
   , testCase "Using Alt (Error) - Records BranchFail" decodeAltError
   , testCase "List Decoder" listDecoder
   , testCase "NonEmpty List Decoder" nonEmptyDecoder
+  , testCase "Absent Key Decoder" absentKeyDecoder
   ]
 
 nonEmptyDecoder :: Assertion
@@ -187,3 +189,11 @@ decodeAltError = D.runDecode decodeEitherAlt parseBS (D.mkCursor "{\"foo\":33}")
 
                  )
                  (\_ -> assertFailure "Alt Error Test should fail")
+
+absentKeyDecoder :: Assertion
+absentKeyDecoder = do
+  n <- D.runDecode (D.atKey "key" D.absent) parseBS (D.mkCursor "{\"key\":\"present\"}")
+  y <- D.runDecode (D.atKey "missing" D.absent) parseBS (D.mkCursor "{\"key\":\"present\"}")
+
+  assertBool "absent succeeded when it shouldn't" (Either.isLeft n)
+  y @?= Either.Right ()
