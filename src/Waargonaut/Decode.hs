@@ -53,6 +53,10 @@ module Waargonaut.Decode
   , atKey
   , focus
 
+    -- * Attempting decoding
+  , fromKeyOptional
+  , atKeyOptional
+
     -- * Provided Decoders
   , leftwardCons
   , rightwardSnoc
@@ -70,14 +74,12 @@ module Waargonaut.Decode
   , text
   , bool
   , null
-  , absent
   , nonemptyAt
   , nonempty
   , listAt
   , list
   , withDefault
   , maybeOrNull
-  , maybeOrAbsent
   , either
   , oneOf
 
@@ -100,11 +102,13 @@ import           Prelude                                   (Bool, Bounded, Char,
 
 import           Control.Applicative                       (Applicative (..))
 import           Control.Category                          ((.))
-import           Control.Monad                             (Monad (..), (>=>))
+import           Control.Monad                             (Monad (..), (=<<),
+                                                            (>=>))
 import           Control.Monad.Morph                       (embed, generalize)
 
 import           Control.Monad.Except                      (catchError, lift,
-                                                            liftEither, throwError)
+                                                            liftEither,
+                                                            throwError)
 import           Control.Monad.Reader                      (ReaderT (..), ask,
                                                             local, runReaderT)
 import           Control.Monad.State                       (MonadState)
@@ -483,6 +487,31 @@ atKey
 atKey k d =
   withCursor (down >=> fromKey k d)
 
+-- | A version of 'fromKey' that returns its result in 'Maybe'. If the key is
+-- not present in the object, 'Nothing' is returned.
+fromKeyOptional
+  :: Monad f
+  => Text
+  -> Decoder f b
+  -> JCurs
+  -> DecodeResult f (Maybe b)
+fromKeyOptional k d c =
+  focus' =<< catchError (pure <$> moveToKey k c) (\de -> case de of
+    KeyNotFound _ -> pure Nothing
+    _             -> throwError de)
+  where
+    focus' = maybe (pure Nothing) (fmap Just . focus d)
+
+-- | A version of 'atKey' that returns its result in 'Maybe'. If the key is
+-- not present in the object, 'Nothing' is returned.
+atKeyOptional
+  :: Monad f
+  => Text
+  -> Decoder f b
+  -> Decoder f (Maybe b)
+atKeyOptional k d = withCursor (down >=> fromKeyOptional k d)
+
+
 -- | Used internally in the construction of the basic 'Decoder's. Takes a 'Text'
 -- description of the thing you expect to find at the current cursor, and a
 -- function to convert the 'Json' structure found there into something else.
@@ -744,16 +773,6 @@ null = atCursor "null" DI.null'
 bool :: Monad f => Decoder f Bool
 bool = atCursor "bool" DI.bool'
 
-absent :: Monad f => Decoder f ()
-absent = atCursor "absent" (const Nothing) `catchError` \de -> case de of
-  KeyNotFound _ -> pure ()
-  ConversionFailure _ -> throwError de
-  KeyDecodeFailed -> throwError de
-  FailedToMove _ -> throwError de
-  NumberOutOfBounds _ -> throwError de
-  InputOutOfBounds _ -> throwError de
-  ParseFailed _ -> throwError de
-
 -- | Given a 'Decoder' for 'a', attempt to decode a 'NonEmpty' list of 'a' at
 -- the current cursor position.
 nonemptyAt
@@ -804,13 +823,6 @@ maybeOrNull
   -> Decoder f (Maybe a)
 maybeOrNull a =
   (Nothing <$ null) <!> (Just <$> a)
-
-maybeOrAbsent ::
-  Monad f
-  => Decoder f a
-  -> Decoder f (Maybe a)
-maybeOrAbsent a =
-  (Nothing <$ absent) <!> (Just <$> a)
 
 -- | Decode either an 'a' or a 'b', failing if neither 'Decoder' succeeds. The
 -- 'Right' decoder is attempted first.

@@ -5,8 +5,8 @@ module Decoder
   ( decoderTests
   ) where
 
-import           Prelude                    (Char, Eq, Int, Show, String, print,
-                                             (==))
+import           Prelude                    (Char, Eq, Int, Show (show), String,
+                                             print, (==))
 
 import           Control.Applicative        (liftA3, (<$>))
 import           Control.Category           ((.))
@@ -21,6 +21,8 @@ import qualified Data.ByteString            as BS
 import qualified Data.Either                as Either
 import           Data.Function              (const, ($))
 import           Data.Functor.Alt           ((<!>))
+import           Data.Maybe                 (Maybe (Just, Nothing))
+import           Data.Semigroup             (Semigroup ((<>)))
 import qualified Data.Sequence              as Seq
 import           Data.Tagged                (untag)
 import           Data.Text                  (Text)
@@ -29,9 +31,8 @@ import qualified Natural                    as N
 
 import           Waargonaut.Generic         (mkDecoder)
 
-import           Waargonaut.Decode.Internal (CursorHistory' (CursorHistory'), ZipperMove (BranchFail),
+import           Waargonaut.Decode.Internal (ZipperMove (BranchFail),
                                              ppCursorHistory, unCursorHistory')
-import           Waargonaut.Decode.Traversal
 
 import qualified Waargonaut.Decode          as D
 import qualified Waargonaut.Decode.Error    as D
@@ -192,8 +193,12 @@ decodeAltError = D.runDecode decodeEitherAlt parseBS (D.mkCursor "{\"foo\":33}")
 
 absentKeyDecoder :: Assertion
 absentKeyDecoder = do
-  n <- D.runDecode (D.atKey "key" D.absent) parseBS (D.mkCursor "{\"key\":\"present\"}")
-  y <- D.runDecode (D.atKey "missing" D.absent) parseBS (D.mkCursor "{\"key\":\"present\"}")
+  a <- D.runDecode (D.atKeyOptional "key" D.text) parseBS (D.mkCursor "{\"key\":\"present\"}")
+  b <- D.runDecode (D.atKeyOptional "missing" D.text) parseBS (D.mkCursor "{\"key\":\"present\"}")
+  c <- D.runDecode (D.atKeyOptional "key" D.int) parseBS (D.mkCursor "{\"key\":\"present\"}")
 
-  assertBool "absent succeeded when it shouldn't" (Either.isLeft n)
-  y @?= Either.Right ()
+  a @?= Either.Right (Just "present")
+  b @?= Either.Right Nothing
+  case c of
+    Either.Right _ -> assertFailure "atKeyOptional succeeded when it shouldn't have"
+    Either.Left (e, _) -> assertEqual ("atKeyOptional failed incorrectly: " <> show e) e (D.ConversionFailure "integral")
