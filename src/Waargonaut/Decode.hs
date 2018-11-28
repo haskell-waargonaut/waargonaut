@@ -85,10 +85,11 @@ import           GHC.Word                                  (Word64)
 
 import           Control.Lens                              (Cons, Lens', Prism',
                                                             Snoc, cons, lens,
-                                                            modifying, preview,
-                                                            snoc, traverseOf,
-                                                            view, ( # ), (.~),
-                                                            (^.), _Wrapped)
+                                                            matching, modifying,
+                                                            preview, snoc,
+                                                            traverseOf, view,
+                                                            ( # ), (.~), (^.),
+                                                            _Wrapped)
 
 import           Prelude                                   (Bool, Bounded, Char,
                                                             Eq, Int, Integral,
@@ -111,6 +112,7 @@ import           Control.Error.Util                        (note)
 import           Control.Monad.Error.Hoist                 ((<!?>), (<?>))
 
 import           Data.Either                               (Either (..))
+import qualified Data.Either                               as Either (either)
 import           Data.Foldable                             (Foldable, foldl,
                                                             foldr)
 import           Data.Function                             (const, flip, ($),
@@ -702,8 +704,17 @@ prismDOrFail
   -> Prism' a b
   -> Decoder f a
   -> Decoder f b
-prismDOrFail e p d = withCursor $
-  focus d >=> \a -> preview p a <?> e
+prismDOrFail e = prismDOrFail' (const e)
+
+-- | Like 'prismDOrFail'', but lets you use the @a@ to construct the error.
+prismDOrFail'
+  :: Monad f
+  => (a -> DecodeError)
+  -> Prism' a b
+  -> Decoder f a
+  -> Decoder f b
+prismDOrFail' e p d = withCursor $
+  focus d >=> Either.either (throwError . e) pure . matching p
 
 -- | Decode an 'Int'.
 int :: Monad f => Decoder f Int
