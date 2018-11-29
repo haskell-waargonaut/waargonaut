@@ -1,8 +1,10 @@
 # Revision history for waargonaut
 
-## 0.4.2.0  -- 2018-11-23
+## 0.4.2.0  -- 2018-11-29
 
 * Improved pretty printing of CursorHistory by condensing multiple numeric movements and removing the single movements following searching for keys.
+* Add `fromKeyOptional` and `atKeyOptional` that make it easier to handle optional keys on objects.
+* Add `prismDOrFail'` function to allow the user to construct an error from the value that was decoded.
 
 ## 0.4.1.0  -- 2018-11-20
 
