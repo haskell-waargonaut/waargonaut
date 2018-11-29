@@ -492,13 +492,6 @@ atKey k d =
 -- | A version of 'fromKey' that returns its result in 'Maybe'. If the key is
 -- not present in the object, 'Nothing' is returned. If the key is present,
 -- decoding will be performed as with 'fromKey'.
---
--- For example, if a key could be absent and could be null if present,
--- it could be decoded as follows:
---
--- @
--- join <$> fromKeyOptional "key" (maybeOrNull text)
--- @
 fromKeyOptional
   :: Monad f
   => Text
@@ -515,6 +508,13 @@ fromKeyOptional k d c =
 -- | A version of 'atKey' that returns its result in 'Maybe'. If the key is
 -- not present in the object, 'Nothing' is returned. If the key is present,
 -- decoding will be performed as with 'atKey'.
+--
+-- For example, if a key could be absent and could be null if present,
+-- it could be decoded as follows:
+--
+-- @
+-- join \<$> atKeyOptional "key" (maybeOrNull text)
+-- @
 atKeyOptional
   :: Monad f
   => Text
