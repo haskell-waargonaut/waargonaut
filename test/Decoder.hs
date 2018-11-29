@@ -5,8 +5,8 @@ module Decoder
   ( decoderTests
   ) where
 
-import           Prelude                    (Char, Eq, Int, Show, String, print,
-                                             (==))
+import           Prelude                    (Char, Eq, Int, Show (show), String,
+                                             print, (==))
 
 import           Control.Applicative        (liftA3, (<$>))
 import           Control.Category           ((.))
@@ -21,6 +21,8 @@ import qualified Data.ByteString            as BS
 import qualified Data.Either                as Either
 import           Data.Function              (const, ($))
 import           Data.Functor.Alt           ((<!>))
+import           Data.Maybe                 (Maybe (Just, Nothing))
+import           Data.Semigroup             (Semigroup ((<>)))
 import qualified Data.Sequence              as Seq
 import           Data.Tagged                (untag)
 import           Data.Text                  (Text)
@@ -51,6 +53,7 @@ decoderTests = testGroup "Decoding"
   , testCase "Using Alt (Error) - Records BranchFail" decodeAltError
   , testCase "List Decoder" listDecoder
   , testCase "NonEmpty List Decoder" nonEmptyDecoder
+  , testCase "Absent Key Decoder" absentKeyDecoder
   ]
 
 nonEmptyDecoder :: Assertion
@@ -187,3 +190,17 @@ decodeAltError = D.runDecode decodeEitherAlt parseBS (D.mkCursor "{\"foo\":33}")
 
                  )
                  (\_ -> assertFailure "Alt Error Test should fail")
+
+absentKeyDecoder :: Assertion
+absentKeyDecoder = do
+  a <- D.runDecode (D.atKeyOptional "key" D.text) parseBS (D.mkCursor "{\"key\":\"present\"}")
+  b <- D.runDecode (D.atKeyOptional "missing" D.text) parseBS (D.mkCursor "{\"key\":\"present\"}")
+  c <- D.runDecode (D.atKeyOptional "key" D.int) parseBS (D.mkCursor "{\"key\":\"present\"}")
+
+  a @?= Either.Right (Just "present")
+  b @?= Either.Right Nothing
+  case c of
+    Either.Right _ ->
+      assertFailure "atKeyOptional succeeded when it shouldn't have"
+    Either.Left (e, _) ->
+      assertEqual ("atKeyOptional failed incorrectly: " <> show e) e (D.ConversionFailure "integral")
