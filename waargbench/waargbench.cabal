@@ -55,7 +55,7 @@ benchmark bench
 
   other-modules:       Common
   -- other-extensions:
-  build-depends:       base         >= 4.9    && < 4.13
+  build-depends:       base         >= 4.8    && < 4.13
                      , lens         >= 4.15   && < 5
                      , semigroups   >= 0.8.4  && < 0.19
                      , text         >= 1.2    && < 1.3
