@@ -27,6 +27,12 @@ build-type:          Simple
 extra-source-files:  CHANGELOG.md
 cabal-version:       >=1.10
 
+tested-with:         GHC==7.10.3
+                   , GHC==8.0.2
+                   , GHC==8.2.2
+                   , GHC==8.4.4
+                   , GHC==8.6.2
+
 -- Extra files to be distributed with the package, such as examples or a
 -- README.
 extra-source-files:  changelog.md
