@@ -67,6 +67,7 @@ module Waargonaut.Encode
   , integral'
   , scientific'
   , bool'
+  , string'
   , text'
   , null'
   , either'
@@ -305,6 +306,10 @@ scientific' = scientific
 -- | As per 'bool' but with the 'f' specialised to 'Data.Functor.Identity'.
 bool' :: Encoder' Bool
 bool' = bool
+
+-- | As per 'string' but with the 'f' specialised to 'Data.Functor.Identity'.
+string' :: Encoder' String
+string' = string
 
 -- | As per 'text' but with the 'f' specialised to 'Data.Functor.Identity'.
 text' :: Encoder' Text
