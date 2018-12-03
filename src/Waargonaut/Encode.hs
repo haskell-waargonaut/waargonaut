@@ -32,6 +32,7 @@ module Waargonaut.Encode
   , integral
   , scientific
   , bool
+  , string
   , text
   , null
   , either
@@ -92,7 +93,8 @@ import           Control.Lens                         (AReview, At, Index,
 import qualified Control.Lens                         as L
 
 import           Prelude                              (Bool, Int, Integral,
-                                                       Monad, fromIntegral, fst)
+                                                       Monad, String,
+                                                       fromIntegral, fst)
 
 import           Data.Foldable                        (Foldable, foldr, foldrM)
 import           Data.Function                        (const, flip, ($), (&))
@@ -132,7 +134,8 @@ import           Waargonaut.Encode.Types              (Encoder, Encoder',
 import           Waargonaut.Types                     (AsJType (..),
                                                        JAssoc (..), JObject,
                                                        Json, MapLikeObj (..),
-                                                       WS, textToJString,
+                                                       WS, stringToJString,
+                                                       textToJString,
                                                        toMapLikeObj, wsRemover,
                                                        _JNumberInt,
                                                        _JNumberScientific)
@@ -203,6 +206,10 @@ integral = encToJsonNoSpaces _JNum (review _JNumberScientific . fromIntegral)
 -- | Encode a 'Bool'
 bool :: Applicative f => Encoder f Bool
 bool = encToJsonNoSpaces _JBool id
+
+-- | Encode a 'String'
+string :: Applicative f => Encoder f String
+string = encToJsonNoSpaces _JStr stringToJString
 
 -- | Encode a 'Text'
 text :: Applicative f => Encoder f Text
