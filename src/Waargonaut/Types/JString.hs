@@ -18,9 +18,10 @@ module Waargonaut.Types.JString
   , jStringBuilder
 
   , textToJString
+  , stringToJString
   ) where
 
-import           Prelude                 (Eq, Ord, Show, String)
+import           Prelude                 (Eq, Ord, Show, String, foldr)
 
 import           Control.Applicative     ((*>), (<*))
 import           Control.Category        (id, (.))
@@ -164,6 +165,10 @@ jStringBuilder (JString' jcs) =
 --
 textToJString :: Text -> JString
 textToJString = JString' . Text.foldr (V.cons . utf8CharToJChar) V.empty
+
+-- | Convert a 'String' to a 'JString'.
+stringToJString :: String -> JString
+stringToJString = JString' . foldr (V.cons . utf8CharToJChar) V.empty
 
 -- _JStringText :: Prism' JString Text
 -- _JStringText = prism
