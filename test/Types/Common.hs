@@ -4,6 +4,8 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
+
+{-# LANGUAGE TypeApplications      #-}
 module Types.Common
   ( genDecimalDigit
   , genDecimalDigits
@@ -50,6 +52,8 @@ import qualified Hedgehog.Gen                as Gen
 import qualified Hedgehog.Range              as Range
 
 import           Data.ByteString             (ByteString)
+import qualified Data.ByteString             as BS
+import qualified Data.ByteString.Builder     as BB
 import qualified Data.ByteString.Lazy.Char8  as BSL8
 
 import qualified Data.Attoparsec.ByteString  as AB
@@ -68,8 +72,9 @@ import qualified Waargonaut.Decode           as SD
 
 import           Waargonaut.Decode.Error     (DecodeError)
 import qualified Waargonaut.Encode           as E
-import           Waargonaut.Types            (Json)
-import           Waargonaut.Types.Whitespace (Whitespace (..))
+import           Waargonaut.Types            (Json, prettyArr, prettyObj,
+                                              waargonautBuilder)
+import           Waargonaut.Types.Whitespace (Whitespace (..), wsBuilder)
 
 import           Waargonaut.Generic          (GWaarg, JsonDecode (..),
                                               JsonEncode (..), NewtypeName (..),
@@ -141,6 +146,16 @@ imageOpts = defaultOpts
 -- your expectations so always check.
 instance JsonEncode GWaarg Image where mkEncoder = gEncoder imageOpts
 instance JsonDecode GWaarg Image where mkDecoder = gDecoder imageOpts
+
+imageJson :: Json
+imageJson = E.runPureEncoder (T.untag $ mkEncoder @GWaarg) testImageDataType
+
+indentImage :: IO ()
+indentImage = do
+  pjson $ (prettyArr True 1 1 . prettyObj 2 2) imageJson
+  pjson imageJson
+  where
+    pjson = BSL8.putStrLn . BB.toLazyByteString . waargonautBuilder wsBuilder
 
 newtype Fudge = Fudge Text
   deriving (Eq, Show, GHC.Generic)

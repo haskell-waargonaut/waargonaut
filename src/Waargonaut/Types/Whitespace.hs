@@ -20,10 +20,10 @@ module Waargonaut.Types.Whitespace
   ) where
 
 import           Control.Applicative     (liftA2)
-import           Control.Lens            (AsEmpty (..), Cons (..), Prism',
-                                          Rewrapped, Wrapped (..), isn't, iso,
+import           Control.Lens            (AsEmpty (..), Cons (..), Snoc (..), Prism',
+                                          Rewrapped, Wrapped (..), isn't, iso, unsnoc,
                                           mapped, nearly, over, prism, prism',
-                                          to, uncons, (^.), _2, _Wrapped)
+                                          to, uncons, (^.), _1, _2, _Wrapped)
 
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder as BB
@@ -66,6 +66,10 @@ newtype WS = WS (Vector Whitespace)
 instance Cons WS WS Whitespace Whitespace where
   _Cons = prism' (\(w,ws) -> over _Wrapped (V.cons w) ws) (\(WS ws) -> over (mapped . _2) WS (uncons ws))
   {-# INLINE _Cons #-}
+
+instance Snoc WS WS Whitespace Whitespace where
+  _Snoc = prism' (\(w, ws) -> over _Wrapped (flip V.snoc ws) w) (\(WS ws) -> over (mapped . _1) WS $ unsnoc ws)
+  {-# INLINE _Snoc #-}
 
 instance AsEmpty WS where
   _Empty = nearly mempty (^. _Wrapped . to (isn't _Empty))
