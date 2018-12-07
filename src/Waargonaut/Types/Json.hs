@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE OverloadedStrings      #-}
@@ -239,7 +240,7 @@ jTypesBuilder s (JArr js tws)   = jArrayBuilder s waargonautBuilder js          
 jTypesBuilder s (JObj jobj tws) = jObjectBuilder s waargonautBuilder jobj       <> s tws
 
 immediateTrailingWS :: Traversal' Json WS
-immediateTrailingWS f = traverseOf _Wrapped $ \jt -> case jt of
+immediateTrailingWS f = traverseOf _Wrapped $ \case
   JNull ws   -> JNull   <$> f ws
   JBool b ws -> JBool b <$> f ws
   JNum n ws  -> JNum n  <$> f ws
@@ -266,12 +267,14 @@ prettyArr :: Bool -> Int -> Int -> Json -> Json
 prettyArr inline step _ = P.transformOf jsonTraversal (arr inline)
   where
     i = WS (V.replicate step Space)
+
     arr True  = stepaftercomma
     arr False = complicatematters
 
     stepaftercomma a = a
       L.& arrelems . elemsinit .~ i
       L.& arrelems . elemslast .~ i
+      L.& arrelems . CS.elemsLast . CS.elemVal . immediateTrailingWS .~ i
 
     complicatematters = id
 
@@ -302,13 +305,13 @@ prettyObj step w = P.transformOf jsonTraversal (
 
     setinitelems       = objelems . elemsinit .~ i
     setlastelem        = objelems . elemslast .~ l
+    nested             = CS.elemsLast . CS.elemVal . jsonAssocVal
 
     setnested          = objelems . nested %~ prettyObj step (w + step)
     setlastvaltrailing = objelems . nested . immediateTrailingWS .~ l
 
     setheadleadingws   = _JObj . _1 . _Wrapped . CS._CommaSeparated . _1 .~ i
 
-    nested             = CS.elemsLast . CS.elemVal . jsonAssocVal
 
 
 -- |
