@@ -176,6 +176,41 @@ prop_maybe_maybe = withTests 1 . property $ do
       $ D.maybeOrNull (D.atKey "beep" D.bool)
       -- $ D.atKey "beep" (D.maybeOrNull D.bool)
 
+tripping_stringlies :: TestTree
+tripping_stringlies = testGroup "String Types"
+  [
+  -- testGroup "string gen - string e/d"
+  --   [ testProperty "unicode" $ p Gen.string Gen.unicode E.string D.string
+  --   , testProperty "latin1"  $ p Gen.string Gen.latin1 E.string D.string
+  --   , testProperty "ascii"   $ p Gen.string Gen.ascii E.string D.string
+  --   ]
+  -- , testGroup "text gen - text e/d"
+  --   [ testProperty "unicode"       $ p Gen.text Gen.unicode E.text D.text
+  --   , testProperty "latin1"        $ p Gen.text Gen.latin1 E.text D.text
+  --   , testProperty "ascii"         $ p Gen.text Gen.ascii E.text D.text
+  --   ]
+    testGroup "utf8 gen - bytestring e/d"
+    [ testProperty "unicodeAll" $ p Gen.utf8 Gen.unicodeAll E.strictByteString D.strictByteString
+    , testProperty "unicode"    $ p Gen.utf8 Gen.unicode E.strictByteString D.strictByteString
+    , testProperty "latin1"     $ p Gen.utf8 Gen.latin1 E.strictByteString D.strictByteString
+    , testProperty "ascii"      $ p Gen.utf8 Gen.ascii E.strictByteString D.strictByteString
+    ]
+  ]
+  where
+    deco d = D.simpleDecode d Common.parseBS . BSL8.toStrict
+
+    p :: ( Show a
+         , Eq a
+         )
+      => (Range Int -> Gen Char -> Gen a)
+      -> Gen Char
+      -> E.Encoder' a
+      -> D.Decoder L.Identity a
+      -> Property
+    p f g e d = property $ do
+      inp <- forAll $ f (Range.linear 0 1000) g
+      tripping inp (E.simplePureEncodeNoSpaces e) (deco d)
+
 tripping_properties :: TestTree
 tripping_properties = testGroup "Round Trip"
   [ testProperty "CommaSeparated: cons . uncons = id"                  prop_uncons_consCommaSep
@@ -243,6 +278,7 @@ main :: IO ()
 main = defaultMain $ testGroup "Waargonaut All Tests"
   [ parser_properties
   , tripping_properties
+  -- , tripping_stringlies
   , unitTests
   , regressionTests
 

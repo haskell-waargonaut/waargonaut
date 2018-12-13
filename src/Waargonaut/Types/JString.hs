@@ -18,39 +18,43 @@ module Waargonaut.Types.JString
   , jStringBuilder
 
   , textToJString
+  , stringToJString
+  , strictByteStringToJString
+  , lazyByteStringToJString
   ) where
 
-import           Prelude                 (Eq, Ord, Show, String)
+import           Prelude                    (Eq, Ord, Show, String)
 
-import           Control.Applicative     ((*>), (<*))
-import           Control.Category        (id, (.))
-import           Control.Error.Util      (note)
-import           Control.Lens            (Prism', Rewrapped, Wrapped (..), iso,
-                                          preview, prism, ( # ), (^?))
+import           Control.Applicative        ((*>), (<*))
+import           Control.Category           (id, (.))
+import           Control.Error.Util         (note)
+import           Control.Lens               (Prism', Rewrapped, Wrapped (..),
+                                             iso, preview, prism, ( # ), (^?))
 
-import           Data.Either             (Either (Right))
-import           Data.Foldable           (Foldable, foldMap)
-import           Data.Function           (($))
-import           Data.Functor            (Functor, (<$>))
-import           Data.Semigroup          ((<>))
-import           Data.Text               (Text)
-import qualified Data.Text               as Text
-import           Data.Traversable        (Traversable, traverse)
+import           Data.Either                (Either (Right))
+import           Data.Foldable              (Foldable, foldMap, foldr)
+import           Data.Function              (($))
+import           Data.Functor               (Functor, (<$>))
+import           Data.Semigroup             ((<>))
+import           Data.Text                  (Text)
+import qualified Data.Text                  as Text
+import           Data.Traversable           (Traversable, traverse)
 
-import           Data.Vector             (Vector)
-import qualified Data.Vector             as V
+import           Data.Vector                (Vector)
+import qualified Data.Vector                as V
 
-import           Data.Digit              (HeXDigit)
+import           Data.Digit                 (HeXDigit)
 
-import           Text.Parser.Char        (CharParsing, char)
-import           Text.Parser.Combinators (many)
+import           Text.Parser.Char           (CharParsing, char)
+import           Text.Parser.Combinators    (many)
 
-import           Data.ByteString         (ByteString)
-import qualified Data.ByteString.Builder as BB
-import qualified Data.ByteString.Char8   as BS8
+import           Data.ByteString            (ByteString)
+import qualified Data.ByteString.Builder    as BB
+import qualified Data.ByteString.Char8      as BS8
+import qualified Data.ByteString.Lazy.Char8 as BSL8
 
-import           Waargonaut.Types.JChar  (JChar, jCharBuilder, parseJChar,
-                                          utf8CharToJChar, _JChar)
+import           Waargonaut.Types.JChar     (JChar, jCharBuilder, parseJChar,
+                                             utf8CharToJChar, _JChar)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -164,6 +168,15 @@ jStringBuilder (JString' jcs) =
 --
 textToJString :: Text -> JString
 textToJString = JString' . Text.foldr (V.cons . utf8CharToJChar) V.empty
+
+stringToJString :: String -> JString
+stringToJString = JString' . foldr (V.cons . utf8CharToJChar) V.empty
+
+strictByteStringToJString :: ByteString -> JString
+strictByteStringToJString = JString' . BS8.foldr (V.cons . utf8CharToJChar) V.empty
+
+lazyByteStringToJString :: BSL8.ByteString -> JString
+lazyByteStringToJString = JString' . BSL8.foldr (V.cons . utf8CharToJChar) V.empty
 
 -- _JStringText :: Prism' JString Text
 -- _JStringText = prism

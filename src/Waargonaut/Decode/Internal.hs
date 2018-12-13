@@ -23,6 +23,7 @@ module Waargonaut.Decode.Internal
   , int'
   , text'
   , string'
+  , strictByteString'
   , unboundedChar'
   , boundedChar'
   , bool'
@@ -63,6 +64,8 @@ import           Data.Functor.Alt              (Alt (..))
 import           Data.Functor.Apply            (Apply (..))
 import           Data.Functor.Bind             (Bind (..))
 import           Data.Sequence                 (Seq)
+
+import qualified Data.ByteString               as BS
 
 import           Data.Text                     (Text)
 
@@ -254,6 +257,9 @@ text' = L.preview (_JStr . _1 . L.re _JString)
 -- | Try to decode a 'String' value from some 'Json' or value.
 string' :: AsJType a ws a => a -> Maybe String
 string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map (_JChar L.#)))
+
+strictByteString' :: AsJType a ws a => a -> Maybe BS.ByteString
+strictByteString' = L.preview (_JStr . _1 . L.re _JString)
 
 -- | Decoder for a 'Char' value that cannot contain values in the range U+D800
 -- to U+DFFF. This decoder will fail if the 'Char' is outside of this range.

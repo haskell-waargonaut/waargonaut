@@ -65,6 +65,7 @@ module Waargonaut.Decode
   , scientific
   , integral
   , string
+  , strictByteString
   , unboundedChar
   , boundedChar
   , text
@@ -718,6 +719,9 @@ scientific = atCursor "scientific" DI.scientific'
 -- | Decode a 'String' value.
 string :: Monad f => Decoder f String
 string = atCursor "string" DI.string'
+
+strictByteString :: Monad f => Decoder f BS8.ByteString
+strictByteString = atCursor "strict bytestring" DI.strictByteString'
 
 -- | Decode a 'Char' value that is equivalent to a Haskell 'Char' value, as Haskell 'Char' supports a wider range than JSON.
 unboundedChar :: Monad f => Decoder f Char

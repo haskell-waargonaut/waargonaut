@@ -36,9 +36,8 @@ module Waargonaut.Types.JChar
   ) where
 
 import           Prelude                     (Char, Eq, Int, Ord, Show,
-                                              otherwise, quotRem, (&&),
-                                              (*), (+), (-), (/=), (<=), (==),
-                                              (>=))
+                                              otherwise, quotRem, (&&), (*),
+                                              (+), (-), (/=), (<=), (==), (>=))
 
 import           Control.Category            (id, (.))
 import           Control.Lens                (Lens', Prism', Rewrapped,
@@ -118,12 +117,20 @@ class AsJCharUnescaped a where
 instance AsJCharUnescaped JCharUnescaped where
   _JCharUnescaped = id
 
+-- acceptableUnescapedChar :: Char -> Bool
+-- acceptableUnescapedChar c = any ($ c) acceptable
+--   where
+--     acceptable =
+--       [ \x -> x >= '\x20' && x <= '\x21'
+--       , \x -> x >= '\x23' && x <= '\x5b'
+--       , \x -> x >= '\x5d' && x <= '\x10ffff'
+--       ]
+
 instance AsJCharUnescaped Char where
   _JCharUnescaped = prism'
     (\(JCharUnescaped c) -> c)
-    (\c ->  if any ($ c) excluded then Nothing
-            else Just (JCharUnescaped c)
-    )
+    -- (\c -> bool Nothing (Just (JCharUnescaped c)) $ acceptableUnescapedChar c)
+    (\c -> if any ($ c) excluded then Nothing else Just (JCharUnescaped c))
     where
       excluded =
         [ (== '\NUL')

@@ -35,9 +35,9 @@ import           Prelude                   (Eq, Int, Show, elem, fst, not,
 
 import           Control.Applicative       ((<*), (<*>))
 import           Control.Category          (id, (.))
-import           Control.Lens              (AsEmpty (..), At (..), Index, 
+import           Control.Lens              (AsEmpty (..), At (..), Index,
                                             IxValue, Ixed (..), Lens', Prism',
-                                            Rewrapped, Wrapped (..), cons, 
+                                            Rewrapped, Wrapped (..), cons,
                                             isn't, iso, nearly, prism', re, to,
                                             ( # ), (.~), (<&>), (^.), (^?),
                                             _Wrapped)
@@ -63,8 +63,8 @@ import qualified Data.Witherable           as W
 
 import           Text.Parser.Char          (CharParsing, char)
 
-import           Waargonaut.Types.CommaSep (CommaSeparated (..),
-                                            commaSeparatedBuilder,
+import           Waargonaut.Types.CommaSep (CommaSeparated (..), Elem,
+                                            commaSeparatedBuilder, elemVal,
                                             parseCommaSeparated)
 
 import           Waargonaut.Types.JString
@@ -128,6 +128,9 @@ instance HasJAssoc (JAssoc ws a) ws a where
   {-# INLINE jsonAssocVal #-}
   jsonAssocValPreceedingWS f (JAssoc x1 x2 x3 x4) = fmap (\y1 -> JAssoc x1 x2 y1 x4) (f x3)
   {-# INLINE jsonAssocValPreceedingWS #-}
+
+instance HasJAssoc (Elem f ws (JAssoc ws a)) ws a where
+  jAssoc = elemVal
 
 -- Helper function for trying to update/create a JAssoc value in some Functor.
 -- This function is analogus to the 'Data.Map.alterF' function.

@@ -44,15 +44,6 @@ data InlineOption
 objelems :: AsJType r WS a => Traversal' r (Elems WS (JAssoc WS a))
 objelems = _JObj . _1 . _Wrapped . CS._CommaSeparated . _2 . _Just
 
-keyLen :: HasJAssoc c ws a => L.Getter c Int
-keyLen = jsonAssocKey . _Wrapped . L.to length
-
-elemsinit :: (CS.HasElems c ws a) => L.ASetter' c ws
-elemsinit = CS.elemsElems . traverse . CS.elemTrailing . fmap . _2
-
-elemslast :: CS.HasElems c ws a => L.ASetter' c ws
-elemslast = CS.elemsLast . CS.elemTrailing . _Just . _2
-
 immediateTrailingWS :: Traversal' Json WS
 immediateTrailingWS f = traverseOf _Wrapped $ \case
   JNull ws   -> JNull   <$> f ws
@@ -82,8 +73,8 @@ prettyCommaSep csWrapper nested inline step w =
     setheadleadingws   = csWrapper . CS._CommaSeparated . _1 .~ i
 
     stepaftercomma = csWrapper . CS._CommaSeparated . _2 . _Just %~ \es -> es
-      L.& elemsinit .~ i
-      L.& elemslast .~ l
+      L.& CS.elemsElems . traverse . CS.elemTrailing . fmap . _2 .~ i
+      L.& CS.elemsLast . CS.elemTrailing . _Just . _2 .~ l
       L.& CS.elemsLast . CS.elemVal . nested . immediateTrailingWS .~ l
 
 prettyJson :: InlineOption -> Int -> Int -> Json -> Json
@@ -101,12 +92,12 @@ prettyJson inlineOpt step w = P.transformOf jsonTraversal (
 
     alignafterkey j = over (objelems . traverse) (\ja ->
         let
-          kl = ja L.^. keyLen
+          kl = ja L.^. jsonAssocKey . _Wrapped . L.to length
         in
           ja L.& jsonAssocValPreceedingWS .~ (WS . spaces $ longestKey - kl)
       ) j
       where
-        longestKey = maybe 1 (+1) $ L.maximumOf (objelems . L.folded . keyLen) j
+        longestKey = maybe 1 (+1) $ L.maximumOf (objelems . L.folded . jsonAssocKey . _Wrapped . L.to length) j
 
     setnested = objelems . CS.elemsLast . CS.elemVal . jsonAssocVal %~
       prettyJson inlineOpt step (w + step)

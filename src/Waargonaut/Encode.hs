@@ -33,6 +33,9 @@ module Waargonaut.Encode
   , scientific
   , bool
   , text
+  , string
+  , strictByteString
+  , lazyByteString
   , null
   , either
   , maybe
@@ -67,6 +70,9 @@ module Waargonaut.Encode
   , scientific'
   , bool'
   , text'
+  , string'
+  , strictByteString'
+  , lazyByteString'
   , null'
   , either'
   , maybe'
@@ -92,7 +98,8 @@ import           Control.Lens                         (AReview, At, Index,
 import qualified Control.Lens                         as L
 
 import           Prelude                              (Bool, Int, Integral,
-                                                       Monad, fromIntegral, fst)
+                                                       Monad, String,
+                                                       fromIntegral, fst)
 
 import           Data.Foldable                        (Foldable, foldr, foldrM)
 import           Data.Function                        (const, flip, ($), (&))
@@ -112,6 +119,7 @@ import           Data.Scientific                      (Scientific)
 import           Data.Monoid                          (Monoid, mempty)
 import           Data.Semigroup                       (Semigroup)
 
+import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Builder              as BB
 import           Data.ByteString.Lazy                 (ByteString)
 
@@ -132,7 +140,11 @@ import           Waargonaut.Encode.Types              (Encoder, Encoder',
 import           Waargonaut.Types                     (AsJType (..),
                                                        JAssoc (..), JObject,
                                                        Json, MapLikeObj (..),
-                                                       WS, textToJString,
+                                                       WS,
+                                                       lazyByteStringToJString,
+                                                       strictByteStringToJString,
+                                                       stringToJString,
+                                                       textToJString,
                                                        toMapLikeObj, wsRemover,
                                                        _JNumberInt,
                                                        _JNumberScientific)
@@ -207,6 +219,18 @@ bool = encToJsonNoSpaces _JBool id
 -- | Encode a 'Text'
 text :: Applicative f => Encoder f Text
 text = encToJsonNoSpaces _JStr textToJString
+
+-- | Encode a 'String'
+string :: Applicative f => Encoder f String
+string = encToJsonNoSpaces _JStr stringToJString
+
+-- | Encode a strict 'ByteString'
+strictByteString :: Applicative f => Encoder f BS.ByteString
+strictByteString = encToJsonNoSpaces _JStr strictByteStringToJString
+
+-- | Encode a lazy 'ByteString'
+lazyByteString :: Applicative f => Encoder f ByteString
+lazyByteString = encToJsonNoSpaces _JStr lazyByteStringToJString
 
 -- | Encode an explicit 'null'.
 null :: Applicative f => Encoder f ()
@@ -302,6 +326,18 @@ bool' = bool
 -- | As per 'text' but with the 'f' specialised to 'Data.Functor.Identity'.
 text' :: Encoder' Text
 text' = text
+
+-- | As per 'string' but with the 'f' specialised to 'Data.Functor.Identity'.
+string' :: Encoder' String
+string' = string
+
+-- | As per 'strictByteString' but with the 'f' specialised to 'Data.Functor.Identity'.
+strictByteString' :: Encoder' BS.ByteString
+strictByteString' = strictByteString
+
+-- | As per 'lazyByteString' but with the 'f' specialised to 'Data.Functor.Identity'.
+lazyByteString' :: Encoder' ByteString
+lazyByteString' = lazyByteString
 
 -- | As per 'null' but with the 'f' specialised to 'Data.Functor.Identity'.
 null' :: Encoder' ()
