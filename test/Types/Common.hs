@@ -4,8 +4,6 @@
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
-
-{-# LANGUAGE TypeApplications      #-}
 module Types.Common
   ( genDecimalDigit
   , genDecimalDigits
@@ -33,6 +31,7 @@ module Types.Common
   , Fudge (..)
   , HasImage (..)
   , Overlayed (..)
+
   ) where
 
 import           Generics.SOP                (Generic, HasDatatypeInfo)
@@ -59,6 +58,7 @@ import qualified Data.ByteString.Lazy.Char8  as BSL8
 import qualified Data.Attoparsec.ByteString  as AB
 import qualified Data.Attoparsec.Text        as AT
 
+import           Data.Proxy                  (Proxy (..))
 import           Data.Tagged                 (Tagged)
 import qualified Data.Tagged                 as T
 
@@ -72,14 +72,15 @@ import qualified Waargonaut.Decode           as SD
 
 import           Waargonaut.Decode.Error     (DecodeError)
 import qualified Waargonaut.Encode           as E
-import           Waargonaut.Types            (Json, prettyArr, prettyObj,
-                                              waargonautBuilder)
+import           Waargonaut.Types            (Json, waargonautBuilder)
 import           Waargonaut.Types.Whitespace (Whitespace (..), wsBuilder)
 
 import           Waargonaut.Generic          (GWaarg, JsonDecode (..),
                                               JsonEncode (..), NewtypeName (..),
                                               Options (..), defaultOpts,
                                               gDecoder, gEncoder)
+
+import           Waargonaut.Prettier         (InlineOption (..), prettyJson)
 
 data Image = Image
   { _imageWidth    :: Int
@@ -147,12 +148,19 @@ imageOpts = defaultOpts
 instance JsonEncode GWaarg Image where mkEncoder = gEncoder imageOpts
 instance JsonDecode GWaarg Image where mkDecoder = gDecoder imageOpts
 
+newtype HImage = HI
+  { theImage :: Image
+  }
+
+hiEncode :: Applicative f => E.Encoder f HImage
+hiEncode = E.mapLikeObj $ E.atKey' "image" (T.proxy mkEncoder (Proxy :: Proxy GWaarg)) . theImage
+
 imageJson :: Json
-imageJson = E.runPureEncoder (T.untag $ mkEncoder @GWaarg) testImageDataType
+imageJson = E.runPureEncoder hiEncode (HI testImageDataType)
 
 indentImage :: IO ()
 indentImage = do
-  pjson $ (prettyArr True 1 1 . prettyObj 2 2) imageJson
+  pjson $ prettyJson Neither 2 2 imageJson
   pjson imageJson
   where
     pjson = BSL8.putStrLn . BB.toLazyByteString . waargonautBuilder wsBuilder

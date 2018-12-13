@@ -31,9 +31,6 @@ module Waargonaut.Types.Json
   , jtypeTraversal
   , jtypeWSTraversal
 
-  , prettyObj
-  , prettyArr
-
   -- * Optics
   , oat
   , oix
@@ -41,17 +38,14 @@ module Waargonaut.Types.Json
   ) where
 
 
-import           Prelude                     (Eq, Int, Show, (+), (-))
+import           Prelude                     (Eq, Int, Show)
 
 import           Control.Applicative         (pure, (<$>), (<*>), (<|>))
 import           Control.Category            (id, (.))
 import           Control.Lens                (Prism', Rewrapped, Traversal,
                                               Traversal', Wrapped (..), at, iso,
-                                              ix, over, prism, traverseOf, (%~),
-                                              (.~), _1, _2, _Just, _Wrapped)
-
-import qualified Control.Lens                as L
-import qualified Control.Lens.Plated         as P
+                                              ix, prism, traverseOf, _1,
+                                              _Wrapped)
 
 import           Control.Monad               (Monad)
 
@@ -61,35 +55,29 @@ import           Data.Bitraversable          (Bitraversable (bitraverse))
 import           Data.Bool                   (Bool (..))
 import           Data.Distributive           (distribute)
 import           Data.Either                 (Either (..))
-import           Data.Foldable               (Foldable (..), asum, length)
-import           Data.Function               (flip, ($))
+import           Data.Foldable               (Foldable (..), asum)
+import           Data.Function               (flip)
 import           Data.Functor                (Functor (..))
 import           Data.Monoid                 (Monoid (..))
 import           Data.Semigroup              (Semigroup, (<>))
 import           Data.Traversable            (Traversable (..))
 import           Data.Tuple                  (uncurry)
 
-import qualified Data.Vector                 as V
-
 import           Data.ByteString.Builder     (Builder)
 import qualified Data.ByteString.Builder     as BB
-import           Data.Maybe                  (Maybe (..), maybe)
+import           Data.Maybe                  (Maybe (..))
 import           Data.Text                   (Text)
 
 import           Text.Parser.Char            (CharParsing, text)
-import           Waargonaut.Types.CommaSep   (Elems)
-import qualified Waargonaut.Types.CommaSep   as CS
 import           Waargonaut.Types.JArray     (JArray (..), jArrayBuilder,
                                               parseJArray)
 import           Waargonaut.Types.JNumber    (JNumber, jNumberBuilder,
                                               parseJNumber)
-import           Waargonaut.Types.JObject    (HasJAssoc (..), JAssoc,
-                                              JObject (..), jObjectBuilder,
+import           Waargonaut.Types.JObject    (JObject (..), jObjectBuilder,
                                               parseJObject, _MapLikeObj)
 import           Waargonaut.Types.JString    (JString, jStringBuilder,
                                               parseJString)
-import           Waargonaut.Types.Whitespace (WS (..), Whitespace (..),
-                                              parseWhitespace)
+import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -238,81 +226,6 @@ jTypesBuilder s (JNum jn tws)   = jNumberBuilder jn                             
 jTypesBuilder s (JStr js tws)   = jStringBuilder js                             <> s tws
 jTypesBuilder s (JArr js tws)   = jArrayBuilder s waargonautBuilder js          <> s tws
 jTypesBuilder s (JObj jobj tws) = jObjectBuilder s waargonautBuilder jobj       <> s tws
-
-immediateTrailingWS :: Traversal' Json WS
-immediateTrailingWS f = traverseOf _Wrapped $ \case
-  JNull ws   -> JNull   <$> f ws
-  JBool b ws -> JBool b <$> f ws
-  JNum n ws  -> JNum n  <$> f ws
-  JStr s ws  -> JStr s  <$> f ws
-  JArr a ws  -> JArr a  <$> f ws
-  JObj o ws  -> JObj o  <$> f ws
-
-objelems :: AsJType r ws a => Traversal' r (Elems ws (JAssoc ws a))
-objelems = _JObj . _1 . _Wrapped . CS._CommaSeparated . _2 . _Just
-
-arrelems :: AsJType r ws a => Traversal' r (Elems ws a)
-arrelems = _JArr . _1 . _Wrapped . CS._CommaSeparated . _2 . _Just
-
-keyLen :: HasJAssoc c ws a => L.Getter c Int
-keyLen = jsonAssocKey . _Wrapped . L.to length
-
-elemsinit :: (CS.HasElems c ws a) => L.ASetter' c ws
-elemsinit = CS.elemsElems . traverse . CS.elemTrailing . fmap . _2
-
-elemslast :: CS.HasElems c ws a => L.ASetter' c ws
-elemslast = CS.elemsLast . CS.elemTrailing . _Just . _2
-
-prettyArr :: Bool -> Int -> Int -> Json -> Json
-prettyArr inline step _ = P.transformOf jsonTraversal (arr inline)
-  where
-    i = WS (V.replicate step Space)
-
-    arr True  = stepaftercomma
-    arr False = complicatematters
-
-    stepaftercomma a = a
-      L.& arrelems . elemsinit .~ i
-      L.& arrelems . elemslast .~ i
-      L.& arrelems . CS.elemsLast . CS.elemVal . immediateTrailingWS .~ i
-
-    complicatematters = id
-
-prettyObj :: Int -> Int -> Json -> Json
-prettyObj step w = P.transformOf jsonTraversal (
-  setlastvaltrailing .
-  setnested .
-  setheadleadingws .
-  setlastelem .
-  setinitelems .
-  alignafterkey
-  )
-  where
-    spaces x = V.replicate x Space
-    ws' x    = WS (V.singleton NewLine <> spaces x)
-
-    i     = ws' w
-    l     = ws' (w - step)
-
-    alignafterkey j = over (objelems . traverse) (\ja ->
-        let
-          kl = ja L.^. keyLen
-        in
-          ja L.& jsonAssocValPreceedingWS .~ (WS . spaces $ longestKey - kl)
-      ) j
-      where
-        longestKey = maybe 1 (+1) $ L.maximumOf (objelems . L.folded . keyLen) j
-
-    setinitelems       = objelems . elemsinit .~ i
-    setlastelem        = objelems . elemslast .~ l
-    nested             = CS.elemsLast . CS.elemVal . jsonAssocVal
-
-    setnested          = objelems . nested %~ prettyObj step (w + step)
-    setlastvaltrailing = objelems . nested . immediateTrailingWS .~ l
-
-    setheadleadingws   = _JObj . _1 . _Wrapped . CS._CommaSeparated . _1 .~ i
-
-
 
 -- |
 -- A 'Control.Lens.Traversal'' over the 'a' at the given 'Text' key on a JSON object.

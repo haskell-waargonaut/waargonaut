@@ -97,6 +97,8 @@ library
 
                      , Waargonaut.Generic
 
+                     , Waargonaut.Prettier
+
                      , Waargonaut
 
   ghc-options:         -Wall
