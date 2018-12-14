@@ -63,6 +63,7 @@ import           Data.Functor                  (($>))
 import           Data.Functor.Alt              (Alt (..))
 import           Data.Functor.Apply            (Apply (..))
 import           Data.Functor.Bind             (Bind (..))
+import           Data.Semigroup                (Semigroup)
 import           Data.Sequence                 (Seq)
 
 import qualified Data.ByteString               as BS
