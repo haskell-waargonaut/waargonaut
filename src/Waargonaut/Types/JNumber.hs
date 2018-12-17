@@ -84,7 +84,7 @@ import qualified Data.Text.Lazy.Builder.Int as TB
 -- >>> import qualified Data.Digit as D
 -- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Data.ByteString.Lazy (toStrict)
--- >>> import Data.ByteString.Builder (toLazyByteString)
+-- >>> import Data.Text.Lazy.Builder (toLazyText)
 -- >>> import Utils
 
 -- | Represent a JSON "int"
@@ -487,13 +487,13 @@ parseJNumber = JNumber
 
 -- | Printing of JNumbers
 --
--- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = D.DecDigit1 :| [D.DecDigit0]})})
+-- >>> toLazyText $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = D.DecDigit1 :| [D.DecDigit0]})})
 -- "3.45e+10"
 --
--- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = True, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.DecDigit0 :| [D.x2]})})
+-- >>> toLazyText $ jNumberBuilder (JNumber {_minus = True, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.DecDigit0 :| [D.x2]})})
 -- "-3.45e-02"
 --
--- >>> toLazyByteString $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit0 [D.DecDigit0], _frac = Nothing, _expn = Nothing})
+-- >>> toLazyText $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit0 [D.DecDigit0], _frac = Nothing, _expn = Nothing})
 -- "00"
 --
 jNumberBuilder

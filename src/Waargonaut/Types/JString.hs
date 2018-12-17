@@ -70,6 +70,7 @@ import           Waargonaut.Types.JChar     (JChar, jCharBuilderTextL,
 -- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Waargonaut.Types.Whitespace
 -- >>> import Waargonaut.Types.JChar
+-- >>> import Data.Text.Lazy.Builder (toLazyText)
 ----
 
 -- | A JSON string is a list of JSON acceptable characters, we use a newtype to
@@ -145,22 +146,22 @@ parseJString =
 
 -- | Builder for a 'JString'.
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString' V.empty) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' V.empty) :: JString)
 -- "\"\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString)
 -- "\"abc\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString)
 -- "\"a\\rbc\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) :: JString)
 -- "\"a\\rbc\\uab12\\ndef\\\"\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.singleton (UnescapedJChar (JCharUnescaped 'a'))) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.singleton (UnescapedJChar (JCharUnescaped 'a'))) :: JString)
 -- "\"a\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder (JString' $ V.singleton (EscapedJChar ReverseSolidus) :: JString)
+-- >>> toLazyText $ jStringBuilder (JString' $ V.singleton (EscapedJChar ReverseSolidus) :: JString)
 -- "\"\\\\\""
 --
 jStringBuilder
