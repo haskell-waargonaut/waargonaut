@@ -69,6 +69,8 @@ module Waargonaut.Decode
   , scientific
   , integral
   , string
+  , strictByteString
+  , lazyByteString
   , unboundedChar
   , boundedChar
   , text
@@ -138,9 +140,9 @@ import           Natural                                   (Natural, replicate,
 
 import           Data.Text                                 (Text)
 
-import           Data.ByteString.Char8                     (ByteString)
+import           Data.ByteString                           (ByteString)
 import qualified Data.ByteString.Char8                     as BS8
-
+import qualified Data.ByteString.Lazy                      as BL
 import           Waargonaut.Types
 
 import           HaskellWorks.Data.Positioning             (Count)
@@ -766,6 +768,14 @@ scientific = atCursor "scientific" DI.scientific'
 -- | Decode a 'String' value.
 string :: Monad f => Decoder f String
 string = atCursor "string" DI.string'
+
+-- | Decode a strict 'ByteString' value.
+strictByteString :: Monad f => Decoder f ByteString
+strictByteString = atCursor "strict bytestring" DI.strictByteString'
+
+-- | Decode a lazy 'ByteString' value.
+lazyByteString :: Monad f => Decoder f BL.ByteString
+lazyByteString = atCursor "lazy bytestring" DI.lazyByteString'
 
 -- | Decode a 'Char' value that is equivalent to a Haskell 'Char' value, as Haskell 'Char' supports a wider range than JSON.
 unboundedChar :: Monad f => Decoder f Char

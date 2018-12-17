@@ -5,9 +5,9 @@ module Encoder.Laws (encoderLaws) where
 import           Test.Tasty                 (TestTree, testGroup)
 import           Test.Tasty.Hedgehog        (testProperty)
 
-import           Data.ByteString.Lazy       (ByteString)
 import           Data.Functor.Contravariant (contramap)
 import           Data.Functor.Identity      (Identity)
+import           Data.Text.Lazy             (Text)
 
 import           Hedgehog
 import qualified Hedgehog.Function          as Fn
@@ -18,7 +18,7 @@ import qualified Waargonaut.Encode          as E
 
 import qualified Laws
 
-runSE :: ShowEncoder a -> a -> ByteString
+runSE :: ShowEncoder a -> a -> Text
 runSE (SE e) = E.simplePureEncodeNoSpaces e
 
 newtype ShowEncoder a = SE (Encoder Identity a)

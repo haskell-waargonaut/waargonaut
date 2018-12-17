@@ -45,14 +45,17 @@ import qualified Data.List                   as List
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Text                   (Text)
+
 import qualified Data.Text                   as Text
+import qualified Data.Text.Encoding          as Text
+
+import qualified Data.Text.Lazy              as TextL
 
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
 import qualified Hedgehog.Range              as Range
 
 import           Data.ByteString             (ByteString)
-import qualified Data.ByteString.Lazy.Char8  as BSL8
 
 import qualified Data.Attoparsec.ByteString  as AB
 import qualified Data.Attoparsec.Text        as AT
@@ -272,4 +275,4 @@ prop_generic_tripping
   -> m ()
 prop_generic_tripping e d a = tripping a
   (E.simplePureEncodeNoSpaces (T.untag e))
-  (SD.runPureDecode (T.untag d) parseBS . SD.mkCursor . BSL8.toStrict)
+  (SD.runPureDecode (T.untag d) parseBS . SD.mkCursor . Text.encodeUtf8 . TextL.toStrict)

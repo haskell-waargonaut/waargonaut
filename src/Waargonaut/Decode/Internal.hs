@@ -25,6 +25,8 @@ module Waargonaut.Decode.Internal
   , int'
   , text'
   , string'
+  , lazyByteString'
+  , strictByteString'
   , unboundedChar'
   , boundedChar'
   , bool'
@@ -64,6 +66,9 @@ import           Data.Functor                  (($>))
 import           Data.Semigroup                ((<>))
 import           Data.Sequence                 (Seq, fromList)
 
+import           Data.ByteString               (ByteString)
+import qualified Data.ByteString.Lazy          as BL
+import qualified Data.ByteString.Lazy.Builder  as BB
 import           Data.Text                     (Text)
 
 import           Data.Map                      (Map)
@@ -79,9 +84,10 @@ import qualified Data.Scientific               as Sci
 import           Natural                       (Natural, _Natural)
 
 import           Waargonaut.Types              (AsJType (..), JString,
+                                                jCharBuilderByteStringL,
                                                 jNumberToScientific,
                                                 jsonAssocKey, jsonAssocVal,
-                                                _JChar, _JString)
+                                                _JChar, _JStringText)
 import           Waargonaut.Types.CommaSep     (toList)
 import           Waargonaut.Types.JChar        (jCharToUtf8Char)
 
@@ -288,13 +294,22 @@ prismDOrFail'
 prismDOrFail' e p d c =
   runDecoder' (L.preview p <$> d) c <!?> e
 
--- | Try to decode a 'Text' value from some 'Json' or value.
+-- | Try to decode a 'Text' value from some 'Json' or value. This will fail if
+-- the input value is not a valid UTF-8 'Text' value, as checked by the
+-- 'Data.Text.Encoding.decodeUtf8'' function.
 text' :: AsJType a ws a => a -> Maybe Text
-text' = L.preview (_JStr . _1 . L.re _JString)
+text' = L.preview (_JStr . _1 . _JStringText)
 
 -- | Try to decode a 'String' value from some 'Json' or value.
 string' :: AsJType a ws a => a -> Maybe String
 string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map (_JChar L.#)))
+
+strictByteString' :: AsJType a ws a => a -> Maybe ByteString
+strictByteString' = fmap BL.toStrict . lazyByteString'
+
+lazyByteString' :: AsJType a ws a => a -> Maybe BL.ByteString
+lazyByteString' = L.preview (_JStr . _1 . _Wrapped . L.to mkBS)
+  where mkBS = BB.toLazyByteString . foldMap jCharBuilderByteStringL
 
 -- | Decoder for a 'Char' value that cannot contain values in the range U+D800
 -- to U+DFFF. This decoder will fail if the 'Char' is outside of this range.
