@@ -63,7 +63,7 @@ import           Data.Function                (const, ($))
 import           Data.Functor                 (Functor)
 import           Data.Maybe                   (Maybe (..), fromMaybe)
 import           Data.Monoid                  (Monoid)
-import           Data.Semigroup               ((<>))
+import           Data.Semigroup               (Semigroup, (<>))
 import           Data.Traversable             (Traversable, traverse)
 
 import qualified Data.Text.Internal           as Text
@@ -453,6 +453,7 @@ jCharToChar (EscapedJChar jca) = case jca of
 
 jCharBuilderWith
   :: ( Monoid builder
+     , Semigroup builder
      , HeXaDeCiMaL digit
      )
   => (Char -> builder)

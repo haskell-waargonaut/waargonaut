@@ -326,7 +326,7 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
     , testProperty "latin1"        $ p Gen.text Gen.latin1 E.text D.text
     , testProperty "ascii"         $ p Gen.text Gen.ascii E.text D.text
     ]
-  , testGroup "bytestring gen - text e/d"
+  , testGroup "bytestring gen - via text e/d"
     [ testProperty "unicode"       $ p Gen.utf8 Gen.unicode bsE bsD
     , testProperty "latin1"        $ p Gen.utf8 Gen.latin1 bsE bsD
     , testProperty "ascii"         $ p Gen.utf8 Gen.ascii bsE bsD
