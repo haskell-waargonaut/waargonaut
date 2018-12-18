@@ -32,6 +32,7 @@ module Waargonaut.Encode
   , integral
   , scientific
   , bool
+  , string
   , text
   , null
   , either
@@ -66,6 +67,7 @@ module Waargonaut.Encode
   , integral'
   , scientific'
   , bool'
+  , string'
   , text'
   , null'
   , either'
@@ -92,7 +94,8 @@ import           Control.Lens                         (AReview, At, Index,
 import qualified Control.Lens                         as L
 
 import           Prelude                              (Bool, Int, Integral,
-                                                       Monad, fromIntegral, fst)
+                                                       Monad, String,
+                                                       fromIntegral, fst)
 
 import           Data.Foldable                        (Foldable, foldr, foldrM)
 import           Data.Function                        (const, flip, ($), (&))
@@ -132,9 +135,11 @@ import           Waargonaut.Types                     (AsJType (..),
                                                        JAssoc (..), JObject,
                                                        Json, MapLikeObj (..),
                                                        WS, toMapLikeObj,
+                                                       ggstringToJString,
                                                        wsRemover, _JNumberInt,
                                                        _JNumberScientific,
                                                        _JStringText)
+
 import           Waargonaut.Types.Json                (waargonautBuilder)
 
 
@@ -202,6 +207,10 @@ integral = encToJsonNoSpaces _JNum (review _JNumberScientific . fromIntegral)
 -- | Encode a 'Bool'
 bool :: Applicative f => Encoder f Bool
 bool = encToJsonNoSpaces _JBool id
+
+-- | Encode a 'String'
+string :: Applicative f => Encoder f String
+string = encToJsonNoSpaces _JStr stringToJString
 
 -- | Encode a 'Text'
 text :: Applicative f => Encoder f Text
@@ -297,6 +306,10 @@ scientific' = scientific
 -- | As per 'bool' but with the 'f' specialised to 'Data.Functor.Identity'.
 bool' :: Encoder' Bool
 bool' = bool
+
+-- | As per 'string' but with the 'f' specialised to 'Data.Functor.Identity'.
+string' :: Encoder' String
+string' = string
 
 -- | As per 'text' but with the 'f' specialised to 'Data.Functor.Identity'.
 text' :: Encoder' Text

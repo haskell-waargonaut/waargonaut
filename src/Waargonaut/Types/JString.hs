@@ -15,14 +15,14 @@ module Waargonaut.Types.JString
   , AsJString (..)
 
   , _JStringText
+  , stringToJString
 
     -- * Parser / Builder
   , parseJString
   , jStringBuilder
-
   ) where
 
-import           Prelude                    (Eq, Ord, Show, String)
+import           Prelude                 (Eq, Ord, Show, String, foldr)
 
 import           Control.Applicative        ((*>), (<*))
 import           Control.Category           (id, (.))
@@ -169,3 +169,8 @@ jStringBuilder
   -> Builder
 jStringBuilder (JString' jcs) =
   TB.singleton '\"' <> foldMap jCharBuilderTextL jcs <> TB.singleton '\"'
+
+-- | Convert a 'String' to a 'JString'.
+stringToJString :: String -> JString
+stringToJString = JString' . foldr (V.cons . utf8CharToJChar) V.empty
+
