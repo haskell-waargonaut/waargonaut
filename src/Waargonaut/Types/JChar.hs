@@ -132,7 +132,6 @@ instance AsJCharUnescaped Char where
     where
       excluded =
         [ (== '\NUL')
-        , (== '\DEL')
         , (== '"')
         , (== '\\')
         , \x -> x >= '\x00' && x <= '\x1f'
