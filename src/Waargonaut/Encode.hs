@@ -115,13 +115,12 @@ import           Data.Scientific                      (Scientific)
 import           Data.Monoid                          (Monoid, mempty)
 import           Data.Semigroup                       (Semigroup)
 
-import qualified Data.ByteString.Builder              as BB
-import           Data.ByteString.Lazy                 (ByteString)
-
 import           Data.Map                             (Map)
 import qualified Data.Map                             as Map
 
 import           Data.Text                            (Text)
+import qualified Data.Text.Lazy                       as LT
+import qualified Data.Text.Lazy.Builder               as TB
 
 import           Waargonaut.Encode.Types              (Encoder, Encoder',
                                                        ObjEncoder, ObjEncoder',
@@ -136,10 +135,11 @@ import           Waargonaut.Types                     (AsJType (..),
                                                        JAssoc (..), JObject,
                                                        Json, MapLikeObj (..),
                                                        WS, stringToJString,
-                                                       textToJString,
                                                        toMapLikeObj, wsRemover,
                                                        _JNumberInt,
-                                                       _JNumberScientific)
+                                                       _JNumberScientific,
+                                                       _JStringText)
+
 import           Waargonaut.Types.Json                (waargonautBuilder)
 
 
@@ -157,15 +157,15 @@ simpleEncodeNoSpaces
   :: Applicative f
   => Encoder f a
   -> a
-  -> f ByteString
+  -> f LT.Text
 simpleEncodeNoSpaces enc =
-  fmap (BB.toLazyByteString . waargonautBuilder wsRemover) . runEncoder enc
+  fmap (TB.toLazyText . waargonautBuilder wsRemover) . runEncoder enc
 
 -- | As per 'simpleEncodeNoSpaces' but specialised the 'f' to 'Data.Functor.Identity' and remove it.
 simplePureEncodeNoSpaces
   :: Encoder Identity a
   -> a
-  -> ByteString
+  -> LT.Text
 simplePureEncodeNoSpaces enc =
   runIdentity . simpleEncodeNoSpaces enc
 
@@ -214,7 +214,7 @@ string = encToJsonNoSpaces _JStr stringToJString
 
 -- | Encode a 'Text'
 text :: Applicative f => Encoder f Text
-text = encToJsonNoSpaces _JStr textToJString
+text = encToJsonNoSpaces _JStr (_JStringText #)
 
 -- | Encode an explicit 'null'.
 null :: Applicative f => Encoder f ()
@@ -598,7 +598,7 @@ onObj
   -> JObject WS Json
   -> f (JObject WS Json)
 onObj k b encB o = (\j -> o & _Wrapped L.%~ L.cons j)
-  . JAssoc (textToJString k) mempty mempty <$> runEncoder encB b
+  . JAssoc (_JStringText # k) mempty mempty <$> runEncoder encB b
 
 -- | Encode key value pairs as a JSON object, allowing duplicate keys.
 keyValuesAsObj

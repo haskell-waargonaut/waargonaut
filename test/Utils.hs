@@ -12,16 +12,15 @@ import           Data.Text               (Text)
 import           Data.Attoparsec.Text    (Parser, anyChar, endOfInput,
                                           parseOnly)
 
+import           Waargonaut.Decode       (parseWith)
 import           Waargonaut.Decode.Error (DecodeError)
-
-import           Types.Common            (parseWith)
 
 testparse
   :: Parser a
   -> Text
   -> Either DecodeError a
-testparse =
-  parseWith parseOnly
+testparse p =
+  parseWith parseOnly p
 
 testparsetheneof
   :: Parser a

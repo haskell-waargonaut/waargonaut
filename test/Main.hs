@@ -2,6 +2,8 @@
 {-# LANGUAGE TupleSections     #-}
 module Main (main) where
 
+import           GHC.Word                    (Word8)
+
 import           Control.Lens                (( # ), (^.), (^?), _2)
 import qualified Control.Lens                as L
 import           Control.Monad               (when)
@@ -10,15 +12,18 @@ import           Data.Either                 (isLeft)
 
 import qualified Data.Scientific             as Sci
 
-import           Data.ByteString             (ByteString)
-import qualified Data.ByteString.Builder     as BB
-import qualified Data.ByteString.Char8       as BS8
-import qualified Data.ByteString.Lazy.Char8  as BSL8
-
+import Data.Functor.Contravariant ((>$<))
 import           Data.Maybe                  (fromMaybe)
 import           Data.Semigroup              ((<>))
 import           Data.Text                   (Text)
+import qualified Data.Text                   as Text
 import qualified Data.Text.Encoding          as Text
+import qualified Data.Text.IO                as Text
+
+import qualified Data.Text.Lazy              as TextL
+import qualified Data.Text.Lazy.Builder      as TB
+
+import qualified Data.ByteString             as BS
 
 import qualified Data.Sequence               as S
 
@@ -65,17 +70,9 @@ import qualified Encoder.Laws
 encodeText
   :: Json
   -> Text
-encodeText =
-  Text.decodeUtf8 .
-  encodeByteString
-
-encodeByteString
-  :: Json
-  -> ByteString
-encodeByteString =
-  BSL8.toStrict .
-  BB.toLazyByteString .
-  W.waargonautBuilder WS.wsBuilder
+encodeText = TextL.toStrict
+  . TB.toLazyText
+  . W.waargonautBuilder WS.wsBuilder
 
 decode
   :: Text
@@ -162,12 +159,15 @@ prop_jnumber_scientific_prism = property $ do
     maxI :: Integer
     maxI = 2 ^ (32 :: Integer)
 
+simpleDecodeWith :: D.Decoder L.Identity a -> TextL.Text -> Either (DecodeError, D.CursorHistory) a
+simpleDecodeWith d = D.simpleDecode d Common.parseBS . Text.encodeUtf8 . TextL.toStrict
+
 prop_tripping_int_list :: Property
 prop_tripping_int_list = property $ do
   xs <- forAll . Gen.list (Range.linear 0 100) $ Gen.int (Range.linear 0 9999)
   tripping xs
     (E.simplePureEncodeNoSpaces (E.traversable E.int))
-    (D.simpleDecode (D.list D.int) Common.parseBS . BSL8.toStrict)
+    (simpleDecodeWith (D.list D.int))
 
 prop_tripping_image_record_generic :: Property
 prop_tripping_image_record_generic = withTests 1 . property $
@@ -210,7 +210,7 @@ prop_maybe_maybe = withTests 1 . property $ do
   where
     trippin' a = tripping a
       (E.simplePureEncodeNoSpaces enc)
-      (D.simpleDecode dec Common.parseBS . BSL8.toStrict)
+      (simpleDecodeWith dec)
 
     enc = E.maybeOrNull' . E.mapLikeObj' . E.atKey' "boop"
       $ E.maybeOrNull' (E.mapLikeObj' (E.atKey' "beep" E.bool'))
@@ -241,11 +241,11 @@ parser_properties = testGroup "Parser Round-Trip"
   , testProperty "print . parse . print = print" prop_print_parse_print_id
   ]
 
-parsePrint :: ByteString -> Either DecodeError ByteString
-parsePrint = fmap encodeByteString . decode . Text.decodeUtf8
+parsePrint :: Text -> Either DecodeError Text
+parsePrint = fmap encodeText . decode
 
-readTestFile :: FilePath -> IO ByteString
-readTestFile fp = BS8.readFile ("test/json-data" <> "/" <> fp)
+readTestFile :: FilePath -> IO Text
+readTestFile fp = Text.readFile ("test/json-data" <> "/" <> fp)
 
 testFile :: FilePath -> Assertion
 testFile fp = do
@@ -272,6 +272,29 @@ unitTests =
       , "numbers.json"
       ]
 
+mishandlingOfCharVsUtf8Bytes :: TestTree
+mishandlingOfCharVsUtf8Bytes = testCaseSteps "Mishandling of UTF-8 Bytes vs Haskell Char" $ \step -> do
+  let
+    valChar      = '\128'          :: Char
+    valText      = "\128"          :: Text
+    valStr       = [valChar]        :: String
+    encVal       = "\"\128\""      :: Text
+    valUtf8Bytes = [34,194,128,34] :: [Word8]
+
+  step "Pack String to Text"
+  Text.pack valStr @?= valText
+
+  step "Encoder via Text"
+  x <- TextL.toStrict <$> E.simpleEncodeNoSpaces E.text valText
+  x @?= encVal
+
+  step "encoder output ~ packed bytes"
+  Text.encodeUtf8 x @?= BS.pack valUtf8Bytes
+
+  step "Decoder via Text"
+  y <- D.runDecode D.text Common.parseBS (D.mkCursor (Text.encodeUtf8 x))
+  y @?= Right valText
+
 regressionTests :: TestTree
 regressionTests =
   testGroup "Regression Tests - Failure to parse = Success" (toTestFail <$> fs)
@@ -290,10 +313,37 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
   , tripping_properties
   , unitTests
   , regressionTests
+  , mishandlingOfCharVsUtf8Bytes
 
   , Decoder.decoderTests
   , Encoder.encoderTests
 
   , Decoder.Laws.decoderLaws
   , Encoder.Laws.encoderLaws
+
+  , testGroup "text gen - text e/d"
+    [ testProperty "unicode"       $ p Gen.text Gen.unicode E.text D.text
+    , testProperty "latin1"        $ p Gen.text Gen.latin1 E.text D.text
+    , testProperty "ascii"         $ p Gen.text Gen.ascii E.text D.text
+    ]
+  , testGroup "bytestring gen - via text e/d"
+    [ testProperty "unicode"       $ p Gen.utf8 Gen.unicode bsE bsD
+    , testProperty "latin1"        $ p Gen.utf8 Gen.latin1 bsE bsD
+    , testProperty "ascii"         $ p Gen.utf8 Gen.ascii bsE bsD
+    ]
   ]
+  where
+    bsE = Text.decodeUtf8 >$< E.text
+    bsD = Text.encodeUtf8 <$> D.text
+
+    p :: ( Eq a
+         , Show a
+         )
+      => (Range Int -> Gen Char -> Gen a)
+      -> Gen Char
+      -> E.Encoder' a
+      -> D.Decoder L.Identity a
+      -> Property
+    p f g e d = property $ do
+      inp <- forAll $ f (Range.linear 0 1000) g
+      tripping inp (E.simplePureEncodeNoSpaces e) (simpleDecodeWith d)

@@ -25,8 +25,8 @@ import           Control.Lens            (AsEmpty (..), Cons (..), Prism',
                                           mapped, nearly, over, prism, prism',
                                           to, uncons, (^.), _2, _Wrapped)
 
-import           Data.ByteString.Builder (Builder)
-import qualified Data.ByteString.Builder as BB
+import           Data.Text.Lazy.Builder  (Builder)
+import qualified Data.Text.Lazy.Builder  as TB
 
 import           Data.Vector             (Vector)
 import qualified Data.Vector             as V
@@ -171,11 +171,11 @@ escapedWhitespaceChar NewLine        = '\n'
 
 -- | Create a 'Data.ByteString.Builder' from a 'Whitespace'
 whitespaceBuilder :: Whitespace -> Builder
-whitespaceBuilder Space          = BB.charUtf8 ' '
-whitespaceBuilder HorizontalTab  = BB.charUtf8 '\t'
-whitespaceBuilder LineFeed       = BB.charUtf8 '\f'
-whitespaceBuilder CarriageReturn = BB.charUtf8 '\r'
-whitespaceBuilder NewLine        = BB.charUtf8 '\n'
+whitespaceBuilder Space          = TB.singleton ' '
+whitespaceBuilder HorizontalTab  = TB.singleton '\t'
+whitespaceBuilder LineFeed       = TB.singleton '\f'
+whitespaceBuilder CarriageReturn = TB.singleton '\r'
+whitespaceBuilder NewLine        = TB.singleton '\n'
 {-# INLINE whitespaceBuilder #-}
 
 -- | Reconstitute the given whitespace into its original form.

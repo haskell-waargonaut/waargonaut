@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 -- | Types and functions for handling JSON strings.
 module Waargonaut.Types.JString
@@ -13,45 +14,49 @@ module Waargonaut.Types.JString
   , JString' (..)
   , AsJString (..)
 
+  , _JStringText
+  , stringToJString
+
     -- * Parser / Builder
   , parseJString
   , jStringBuilder
-
-  , textToJString
-  , stringToJString
   ) where
 
 import           Prelude                 (Eq, Ord, Show, String, foldr)
 
-import           Control.Applicative     ((*>), (<*))
-import           Control.Category        (id, (.))
-import           Control.Error.Util      (note)
-import           Control.Lens            (Prism', Rewrapped, Wrapped (..), iso,
-                                          preview, prism, ( # ), (^?))
+import           Control.Applicative        ((*>), (<*))
+import           Control.Category           (id, (.))
+import           Control.Error.Util         (note)
+import           Control.Lens               (Prism', Rewrapped, Wrapped (..),
+                                             iso, prism, review, ( # ), (^?))
 
-import           Data.Either             (Either (Right))
-import           Data.Foldable           (Foldable, foldMap)
-import           Data.Function           (($))
-import           Data.Functor            (Functor, (<$>))
-import           Data.Semigroup          ((<>))
-import           Data.Text               (Text)
-import qualified Data.Text               as Text
-import           Data.Traversable        (Traversable, traverse)
+import           Data.Bifunctor             (first)
+import           Data.Either                (Either (Right))
+import           Data.Foldable              (Foldable, foldMap)
+import           Data.Function              (const, ($))
+import           Data.Functor               (Functor, fmap, (<$>))
+import           Data.Semigroup             ((<>))
+import           Data.Text                  (Text)
+import qualified Data.Text                  as Text
+import qualified Data.Text.Encoding         as Text
+import           Data.Traversable           (Traversable, traverse)
 
-import           Data.Vector             (Vector)
-import qualified Data.Vector             as V
+import           Data.Vector                (Vector)
+import qualified Data.Vector                as V
 
-import           Data.Digit              (HeXDigit)
+import           Data.Digit                 (HeXDigit)
 
-import           Text.Parser.Char        (CharParsing, char)
-import           Text.Parser.Combinators (many)
+import           Text.Parser.Char           (CharParsing, char)
+import           Text.Parser.Combinators    (many)
 
-import           Data.ByteString         (ByteString)
-import qualified Data.ByteString.Builder as BB
-import qualified Data.ByteString.Char8   as BS8
+import           Data.Text.Lazy.Builder     (Builder)
+import qualified Data.Text.Lazy.Builder     as TB
 
-import           Waargonaut.Types.JChar  (JChar, jCharBuilder, parseJChar,
-                                          utf8CharToJChar, _JChar)
+import qualified Data.ByteString.Lazy.Char8 as BS8
+
+import           Waargonaut.Types.JChar     (JChar, jCharBuilderTextL,
+                                             parseJChar, utf8CharToJChar,
+                                             _JChar)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -65,6 +70,7 @@ import           Waargonaut.Types.JChar  (JChar, jCharBuilder, parseJChar,
 -- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Waargonaut.Types.Whitespace
 -- >>> import Waargonaut.Types.JChar
+-- >>> import Data.Text.Lazy.Builder (toLazyText)
 ----
 
 -- | A JSON string is a list of JSON acceptable characters, we use a newtype to
@@ -95,13 +101,19 @@ instance AsJString [JChar HeXDigit] where
   _JString = prism (\(JString' cs) -> V.toList cs) (Right . JString' . V.fromList)
 
 instance AsJString String where
-  _JString = prism (\(JString' cx) -> V.toList $ (_JChar #) <$> cx) (\x -> JString' . V.fromList <$> traverse (note x . (^? _JChar)) x)
+  _JString = prism
+    (\(JString' cx) -> V.toList $ (_JChar #) <$> cx)
+    (\x -> JString' . V.fromList <$> traverse (note x . (^? _JChar)) x)
 
-instance AsJString Text where
-  _JString = prism (Text.pack . (_JString #)) (\x -> note x . preview _JString . Text.unpack $ x)
-
-instance AsJString ByteString where
-  _JString = prism (BS8.pack . (_JString #)) (\x -> note x . preview _JString . BS8.unpack $ x)
+-- | Prism between a 'JString' and 'Text'.
+--
+-- JSON strings a wider range of encodings than 'Text' and to be consistent with
+-- the 'Text' type, these invalid types are replaced with a placeholder value.
+--
+_JStringText :: Prism' JString Text
+_JStringText = prism
+  (JString' . V.fromList . fmap utf8CharToJChar . Text.unpack)
+  (\x -> first (const x) . Text.decodeUtf8' . BS8.toStrict . BS8.pack . review _JString $ x)
 
 -- | Parse a 'JString', storing escaped characters and any explicitly escaped
 -- character encodings '\uXXXX'.
@@ -134,43 +146,31 @@ parseJString =
 
 -- | Builder for a 'JString'.
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString' V.empty) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' V.empty) :: JString)
 -- "\"\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString)
 -- "\"abc\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString)
 -- "\"a\\rbc\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) :: JString)
 -- "\"a\\rbc\\uab12\\ndef\\\"\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder ((JString' $ V.singleton (UnescapedJChar (JCharUnescaped 'a'))) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.singleton (UnescapedJChar (JCharUnescaped 'a'))) :: JString)
 -- "\"a\""
 --
--- >>> BB.toLazyByteString $ jStringBuilder (JString' $ V.singleton (EscapedJChar ReverseSolidus) :: JString)
+-- >>> toLazyText $ jStringBuilder (JString' $ V.singleton (EscapedJChar ReverseSolidus) :: JString)
 -- "\"\\\\\""
 --
 jStringBuilder
   :: JString
-  -> BB.Builder
+  -> Builder
 jStringBuilder (JString' jcs) =
-  BB.charUtf8 '\"' <> foldMap jCharBuilder jcs <> BB.charUtf8 '\"'
-
--- | Prism between a 'JString' and 'Text'.
---
--- JSON strings a wider range of encodings than 'Text' and to be consistent with
--- the 'Text' type, these invalid types are replaced with a placeholder value.
---
-textToJString :: Text -> JString
-textToJString = JString' . Text.foldr (V.cons . utf8CharToJChar) V.empty
+  TB.singleton '\"' <> foldMap jCharBuilderTextL jcs <> TB.singleton '\"'
 
 -- | Convert a 'String' to a 'JString'.
 stringToJString :: String -> JString
 stringToJString = JString' . foldr (V.cons . utf8CharToJChar) V.empty
 
--- _JStringText :: Prism' JString Text
--- _JStringText = prism
---   ()
---   (\j@(JString' v) -> note j $ Text.pack . V.toList <$> traverse jCharToUtf8Char v)

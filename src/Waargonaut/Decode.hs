@@ -31,6 +31,7 @@ module Waargonaut.Decode
 
     -- * Helpers
   , DI.ppCursorHistory
+  , parseWith
 
     -- * Cursors
   , withCursor
@@ -69,6 +70,8 @@ module Waargonaut.Decode
   , scientific
   , integral
   , string
+  , strictByteString
+  , lazyByteString
   , unboundedChar
   , boundedChar
   , text
@@ -90,16 +93,16 @@ import           GHC.Word                                  (Word64)
 import           Control.Lens                              (Cons, Lens', Prism',
                                                             Snoc, cons, lens,
                                                             matching, modifying,
-                                                            preview, snoc,
+                                                            over, preview, snoc,
                                                             traverseOf, view,
                                                             ( # ), (.~), (^.),
-                                                            _Wrapped)
+                                                            _Left, _Wrapped)
 
 import           Prelude                                   (Bool, Bounded, Char,
                                                             Eq, Int, Integral,
-                                                            String,
-                                                            fromIntegral, (-),
-                                                            (==))
+                                                            Show, String,
+                                                            fromIntegral, show,
+                                                            (-), (==))
 
 import           Control.Applicative                       (Applicative (..))
 import           Control.Category                          ((.))
@@ -137,11 +140,13 @@ import           Natural                                   (Natural, replicate,
                                                             successor', zero')
 
 import           Data.Text                                 (Text)
+import qualified Data.Text                                 as Text
 
-import           Data.ByteString.Char8                     (ByteString)
+import           Text.Parser.Char                          (CharParsing)
+
+import           Data.ByteString                           (ByteString)
 import qualified Data.ByteString.Char8                     as BS8
-
-import           Waargonaut.Types
+import qualified Data.ByteString.Lazy                      as BL
 
 import           HaskellWorks.Data.Positioning             (Count)
 import qualified HaskellWorks.Data.Positioning             as Pos
@@ -155,11 +160,11 @@ import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
 import           HaskellWorks.Data.Json.Cursor             (JsonCursor (..))
 import qualified HaskellWorks.Data.Json.Cursor             as JC
 
-
 import           Waargonaut.Decode.Error                   (AsDecodeError (..),
                                                             DecodeError (..),
                                                             Err (..))
 import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
+import           Waargonaut.Types
 
 import qualified Waargonaut.Decode.Internal                as DI
 
@@ -681,6 +686,27 @@ simpleDecode d parseFn =
   runPureDecode d parseFn
   . mkCursor
 
+-- | Helper function to handle wrapping up a parse failure using the given
+-- parsing function. Intended to be used with the 'runDecode' or 'simpleDecode'
+-- functions.
+--
+-- @
+-- import Data.Attoparsec.ByteString (parseOnly)
+--
+-- simpleDecode (list int) (parseWith (parseOnly parseWaargonaut)) "[1,1,2]"
+-- @
+--
+parseWith
+  :: ( CharParsing f
+     , Show e
+     )
+  => (f a -> i -> Either e a)
+  -> f a
+  -> i
+  -> Either DecodeError a
+parseWith f p =
+  over _Left (ParseFailed . Text.pack . show) . f p
+
 -- | Similar to the 'simpleDecode' function, however this function expects
 -- you've already converted your input to a 'JCurs'.
 runPureDecode
@@ -766,6 +792,14 @@ scientific = atCursor "scientific" DI.scientific'
 -- | Decode a 'String' value.
 string :: Monad f => Decoder f String
 string = atCursor "string" DI.string'
+
+-- | Decode a strict 'ByteString' value.
+strictByteString :: Monad f => Decoder f ByteString
+strictByteString = atCursor "strict bytestring" DI.strictByteString'
+
+-- | Decode a lazy 'ByteString' value.
+lazyByteString :: Monad f => Decoder f BL.ByteString
+lazyByteString = atCursor "lazy bytestring" DI.lazyByteString'
 
 -- | Decode a 'Char' value that is equivalent to a Haskell 'Char' value, as Haskell 'Char' supports a wider range than JSON.
 unboundedChar :: Monad f => Decoder f Char

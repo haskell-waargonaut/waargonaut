@@ -78,8 +78,8 @@ import qualified Data.Vector             as V
 
 import           Data.Functor.Identity   (Identity (..))
 
-import           Data.ByteString.Builder (Builder)
-import qualified Data.ByteString.Builder as BB
+import           Data.Text.Lazy.Builder (Builder)
+import qualified Data.Text.Lazy.Builder as TB
 
 import           Text.Parser.Char        (CharParsing, char)
 import qualified Text.Parser.Combinators as C
@@ -108,7 +108,7 @@ _Comma = iso (\Comma -> ()) (const Comma)
 
 -- | Builder for UTF8 Comma
 commaBuilder :: Builder
-commaBuilder = BB.charUtf8 ','
+commaBuilder = TB.singleton ','
 {-# INLINE commaBuilder #-}
 
 -- | Parse a single comma (,)
@@ -370,7 +370,7 @@ commaSeparatedBuilder
   -> CommaSeparated ws a
   -> Builder
 commaSeparatedBuilder op fin wsB aB (CommaSeparated lws sepElems) =
-  BB.charUtf8 op <> wsB lws <> maybe mempty buildElems sepElems <> BB.charUtf8 fin
+  TB.singleton op <> wsB lws <> maybe mempty buildElems sepElems <> TB.singleton fin
   where
     elemBuilder
       :: Foldable f

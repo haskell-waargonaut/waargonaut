@@ -37,7 +37,7 @@ import           Data.Monoid               (Monoid (..), mempty)
 import           Data.Semigroup            (Semigroup (..))
 import           Data.Traversable          (Traversable)
 
-import           Data.ByteString.Builder   (Builder)
+import           Data.Text.Lazy.Builder   (Builder)
 
 import           Text.Parser.Char          (CharParsing, char)
 

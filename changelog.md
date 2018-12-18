@@ -1,5 +1,12 @@
 # Revision history for waargonaut
 
+## 0.5.0.0  -- 2018-12-18
+
+* Changed internal builder from `ByteString` to `Text` builder.
+* Fixed bug for going from `JString` <-> `Text`, was breaking round-trip.
+* Removed instances of `AsJString` for `Text` and `ByteString`, replaced with more correct `Prism` and some better functions.
+* Added regression tests for round tripping text and bytestring (char8).
+
 ## 0.4.2.0  -- 2018-11-29
 
 * Improved pretty printing of CursorHistory by condensing multiple numeric movements and removing the single movements following searching for keys.
