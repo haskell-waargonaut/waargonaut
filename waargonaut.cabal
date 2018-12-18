@@ -96,6 +96,7 @@ library
                      , Waargonaut.Encode
 
                      , Waargonaut.Generic
+                     , Waargonaut.Test
 
                      , Waargonaut
 

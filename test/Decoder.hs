@@ -96,7 +96,7 @@ decodeTestMissingObjKey = do
   r <- D.runDecode d parseBS (D.mkCursor j)
 
   Either.either
-    (\(e, _) -> assertBool "Incorrect Error - Expected KeyDecodeFailed" (e == D.KeyNotFound "bar") )
+    (\(e, _) -> assertBool "Incorrect Error - Expected KeyDecodeFailed" (e == D.KeyNotFound "bar"))
     (\_ -> assertFailure "Expected Error!")
     r
 
@@ -184,10 +184,9 @@ decodeAltError :: Assertion
 decodeAltError = D.runDecode decodeEitherAlt parseBS (D.mkCursor "{\"foo\":33}")
   >>= Either.either
                  (\(_,h) -> assertBool "BranchFail error not found in history" $
-                 case Seq.viewr (unCursorHistory' h) of
-                   _ Seq.:> (BranchFail _, _) -> True
-                   _                          -> False
-
+                   case Seq.viewr (unCursorHistory' h) of
+                     _ Seq.:> (BranchFail _, _) -> True
+                     _                          -> False
                  )
                  (\_ -> assertFailure "Alt Error Test should fail")
 

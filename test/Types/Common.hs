@@ -17,7 +17,6 @@ module Types.Common
   , hexadecimalDigitLower
 
   , prop_generic_tripping
-  , parseWith
   , parseBS
   , parseText
 
@@ -37,7 +36,7 @@ module Types.Common
 import           Generics.SOP                (Generic, HasDatatypeInfo)
 import qualified GHC.Generics                as GHC
 
-import           Control.Lens                (makeClassy, over, _Left)
+import           Control.Lens                (makeClassy)
 import           Control.Monad               ((>=>))
 
 import           Data.Functor.Identity       (Identity)
@@ -46,7 +45,6 @@ import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Text                   (Text)
 
-import qualified Data.Text                   as Text
 import qualified Data.Text.Encoding          as Text
 
 import qualified Data.Text.Lazy              as TextL
@@ -59,7 +57,6 @@ import           Data.ByteString             (ByteString)
 
 import qualified Data.Attoparsec.ByteString  as AB
 import qualified Data.Attoparsec.Text        as AT
-import           Data.Attoparsec.Types       (Parser)
 
 import           Data.Tagged                 (Tagged)
 import qualified Data.Tagged                 as T
@@ -72,7 +69,7 @@ import qualified Waargonaut.Decode.Traversal as D
 
 import qualified Waargonaut.Decode           as SD
 
-import           Waargonaut.Decode.Error     (DecodeError (ParseFailed))
+import           Waargonaut.Decode.Error     (DecodeError)
 import qualified Waargonaut.Encode           as E
 import           Waargonaut.Types            (Json)
 import           Waargonaut.Types.Whitespace (Whitespace (..))
@@ -255,14 +252,11 @@ genWhitespace = Gen.element
 genText :: Gen Text
 genText = Gen.text ( Range.linear 0 100 ) Gen.unicodeAll
 
-parseWith :: (Parser t a -> t -> Either String a) -> Parser t a -> t -> Either DecodeError a
-parseWith f p = over _Left (ParseFailed . Text.pack . show) . f p
-
 parseBS :: ByteString -> Either DecodeError Json
-parseBS = parseWith AB.parseOnly parseWaargonaut
+parseBS = SD.parseWith AB.parseOnly parseWaargonaut
 
 parseText :: Text -> Either DecodeError Json
-parseText = parseWith AT.parseOnly parseWaargonaut
+parseText = SD.parseWith AT.parseOnly parseWaargonaut
 
 prop_generic_tripping
   :: ( MonadTest m
