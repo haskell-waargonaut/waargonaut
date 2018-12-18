@@ -134,9 +134,9 @@ import           Waargonaut.Encode.Types              (Encoder, Encoder',
 import           Waargonaut.Types                     (AsJType (..),
                                                        JAssoc (..), JObject,
                                                        Json, MapLikeObj (..),
-                                                       WS, toMapLikeObj,
-                                                       ggstringToJString,
-                                                       wsRemover, _JNumberInt,
+                                                       WS, stringToJString,
+                                                       toMapLikeObj, wsRemover,
+                                                       _JNumberInt,
                                                        _JNumberScientific,
                                                        _JStringText)
 
