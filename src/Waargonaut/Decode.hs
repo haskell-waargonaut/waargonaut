@@ -20,6 +20,7 @@ module Waargonaut.Decode
   , JCurs (..)
   , ParseFn
   , Err (..)
+  , JsonType (..)
 
     -- * Runners
   , runDecode
@@ -49,8 +50,6 @@ module Waargonaut.Decode
   , moveToRankN
 
     -- * Decoding at cursor
-  , jsonTypeAt
-  , JsonType(..)
   , jsonAtCursor
   , fromKey
   , atKey
@@ -59,6 +58,10 @@ module Waargonaut.Decode
     -- * Attempting decoding
   , fromKeyOptional
   , atKeyOptional
+
+    -- * Inspection
+  , withType
+  , jsonTypeAt
 
     -- * Provided Decoders
   , leftwardCons
@@ -124,6 +127,7 @@ import           Control.Monad.State                       (MonadState)
 import           Control.Error.Util                        (note)
 import           Control.Monad.Error.Hoist                 ((<!?>), (<?>))
 
+import           Data.Bool                                 (Bool (..))
 import           Data.Either                               (Either (..))
 import qualified Data.Either                               as Either (either)
 import           Data.Foldable                             (Foldable, foldl,
@@ -163,6 +167,8 @@ import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
 
 import           HaskellWorks.Data.Json.Cursor             (JsonCursor (..))
 import qualified HaskellWorks.Data.Json.Cursor             as JC
+import           HaskellWorks.Data.Json.Type               (JsonType (..))
+import qualified HaskellWorks.Data.Json.Type               as JT
 
 import           Waargonaut.Decode.Error                   (AsDecodeError (..),
                                                             DecodeError (..),
@@ -274,7 +280,16 @@ moveCursBasic f m c =
 -- @ [*1,2,3] @
 --
 -- This function is essential when dealing with the inner elements of objects or
--- arrays. As you must first move 'down' into the focus.
+-- arrays. As you must first move 'down' into the focus. However, you cannot
+-- move down into an empty list or empty object. The reason for this is that
+-- there will be nothing in the index for the element at the first position.
+-- Thus the movement will be considered invalid.
+--
+-- These will fail if you attempt to move 'down':
+--
+-- @ *[] @
+--
+-- @ *{} @
 --
 down
   :: Monad f
@@ -548,6 +563,28 @@ atCursor m c = withCursor $ \curs -> do
   p <- ask
   jsonAtCursor p curs >>=
     liftEither . note (ConversionFailure m) . c
+
+-- | Attempt to work with a 'JCurs' provided the type of 'Json' at the current
+-- position matches your expectations.
+--
+-- Such as:
+--
+-- @
+-- withType JsonTypeArray d
+-- @
+--
+-- 'd' will only be entered if the cursor at the current position is a JSON
+-- array: '[]'.
+--
+withType
+  :: Monad f
+  => JsonType
+  -> (JCurs -> DecodeResult f a)
+  -> JCurs
+  -> DecodeResult f a
+withType t d c =
+  if maybe False (== t) $ JT.jsonTypeAt (unJCurs c) then d c
+  else throwError (_TypeMismatch # t)
 
 -- | Higher order function for combining a folding function with repeated cursor
 -- movements. This lets you combine arbitrary cursor movements with an accumulating
@@ -839,14 +876,11 @@ nonemptyAt
   => Decoder f a
   -> JCurs
   -> DecodeResult f (NonEmpty a)
-nonemptyAt elemD cursOutside =
-  case jsonTypeAt cursOutside of
-    Just JsonTypeArray -> down cursOutside >>= \curs -> do
-      h <- focus elemD curs
-      DI.try (moveRight1 curs) >>= maybe
-        (pure $ h :| [])
-        (fmap (h :|) . rightwardSnoc [] elemD)
-    _ -> throwError (ConversionFailure "list")
+nonemptyAt elemD = withType JT.JsonTypeArray $ down >=> \curs -> do
+  h <- focus elemD curs
+  DI.try (moveRight1 curs) >>= maybe
+    (pure $ h :| [])
+    (fmap (h :|) . rightwardSnoc [] elemD)
 
 -- | Helper to create a 'NonEmpty a' 'Decoder'.
 nonempty :: Monad f => Decoder f a -> Decoder f (NonEmpty a)
@@ -859,12 +893,8 @@ listAt
   => Decoder f a
   -> JCurs
   -> DecodeResult f [a]
-listAt elemD curs =
-  case jsonTypeAt curs of
-    Just JsonTypeArray -> DI.try (down curs) >>= maybe
-      (pure mempty)
-      (rightwardSnoc mempty elemD)
-    _ -> throwError (ConversionFailure "list")
+listAt elemD = withType JT.JsonTypeArray $ \c ->
+  DI.try (down c) >>= maybe (pure mempty) (rightwardSnoc mempty elemD)
 
 -- | Helper function to simplify writing a '[]' decoder.
 list :: Monad f => Decoder f a -> Decoder f [a]
@@ -878,16 +908,14 @@ objectAt
   -> Decoder f v
   -> JCurs
   -> DecodeResult f [(k,v)]
-objectAt keyD valueD curs =
-  case jsonTypeAt curs of
-    Just JsonTypeObject -> DI.try (down curs) >>= maybe
-      (pure mempty)
-      (foldCursor snoc (moveRight1 >=> moveRight1) mempty (withCursor $ \c -> do
-        k <- focus keyD c
-        v <- moveRight1 c >>= focus valueD
-        pure (k,v)
-      ))
-    _ -> throwError (ConversionFailure "object")
+objectAt keyD valueD = withType JsonTypeObject $ \curs ->
+  DI.try (down curs) >>= maybe
+    (pure mempty)
+    (foldCursor snoc (moveRight1 >=> moveRight1) mempty (withCursor $ \c -> do
+      k <- focus keyD c
+      v <- moveRight1 c >>= focus valueD
+      pure (k,v)
+    ))
 
 -- | Helper function to simplify writing a '{}' decoder.
 object :: Monad f => Decoder f k -> Decoder f v -> Decoder f [(k,v)]
