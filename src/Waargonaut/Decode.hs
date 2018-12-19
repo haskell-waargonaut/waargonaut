@@ -56,6 +56,7 @@ module Waargonaut.Decode
 
     -- * Inspection
   , withType
+  , jsonTypeAt
 
     -- * Provided Decoders
   , leftwardCons
@@ -532,8 +533,13 @@ withType
   -> JCurs
   -> DecodeResult f a
 withType t d c =
-  if maybe False (== t) $ JT.jsonTypeAt (unJCurs c) then d c
+  if maybe False (== t) $ jsonTypeAt c then d c
   else throwError (_TypeMismatch # t)
+
+-- | Request the type of JSON at the current cursor position
+--
+jsonTypeAt :: JCurs -> Maybe JsonType
+jsonTypeAt = JT.jsonTypeAt . unJCurs
 
 -- | Higher order function for combining a folding function with repeated cursor
 -- movements. This lets you combine arbitrary cursor movements with an accumulating
