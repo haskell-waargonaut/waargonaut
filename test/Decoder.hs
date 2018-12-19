@@ -74,9 +74,9 @@ nonEmptyDecoder = do
   assertBool "NonEmpty Decoder - fail! non-empty list decoder BROKEN. Start panicking" (Either.isRight (dec ok))
   assertBool "NonEmpty Decoder - empty list shouldn't succeed" (Either.isLeft (dec notOkay))
   assertBool "NonEmpty Decoder - invalid element decoder accepted" (Either.isLeft (dec badElem))
-  assertBool "NonEmpty Decoder - invalid element decoder accepted" (Either.isLeft (dec badTypeObj))
-  assertBool "NonEmpty Decoder - invalid element decoder accepted" (Either.isLeft (dec badTypeText))
-  assertBool "NonEmpty Decoder - invalid element decoder accepted" (Either.isLeft (dec badTypeNum))
+  assertBool "NonEmpty Decoder - invalid type accepted - object" (Either.isLeft (dec badTypeObj))
+  assertBool "NonEmpty Decoder - invalid type accepted - text" (Either.isLeft (dec badTypeText))
+  assertBool "NonEmpty Decoder - invalid type accepted - num" (Either.isLeft (dec badTypeNum))
 
 listDecoder :: Assertion
 listDecoder = do
