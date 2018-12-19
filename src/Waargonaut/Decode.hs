@@ -49,6 +49,8 @@ module Waargonaut.Decode
   , moveToRankN
 
     -- * Decoding at cursor
+  , jsonTypeAt
+  , JsonType(..)
   , jsonAtCursor
   , fromKey
   , atKey
@@ -81,6 +83,8 @@ module Waargonaut.Decode
   , nonempty
   , listAt
   , list
+  , objectAt
+  , object
   , withDefault
   , maybeOrNull
   , either
@@ -172,7 +176,9 @@ import           Waargonaut.Decode.Types                   (CursorHistory,
                                                             DecodeResult (..),
                                                             Decoder (..),
                                                             JCurs (..), ParseFn,
-                                                            SuccinctCursor)
+                                                            SuccinctCursor,
+                                                            JsonType (..),
+                                                            jsonTypeAt)
 
 -- | Function to define a 'Decoder' for a specific data type.
 --
@@ -833,11 +839,14 @@ nonemptyAt
   => Decoder f a
   -> JCurs
   -> DecodeResult f (NonEmpty a)
-nonemptyAt elemD = down >=> \curs -> do
-  h <- focus elemD curs
-  DI.try (moveRight1 curs) >>= maybe
-    (pure $ h :| [])
-    (fmap (h :|) . rightwardSnoc [] elemD)
+nonemptyAt elemD cursOutside =
+  case jsonTypeAt cursOutside of
+    Just JsonTypeArray -> down cursOutside >>= \curs -> do
+      h <- focus elemD curs
+      DI.try (moveRight1 curs) >>= maybe
+        (pure $ h :| [])
+        (fmap (h :|) . rightwardSnoc [] elemD)
+    _ -> throwError (ConversionFailure "list")
 
 -- | Helper to create a 'NonEmpty a' 'Decoder'.
 nonempty :: Monad f => Decoder f a -> Decoder f (NonEmpty a)
@@ -850,13 +859,39 @@ listAt
   => Decoder f a
   -> JCurs
   -> DecodeResult f [a]
-listAt elemD curs = DI.try (down curs) >>= maybe
-  (pure mempty)
-  (rightwardSnoc mempty elemD)
+listAt elemD curs =
+  case jsonTypeAt curs of
+    Just JsonTypeArray -> DI.try (down curs) >>= maybe
+      (pure mempty)
+      (rightwardSnoc mempty elemD)
+    _ -> throwError (ConversionFailure "list")
 
 -- | Helper function to simplify writing a '[]' decoder.
 list :: Monad f => Decoder f a -> Decoder f [a]
 list d = withCursor (listAt d)
+
+-- | Try to decode an object using the given key and value 'Decoder's at the
+-- given cursor.
+objectAt
+  :: Monad f
+  => Decoder f k
+  -> Decoder f v
+  -> JCurs
+  -> DecodeResult f [(k,v)]
+objectAt keyD valueD curs =
+  case jsonTypeAt curs of
+    Just JsonTypeObject -> DI.try (down curs) >>= maybe
+      (pure mempty)
+      (foldCursor snoc (moveRight1 >=> moveRight1) mempty (withCursor $ \c -> do
+        k <- focus keyD c
+        v <- moveRight1 c >>= focus valueD
+        pure (k,v)
+      ))
+    _ -> throwError (ConversionFailure "object")
+
+-- | Helper function to simplify writing a '{}' decoder.
+object :: Monad f => Decoder f k -> Decoder f v -> Decoder f [(k,v)]
+object k v = withCursor (objectAt k v)
 
 -- | Try to decode an optional value, returning the given default value if
 -- 'Nothing' is returned.
