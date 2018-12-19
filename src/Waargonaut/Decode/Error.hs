@@ -11,6 +11,8 @@ import qualified Control.Lens                 as L
 
 import           GHC.Word                     (Word64)
 
+import           HaskellWorks.Data.Json.Type  (JsonType)
+
 import           Data.Text                    (Text)
 
 import           Waargonaut.Decode.ZipperMove (ZipperMove)
@@ -29,6 +31,7 @@ data Err c e
 --
 data DecodeError
   = ConversionFailure Text
+  | TypeMismatch JsonType
   | KeyDecodeFailed
   | KeyNotFound Text
   | FailedToMove ZipperMove
@@ -41,6 +44,7 @@ data DecodeError
 class AsDecodeError r where
   _DecodeError       :: Prism' r DecodeError
   _ConversionFailure :: Prism' r Text
+  _TypeMismatch      :: Prism' r JsonType
   _KeyDecodeFailed   :: Prism' r ()
   _KeyNotFound       :: Prism' r Text
   _FailedToMove      :: Prism' r ZipperMove
@@ -49,6 +53,7 @@ class AsDecodeError r where
   _ParseFailed       :: Prism' r Text
 
   _ConversionFailure = _DecodeError . _ConversionFailure
+  _TypeMismatch      = _DecodeError . _TypeMismatch
   _KeyDecodeFailed   = _DecodeError . _KeyDecodeFailed
   _KeyNotFound       = _DecodeError . _KeyNotFound
   _FailedToMove      = _DecodeError . _FailedToMove
@@ -64,6 +69,13 @@ instance AsDecodeError DecodeError where
         (\x -> case x of
             ConversionFailure y -> Right y
             _                   -> Left x
+        )
+
+  _TypeMismatch
+    = L.prism TypeMismatch
+        (\x -> case x of
+            TypeMismatch y -> Right y
+            _              -> Left x
         )
 
   _KeyDecodeFailed

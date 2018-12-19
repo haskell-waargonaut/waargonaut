@@ -169,12 +169,15 @@ jStringBuilder (JString' jcs) =
 textToJString :: Text -> JString
 textToJString = JString' . Text.foldr (V.cons . utf8CharToJChar) V.empty
 
+-- | Convert a 'String' to 'JString'
 stringToJString :: String -> JString
 stringToJString = JString' . foldr (V.cons . utf8CharToJChar) V.empty
 
+-- | Convert a strict 'Data.ByteString.Char8' to 'JString'
 strictByteStringToJString :: ByteString -> JString
 strictByteStringToJString = JString' . BS8.foldr (V.cons . utf8CharToJChar) V.empty
 
+-- | Convert a lazy 'Data.ByteString.Lazy.Char8' to 'JString'
 lazyByteStringToJString :: BSL8.ByteString -> JString
 lazyByteStringToJString = JString' . BSL8.foldr (V.cons . utf8CharToJChar) V.empty
 

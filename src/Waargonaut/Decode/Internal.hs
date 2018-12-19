@@ -66,7 +66,7 @@ import           Data.Functor.Bind             (Bind (..))
 import           Data.Semigroup                (Semigroup)
 import           Data.Sequence                 (Seq)
 
-import qualified Data.ByteString               as BS
+import qualified Data.ByteString.Char8         as BS
 
 import           Data.Text                     (Text)
 
@@ -259,6 +259,7 @@ text' = L.preview (_JStr . _1 . L.re _JString)
 string' :: AsJType a ws a => a -> Maybe String
 string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map (_JChar L.#)))
 
+-- | Try to decode a 'Data.ByteString.Char8' from some 'Json' or value.
 strictByteString' :: AsJType a ws a => a -> Maybe BS.ByteString
 strictByteString' = L.preview (_JStr . _1 . L.re _JString)
 

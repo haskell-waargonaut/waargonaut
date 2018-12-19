@@ -37,7 +37,6 @@ module Waargonaut.Types.Json
   , aix
   ) where
 
-
 import           Prelude                     (Eq, Int, Show)
 
 import           Control.Applicative         (pure, (<$>), (<*>), (<|>))

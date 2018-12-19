@@ -44,6 +44,7 @@ data InlineOption
 objelems :: AsJType r WS a => Traversal' r (Elems WS (JAssoc WS a))
 objelems = _JObj . _1 . _Wrapped . CS._CommaSeparated . _2 . _Just
 
+-- I'm not sure this is a legal traversal
 immediateTrailingWS :: Traversal' Json WS
 immediateTrailingWS f = traverseOf _Wrapped $ \case
   JNull ws   -> JNull   <$> f ws

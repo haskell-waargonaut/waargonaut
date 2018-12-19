@@ -20,31 +20,12 @@ module Waargonaut
   , DecodeError (..)
   , parseWaargonaut
   , waargonautBuilder
-  , mkParseFn
   ) where
-
-import           Control.Category        ((.))
-import           Control.Monad           (Monad)
-import           Data.Bifunctor          (Bifunctor, first)
-import           Text.Parser.Char        (CharParsing)
-
-import           Data.String             (String)
-import           Data.Text               (pack)
 
 import           Waargonaut.Decode.Error (DecodeError (..))
 
 import           Waargonaut.Types.Json   (JType (..), Json (..),
                                           parseWaargonaut, waargonautBuilder)
-mkParseFn
-  :: ( Bifunctor p
-     , Monad f
-     , CharParsing f
-     )
-  => (f Json -> a -> p String Json)
-  -> a
-  -> p DecodeError Json
-mkParseFn f =
-  first (ParseFailed . pack) . f parseWaargonaut
 
 -- $basicdecode
 --

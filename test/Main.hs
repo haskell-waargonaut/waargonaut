@@ -30,6 +30,7 @@ import           Data.Digit                  (HeXDigit)
 
 import           Waargonaut                  (Json)
 import qualified Waargonaut                  as W
+import qualified Waargonaut.Types.Json       as W
 import qualified Waargonaut.Types.CommaSep   as CommaSep
 
 import           Waargonaut.Types.JChar      (JChar)
@@ -48,6 +49,8 @@ import qualified Types.CommaSep              as CS
 import qualified Types.Common                as Common
 import qualified Types.Json                  as J
 import qualified Types.Whitespace            as WS
+
+import qualified Laws
 
 import qualified Decoder
 import qualified Decoder.Laws
@@ -176,39 +179,6 @@ prop_maybe_maybe = withTests 1 . property $ do
       $ D.maybeOrNull (D.atKey "beep" D.bool)
       -- $ D.atKey "beep" (D.maybeOrNull D.bool)
 
--- tripping_stringlies :: TestTree
--- tripping_stringlies = testGroup "String Types"
---   [ testGroup "string gen - string e/d"
---     [ testProperty "unicode" $ p Gen.string Gen.unicode E.string D.string
---     , testProperty "latin1"  $ p Gen.string Gen.latin1 E.string D.string
---     , testProperty "ascii"   $ p Gen.string Gen.ascii E.string D.string
---     ]
---   , testGroup "text gen - text e/d"
---     [ testProperty "unicode"       $ p Gen.text Gen.unicode E.text D.text
---     , testProperty "latin1"        $ p Gen.text Gen.latin1 E.text D.text
---     , testProperty "ascii"         $ p Gen.text Gen.ascii E.text D.text
---     ]
---   , testGroup "utf8 gen - bytestring e/d"
---     [ testProperty "unicode"    $ p Gen.utf8 Gen.unicode E.strictByteString D.strictByteString
---     , testProperty "latin1"     $ p Gen.utf8 Gen.latin1 E.strictByteString D.strictByteString
---     , testProperty "ascii"      $ p Gen.utf8 Gen.ascii E.strictByteString D.strictByteString
---     ]
---   ]
---   where
---     deco d = D.simpleDecode d Common.parseBS . BSL8.toStrict
-
---     p :: ( Show a
---          , Eq a
---          )
---       => (Range Int -> Gen Char -> Gen a)
---       -> Gen Char
---       -> E.Encoder' a
---       -> D.Decoder L.Identity a
---       -> Property
---     p f g e d = property $ do
---       inp <- forAll $ f (Range.linear 0 1000) g
---       tripping inp (E.simplePureEncodeNoSpaces e) (deco d)
-
 tripping_properties :: TestTree
 tripping_properties = testGroup "Round Trip"
   [ testProperty "CommaSeparated: cons . uncons = id"                  prop_uncons_consCommaSep
@@ -221,6 +191,21 @@ tripping_properties = testGroup "Round Trip"
   , testProperty "Maybe Bool (generic)"                                prop_tripping_maybe_bool_generic
   , testProperty "Image record (generic)"                              prop_tripping_image_record_generic
   , testProperty "Newtype with Options (generic)"                      prop_tripping_newtype_fudge_generic
+  ]
+
+laws :: TestTree
+laws = testGroup "Laws"
+  [ testGroup "Json traversal laws"
+    [ testProperty "pure / identity" $ Laws.traversal_pure (pure :: a -> Maybe a) W.jsonTraversal J.genJson
+    -- , testProperty "composition" $ Laws.traversal_composition
+    --     L._Right
+    --     Gen.maybe
+    --     Gen.maybe
+    --     (Gen.choice [Left <$> Gen.bool, Right <$> Gen.bool])
+    --     Gen.bool
+    --     Gen.bool
+    --     Gen.bool
+    ]
   ]
 
 parser_properties :: TestTree
@@ -283,6 +268,7 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
   , Decoder.decoderTests
   , Encoder.encoderTests
 
+  , laws
   , Decoder.Laws.decoderLaws
   , Encoder.Laws.encoderLaws
   ]

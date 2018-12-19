@@ -8,9 +8,9 @@ module Decoder
 import           Prelude                    (Char, Eq, Int, Show, String, print,
                                              (==))
 
-import           Control.Applicative        (liftA3, (<$>))
+import           Control.Applicative        (liftA3, (<$>), pure)
 import           Control.Category           ((.))
-import           Control.Monad              (Monad, (>=>), (>>=))
+import           Control.Monad              (Monad, (>=>), (>>=), (>>))
 
 import           Test.Tasty                 (TestTree, testGroup)
 import           Test.Tasty.HUnit           (Assertion, assertBool, assertEqual,
@@ -51,7 +51,21 @@ decoderTests = testGroup "Decoding"
   , testCase "Using Alt (Error) - Records BranchFail" decodeAltError
   , testCase "List Decoder" listDecoder
   , testCase "NonEmpty List Decoder" nonEmptyDecoder
+  , testCase "Empty container cannot be moved into" emptyFailures
   ]
+
+emptyFailures :: Assertion
+emptyFailures = do
+  let
+    o = "{}"
+    l = "[]"
+
+    d = D.withCursor $ \c -> D.down c >> pure ()
+
+    d' = D.runPureDecode d parseBS . D.mkCursor
+
+  assertBool "Empty Object" (Either.isLeft (d' o))
+  assertBool "Empty List" (Either.isLeft (d' l))
 
 nonEmptyDecoder :: Assertion
 nonEmptyDecoder = do
@@ -61,11 +75,13 @@ nonEmptyDecoder = do
     ok = "[1]"
     notOkay = "[]"
 
+    notList = "{}"
     badElem = "[1, \"fred\"]"
 
   assertBool "NonEmpty Decoder - fail! non-empty list decoder BROKEN. Start panicking" (Either.isRight (dec ok))
   assertBool "NonEmpty Decoder - empty list shouldn't succeed" (Either.isLeft (dec notOkay))
   assertBool "NonEmpty Decoder - invalid element decoder accepted" (Either.isLeft (dec badElem))
+  assertBool "NonEmpty Decoder - should fail on non-list things" (Either.isLeft (dec notList))
 
 listDecoder :: Assertion
 listDecoder = do
@@ -75,12 +91,12 @@ listDecoder = do
     ok = "[1,2,3]"
     okE = "[]"
 
-    badShape = "{}"
+    notList = "{}"
     badElem = "[\"fred\", \"susan\"]"
 
   assertBool "List Decoder - fail! List Decoder BROKEN. Start panicking." (Either.isRight (dec ok))
-  assertBool "List Decoder - empty list fail" (Either.isRight (dec okE))
-  assertBool "List Decoder - move down should return empty list" (Either.isRight (dec badShape))
+  assertBool "List Decoder - empty list should give empty list" (Either.isRight (dec okE))
+  assertBool "List Decoder - should fail on non-list things" (Either.isLeft (dec notList))
   assertBool "List Decoder - invalid element decoder accepted" (Either.isLeft (dec badElem))
 
 decodeTestMissingObjKey :: Assertion

@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications    #-}
 module Laws
   ( fmap_compose
 
@@ -19,16 +20,123 @@ module Laws
   , contravariant_composition
   , contravariant_identity_with_run
   , contravariant_composition_with_run
+
+  , traversal_pure
+  -- , traversal_composition
+
+  , traverse_pure
+  , traverse_composition
   ) where
 
 import           Control.Applicative        (liftA3)
 
+import           Control.Lens               (Traversal)
+
 import           Data.Functor.Alt           (Alt (..))
+import           Data.Functor.Compose       (Compose (..))
 import           Data.Functor.Contravariant (Contravariant, contramap)
 
 import           Hedgehog
 import           Hedgehog.Function          (Arg, Vary)
 import qualified Hedgehog.Function          as Fn
+
+traversal_pure
+  :: ( Applicative f
+     , Show s
+     , Eq (f s)
+     , Show (f s)
+     )
+  => (forall x. x -> f x)
+  -> Traversal s s a a
+  -> Gen s
+  -> Property
+traversal_pure pureF t genS = property $
+  forAll genS >>= \s -> t pureF s === pureF s
+
+-- traversal_composition
+--   :: forall f g a b c s.
+--      ( Show s, Eq s
+
+--      , Show a, Arg a, Vary a
+
+--      , Applicative f, Eq1 f, Show1 f
+--      , Applicative g, Eq1 g, Show1 g
+
+--      , Show b, Arg b, Vary b
+--      , Show (f b)
+
+--      , Show c, Arg c, Vary c
+--      , Show (g c)
+
+--      , Eq (f (g s)), Show (f (g s))
+--      )
+--   => (forall x y. Traversal s s x y)
+--   -> (forall x. Gen x -> Gen (f x))
+--   -> (forall x. Gen x -> Gen (g x))
+--   -> Gen s
+--   -> Gen a
+--   -> Gen b
+--   -> Gen c
+--   -> Property
+-- traversal_composition t genF genG genS _ genB genC = property $ do
+--   g <- Fn.forAllFn $ Fn.fn (genF genB)
+--   f <- Fn.forAllFn $ Fn.fn (genG genC)
+
+--   let tab = t :: Traversal s s a b
+--       tbc = t :: Traversal s s b c
+--       tac = t :: Traversal s s a c
+
+--   ta <- forAll $ genS
+
+--   (fmap (tbc f) . tab g) ta === (getCompose . tac (Compose . fmap f . g)) ta
+
+
+traverse_pure
+  :: ( Traversable t
+     , Applicative f
+     , Show a , Eq a
+     , Show (t a)
+     , Show (f (t a)), Eq (f (t a))
+     )
+  => (forall x. Gen x -> Gen (t x))
+  -> (forall x. x -> f x)
+  -> Gen a
+  -> Property
+traverse_pure genT pureF genA =
+  traversal_pure pureF traverse (genT genA)
+
+traverse_composition
+  :: forall t f g a b c.
+     ( Traversable t
+     , Show (t a), Eq (t b), Show (t b)
+
+     , Show (t c), Eq (t c)
+
+     , Applicative f, Eq1 f, Show1 f
+     , Applicative g, Eq1 g, Show1 g
+
+     , Show a, Arg a, Vary a
+
+     , Show b, Arg b, Vary b
+     , Show (f b)
+
+     , Show c, Arg c, Vary c
+     , Show (g c)
+     )
+  => (forall x. Gen x -> Gen (t x))
+  -> (forall x. Gen x -> Gen (f x))
+  -> (forall x. Gen x -> Gen (g x))
+  -> Gen a
+  -> Gen b
+  -> Gen c
+  -> Property
+traverse_composition genT genF genG genA genB genC = property $ do
+  g <- Fn.forAllFn $ Fn.fn (genF genB)
+  f <- Fn.forAllFn $ Fn.fn (genG genC)
+
+  ta <- forAll $ genT genA
+
+  traverse (Compose . fmap g . f) ta === (Compose . fmap (traverse g) . traverse f) ta
 
 fmap_compose
   :: forall f a b c
