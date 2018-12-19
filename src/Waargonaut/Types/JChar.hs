@@ -27,7 +27,10 @@ module Waargonaut.Types.JChar
   , parseJChar
   , parseJCharEscaped
   , parseJCharUnescaped
-  , jCharBuilder
+  , jCharBuilderWith
+  , jCharBuilderTextL
+  , jCharBuilderByteStringL
+
   , jCharToChar
 
     -- * Conversion
@@ -35,47 +38,50 @@ module Waargonaut.Types.JChar
   , jCharToUtf8Char
   ) where
 
-import           Prelude                     (Char, Eq, Int, Ord, Show,
-                                              otherwise, quotRem, (&&), (*),
-                                              (+), (-), (/=), (<=), (==), (>=))
+import           Prelude                      (Char, Eq, Int, Ord, Show,
+                                               otherwise, quotRem, (&&), (*),
+                                               (+), (-), (/=), (<=), (==), (>=))
 
-import           Control.Category            (id, (.))
-import           Control.Lens                (Lens', Prism', Rewrapped,
-                                              Wrapped (..), failing, has, iso,
-                                              prism, prism', to, ( # ), (^?),
-                                              _Just)
+import           Control.Category             (id, (.))
+import           Control.Lens                 (Lens', Prism', Rewrapped,
+                                               Wrapped (..), failing, has, iso,
+                                               prism, prism', to, ( # ), (^?),
+                                               _Just)
 
-import           Control.Applicative         (pure, (*>), (<$>), (<*>), (<|>))
-import           Control.Monad               ((=<<))
+import           Control.Applicative          (pure, (*>), (<$>), (<*>), (<|>))
+import           Control.Monad                ((=<<))
 
-import           Control.Error.Util          (note)
+import           Control.Error.Util           (note)
 
-import           Data.Bits                   ((.&.))
+import           Data.Bits                    ((.&.))
 
-import           Data.Char                   (chr, ord)
-import           Data.Either                 (Either (..))
-import           Data.Foldable               (Foldable, any, asum, foldMap,
-                                              foldl)
-import           Data.Function               (const, ($))
-import           Data.Functor                (Functor)
-import           Data.Maybe                  (Maybe (..), fromMaybe)
-import           Data.Semigroup              ((<>))
-import           Data.Traversable            (Traversable, traverse)
+import           Data.Char                    (chr, ord)
+import           Data.Either                  (Either (..))
+import           Data.Foldable                (Foldable, any, asum, foldMap,
+                                               foldl)
+import           Data.Function                (const, ($))
+import           Data.Functor                 (Functor)
+import           Data.Maybe                   (Maybe (..), fromMaybe)
+import           Data.Monoid                  (Monoid)
+import           Data.Semigroup               (Semigroup, (<>))
+import           Data.Traversable             (Traversable, traverse)
 
-import qualified Data.Text.Internal          as Text
+import qualified Data.Text.Internal           as Text
 
-import           Data.Digit                  (HeXDigit, HeXaDeCiMaL)
-import qualified Data.Digit                  as D
+import           Data.Digit                   (HeXDigit, HeXaDeCiMaL)
+import qualified Data.Digit                   as D
 
-import           Data.ByteString.Builder     (Builder)
-import qualified Data.ByteString.Builder     as BB
+import           Data.Text.Lazy.Builder       (Builder)
+import qualified Data.Text.Lazy.Builder       as TB
 
-import           Waargonaut.Types.Whitespace (Whitespace (..),
-                                              escapedWhitespaceChar,
-                                              unescapedWhitespaceChar,
-                                              _WhitespaceChar)
+import qualified Data.ByteString.Lazy.Builder as BB
 
-import           Text.Parser.Char            (CharParsing, char, satisfy)
+import           Waargonaut.Types.Whitespace  (Whitespace (..),
+                                               escapedWhitespaceChar,
+                                               unescapedWhitespaceChar,
+                                               _WhitespaceChar)
+
+import           Text.Parser.Char             (CharParsing, char, satisfy)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -452,19 +458,37 @@ jCharToChar (EscapedJChar jca) = case jca of
     (WhiteSpace ws) -> _WhiteSpace # ws
     Hex hexDig4     -> hexDigit4ToChar hexDig4
 
--- | Create a 'Builder' for the given 'JChar'.
-jCharBuilder
-  :: HeXaDeCiMaL digit
-  => JChar digit
-  -> Builder
-jCharBuilder (UnescapedJChar (JCharUnescaped c)) = BB.charUtf8 c
-jCharBuilder (EscapedJChar jca) = BB.charUtf8 '\\' <> case jca of
-    QuotationMark           -> BB.charUtf8 '"'
-    ReverseSolidus          -> BB.charUtf8 '\\'
-    Solidus                 -> BB.charUtf8 '/'
-    Backspace               -> BB.charUtf8 'b'
-    (WhiteSpace ws)         -> BB.charUtf8 (unescapedWhitespaceChar ws)
-    Hex (HexDigit4 a b c d) -> BB.charUtf8 'u' <> foldMap hexChar [a,b,c,d]
+-- | Build a 'JChar' using the builder of your choice.
+--
+-- You can use one of the specialised 'Text' or 'ByteString' builder functions
+-- provided or your own.
+--
+-- The 'Text' builder for example is implemented as @jCharBuilderWith TB.singleton@.
+--
+jCharBuilderWith
+  :: ( Monoid builder
+     , Semigroup builder
+     , HeXaDeCiMaL digit
+     )
+  => (Char -> builder)
+  -> JChar digit
+  -> builder
+jCharBuilderWith f (UnescapedJChar (JCharUnescaped c)) = f c
+jCharBuilderWith f (EscapedJChar jca) = f '\\' <> case jca of
+    QuotationMark           -> f '"'
+    ReverseSolidus          -> f '\\'
+    Solidus                 -> f '/'
+    Backspace               -> f 'b'
+    (WhiteSpace ws)         -> f (unescapedWhitespaceChar ws)
+    Hex (HexDigit4 a b c d) -> f 'u' <> foldMap hexChar [a,b,c,d]
   where
     hexChar =
-      BB.charUtf8 . (D.charHeXaDeCiMaL #)
+      f . (D.charHeXaDeCiMaL #)
+
+-- | Create a Lazy 'Text' 'Data.Text.Lazy.Builder' for the given 'JChar'.
+jCharBuilderTextL :: HeXaDeCiMaL digit => JChar digit -> Builder
+jCharBuilderTextL = jCharBuilderWith TB.singleton
+
+-- | Create a Lazy 'ByteString' 'Data.ByteString.Lazy.Builder' for a given 'JChar'
+jCharBuilderByteStringL :: HeXaDeCiMaL digit => JChar digit -> BB.Builder
+jCharBuilderByteStringL = jCharBuilderWith BB.charUtf8

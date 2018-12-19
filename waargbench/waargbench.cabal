@@ -27,19 +27,24 @@ build-type:          Simple
 extra-source-files:  CHANGELOG.md
 cabal-version:       >=1.10
 
+tested-with:         GHC==7.10.3
+                   , GHC==8.0.2
+                   , GHC==8.2.2
+                   , GHC==8.4.4
+                   , GHC==8.6.2
+
 -- Extra files to be distributed with the package, such as examples or a
 -- README.
-extra-source-files:  changelog.md
-                   , json-data/jp100.json
-                   , json-data/numbers.json
-                   , json-data/test1.json
-                   , json-data/test2.json
-                   , json-data/test3.json
-                   , json-data/test4.json
-                   , json-data/test5.json
-                   , json-data/test6.json
-                   , json-data/test7.json
-                   , json-data/twitter100.json
+extra-source-files:  ../test/json-data/jp100.json
+                   , ../test/json-data/numbers.json
+                   , ../test/json-data/test1.json
+                   , ../test/json-data/test2.json
+                   , ../test/json-data/test3.json
+                   , ../test/json-data/test4.json
+                   , ../test/json-data/test5.json
+                   , ../test/json-data/test6.json
+                   , ../test/json-data/test7.json
+                   , ../test/json-data/twitter100.json
 
 benchmark bench
 
@@ -49,7 +54,7 @@ benchmark bench
 
   other-modules:       Common
   -- other-extensions:
-  build-depends:       base         >= 4.9    && < 4.13
+  build-depends:       base         >= 4.8    && < 4.13
                      , lens         >= 4.15   && < 5
                      , semigroups   >= 0.8.4  && < 0.19
                      , text         >= 1.2    && < 1.3

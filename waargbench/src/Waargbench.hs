@@ -7,6 +7,7 @@ import           Control.Lens                                 (isn't, _Left)
 import           Data.Functor.Identity                        (Identity)
 
 import           Data.Maybe                                   (isJust)
+import           Data.Monoid                                  ((<>))
 
 import           Data.ByteString                              (ByteString)
 import qualified Data.ByteString                              as BS

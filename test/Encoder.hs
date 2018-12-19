@@ -17,7 +17,7 @@ import           Data.Proxy            (Proxy (..))
 import           Waargonaut.Encode     (Encoder, Encoder')
 import qualified Waargonaut.Encode     as E
 
-import           Data.ByteString.Lazy  (ByteString)
+import           Data.Text.Lazy  (Text)
 
 import           Types.Common          (Image (..), Overlayed (..), testFudge,
                                         testImageDataType)
@@ -25,7 +25,7 @@ import           Types.Common          (Image (..), Overlayed (..), testFudge,
 import           Waargonaut.Generic    (GWaarg, mkEncoder, proxy)
 import           Waargonaut.Types.Json (oat)
 
-testImageEncodedNoSpaces :: ByteString
+testImageEncodedNoSpaces :: Text
 testImageEncodedNoSpaces = "{\"Width\":800,\"Height\":600,\"Title\":\"View from 15th Floor\",\"Animated\":false,\"IDs\":[116,943,234,38793]}"
 
 -- | The recommended way of defining an Encoder is to be explicit.
@@ -37,13 +37,13 @@ encodeImage = E.mapLikeObj $ \img ->
   . E.boolAt "Animated" (_imageAnimated img)
   . E.listAt E.int "IDs" (_imageIDs img)
 
-testFudgeEncodedWithConsName :: ByteString
+testFudgeEncodedWithConsName :: Text
 testFudgeEncodedWithConsName = "{\"fudgey\":\"Chocolate\"}"
 
 testOverlayed :: Overlayed
 testOverlayed = Overlayed "fred" testFudge
 
-testOverlayedOut :: ByteString
+testOverlayedOut :: Text
 testOverlayedOut = "{\"id\":\"fred\",\"fudgey\":\"Chocolate\"}"
 
 encodeOverlay :: Applicative f => Encoder f Overlayed
@@ -56,7 +56,7 @@ tCase
   :: TestName
   -> Encoder' a
   -> a
-  -> ByteString
+  -> Text
   -> TestTree
 tCase nm enc a expected = testCase nm $
   E.simplePureEncodeNoSpaces enc a @?= expected

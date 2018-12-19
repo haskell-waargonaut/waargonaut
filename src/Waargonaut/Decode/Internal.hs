@@ -10,6 +10,8 @@
 module Waargonaut.Decode.Internal
   ( CursorHistory' (..)
   , ppCursorHistory
+  , compressHistory
+
   , DecodeResultT (..)
   , Decoder' (..)
 
@@ -23,6 +25,7 @@ module Waargonaut.Decode.Internal
   , int'
   , text'
   , string'
+  , lazyByteString'
   , strictByteString'
   , unboundedChar'
   , boundedChar'
@@ -48,7 +51,6 @@ import           Control.Applicative           (liftA2, (<|>))
 import           Control.Lens                  (Rewrapped, Wrapped (..), (%=),
                                                 _1, _Wrapped)
 import qualified Control.Lens                  as L
-
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (ExceptT (..), MonadError (..),
                                                 liftEither, runExceptT)
@@ -59,15 +61,17 @@ import           Control.Monad.Error.Hoist     ((<!?>))
 import           Control.Monad.Morph           (MFunctor (..), MMonad (..))
 
 import           Data.Bifunctor                (first)
+import qualified Data.Foldable                 as F
 import           Data.Functor                  (($>))
 import           Data.Functor.Alt              (Alt (..))
 import           Data.Functor.Apply            (Apply (..))
 import           Data.Functor.Bind             (Bind (..))
-import           Data.Semigroup                (Semigroup)
-import           Data.Sequence                 (Seq)
+import           Data.Semigroup                ((<>))
+import           Data.Sequence                 (Seq, fromList)
 
-import qualified Data.ByteString.Char8         as BS
-
+import           Data.ByteString.Char8         (ByteString)
+import qualified Data.ByteString.Lazy.Builder  as BB
+import qualified Data.ByteString.Lazy.Char8    as BL
 import           Data.Text                     (Text)
 
 import           Data.Map                      (Map)
@@ -80,10 +84,13 @@ import qualified Data.Witherable               as Wither
 import           Data.Scientific               (Scientific)
 import qualified Data.Scientific               as Sci
 
+import           Natural                       (Natural, _Natural)
+
 import           Waargonaut.Types              (AsJType (..), JString,
+                                                jCharBuilderByteStringL,
                                                 jNumberToScientific,
                                                 jsonAssocKey, jsonAssocVal,
-                                                _JChar, _JString)
+                                                _JChar, _JStringText)
 import           Waargonaut.Types.CommaSep     (toList)
 import           Waargonaut.Types.JChar        (jCharToUtf8Char)
 
@@ -103,6 +110,53 @@ newtype CursorHistory' i = CursorHistory'
   }
   deriving (Show, Eq)
 
+switchbackMoves
+  :: (Natural -> a)
+  -> (Natural -> a)
+  -> Natural
+  -> Natural
+  -> b
+  -> b
+  -> [(a, b)]
+  -> [(a, b)]
+switchbackMoves a b n m i i' sq =
+  let
+    n' = _Natural L.# n :: Int
+    m' = _Natural L.# m
+  in
+    if n' > m'
+    then (a $ (n' - m') L.^. _Natural, i)  : sq
+    else (b $ (m' - n') L.^. _Natural, i') : sq
+
+rmKeyJumps :: [(ZipperMove, i)] -> [(ZipperMove, i)]
+rmKeyJumps (d@(DAt _, _) : (R _, _) : sq) = d:sq
+rmKeyJumps s                              = s
+
+combineLRMoves :: [(ZipperMove, i)] -> [(ZipperMove, i)]
+combineLRMoves ((R n, _) : (R m, i)  : sq) = (R (n <> m), i) : sq
+combineLRMoves ((L n, _) : (L m, i)  : sq) = (L (n <> m), i) : sq
+combineLRMoves ((L n, i) : (R m, i') : sq) = switchbackMoves L R n m i i' sq
+combineLRMoves ((R n, i) : (L m, i') : sq) = switchbackMoves R L n m i i' sq
+combineLRMoves s                           = s
+
+-- | This function will condense incidental movements, reducing the amount of
+-- noise in the error output.
+--
+-- The rules that are currently applied are:
+--
+-- * [R n, R m]   = [R (n + m)]
+-- * [L n, R m]   = [L (n + m)]
+-- * [R n, L m]   = [R (n - m)] where n > m
+-- * [R n, L m]   = [L (m - n)] where n < m
+-- * [L n, R m]   = [L (n - m)] where n > m
+-- * [L n, R m]   = [R (m - n)] where n < m
+-- * [DAt k, R n] = [DAt k]
+--
+-- This function is automatically applied when using the 'ppCursorHistory'
+-- function to render the cursor movements.
+compressHistory :: CursorHistory' i -> CursorHistory' i
+compressHistory = L.over _Wrapped (fromList . L.transform (combineLRMoves . rmKeyJumps) . F.toList)
+
 -- |
 -- Pretty print the given 'CursorHistory'' to a more useful format compared to a 'Seq' of 'i'.
 ppCursorHistory
@@ -112,6 +166,7 @@ ppCursorHistory =
   foldr (<+>) mempty
   . fmap (ppZipperMove . fst)
   . unCursorHistory'
+  . compressHistory
 
 instance CursorHistory' i ~ t => Rewrapped (CursorHistory' i) t
 
@@ -251,17 +306,24 @@ prismDOrFail'
 prismDOrFail' e p d c =
   runDecoder' (L.preview p <$> d) c <!?> e
 
--- | Try to decode a 'Text' value from some 'Json' or value.
+-- | Try to decode a 'Text' value from some 'Json' or value. This will fail if
+-- the input value is not a valid UTF-8 'Text' value, as checked by the
+-- 'Data.Text.Encoding.decodeUtf8'' function.
 text' :: AsJType a ws a => a -> Maybe Text
-text' = L.preview (_JStr . _1 . L.re _JString)
+text' = L.preview (_JStr . _1 . _JStringText)
 
 -- | Try to decode a 'String' value from some 'Json' or value.
 string' :: AsJType a ws a => a -> Maybe String
 string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map (_JChar L.#)))
 
--- | Try to decode a 'Data.ByteString.Char8' from some 'Json' or value.
-strictByteString' :: AsJType a ws a => a -> Maybe BS.ByteString
-strictByteString' = L.preview (_JStr . _1 . L.re _JString)
+-- | Try to decode a 'Data.ByteString.Char8' from some 'Json' or value
+strictByteString' :: AsJType a ws a => a -> Maybe ByteString
+strictByteString' = fmap BL.toStrict . lazyByteString'
+
+-- | Try to decode a 'Data.ByteString.Lazy.Char8' from some 'Json' or value
+lazyByteString' :: AsJType a ws a => a -> Maybe BL.ByteString
+lazyByteString' = L.preview (_JStr . _1 . _Wrapped . L.to mkBS)
+  where mkBS = BB.toLazyByteString . foldMap jCharBuilderByteStringL
 
 -- | Decoder for a 'Char' value that cannot contain values in the range U+D800
 -- to U+DFFF. This decoder will fail if the 'Char' is outside of this range.

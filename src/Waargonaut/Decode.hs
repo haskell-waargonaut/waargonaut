@@ -20,6 +20,7 @@ module Waargonaut.Decode
   , JCurs (..)
   , ParseFn
   , Err (..)
+
   , JsonType (..)
 
     -- * Runners
@@ -32,6 +33,7 @@ module Waargonaut.Decode
 
     -- * Helpers
   , DI.ppCursorHistory
+  , parseWith
 
     -- * Cursors
   , withCursor
@@ -58,6 +60,10 @@ module Waargonaut.Decode
   , withType
   , jsonTypeAt
 
+    -- * Attempting decoding
+  , fromKeyOptional
+  , atKeyOptional
+
     -- * Provided Decoders
   , leftwardCons
   , rightwardSnoc
@@ -71,6 +77,7 @@ module Waargonaut.Decode
   , integral
   , string
   , strictByteString
+  , lazyByteString
   , unboundedChar
   , boundedChar
   , text
@@ -91,23 +98,26 @@ import           GHC.Word                                  (Word64)
 
 import           Control.Lens                              (Cons, Lens', Prism',
                                                             Snoc, cons, lens,
-                                                            modifying, preview,
-                                                            snoc, traverseOf,
-                                                            view, ( # ), (.~),
-                                                            (^.), _Wrapped)
+                                                            matching, modifying,
+                                                            over, preview, snoc,
+                                                            traverseOf, view,
+                                                            ( # ), (.~), (^.),
+                                                            _Left, _Wrapped)
 
 import           Prelude                                   (Bool, Bounded, Char,
                                                             Eq, Int, Integral,
-                                                            String,
-                                                            fromIntegral, (-),
-                                                            (==))
+                                                            Show, String,
+                                                            fromIntegral, show,
+                                                            (-), (==))
 
 import           Control.Applicative                       (Applicative (..))
 import           Control.Category                          ((.))
-import           Control.Monad                             (Monad (..), (>=>))
+import           Control.Monad                             (Monad (..), (=<<),
+                                                            (>=>))
 import           Control.Monad.Morph                       (embed, generalize)
 
-import           Control.Monad.Except                      (lift, liftEither,
+import           Control.Monad.Except                      (catchError, lift,
+                                                            liftEither,
                                                             throwError)
 import           Control.Monad.Reader                      (ReaderT (..), ask,
                                                             local, runReaderT)
@@ -118,6 +128,7 @@ import           Control.Monad.Error.Hoist                 ((<!?>), (<?>))
 
 import           Data.Bool                                 (Bool (..))
 import           Data.Either                               (Either (..))
+import qualified Data.Either                               as Either (either)
 import           Data.Foldable                             (Foldable, foldl,
                                                             foldr)
 import           Data.Function                             (const, flip, ($),
@@ -136,11 +147,13 @@ import           Natural                                   (Natural, replicate,
                                                             successor', zero')
 
 import           Data.Text                                 (Text)
+import qualified Data.Text                                 as Text
 
-import           Data.ByteString.Char8                     (ByteString)
+import           Text.Parser.Char                          (CharParsing)
+
+import           Data.ByteString                           (ByteString)
 import qualified Data.ByteString.Char8                     as BS8
-
-import           Waargonaut.Types
+import qualified Data.ByteString.Lazy                      as BL
 
 import           HaskellWorks.Data.Positioning             (Count)
 import qualified HaskellWorks.Data.Positioning             as Pos
@@ -160,6 +173,7 @@ import           Waargonaut.Decode.Error                   (AsDecodeError (..),
                                                             DecodeError (..),
                                                             Err (..))
 import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
+import           Waargonaut.Types
 
 import qualified Waargonaut.Decode.Internal                as DI
 
@@ -498,6 +512,39 @@ atKey
 atKey k d =
   withCursor (down >=> fromKey k d)
 
+-- | A version of 'fromKey' that returns its result in 'Maybe'. If the key is
+-- not present in the object, 'Nothing' is returned. If the key is present,
+-- decoding will be performed as with 'fromKey'.
+fromKeyOptional
+  :: Monad f
+  => Text
+  -> Decoder f b
+  -> JCurs
+  -> DecodeResult f (Maybe b)
+fromKeyOptional k d c =
+  focus' =<< catchError (pure <$> moveToKey k c) (\de -> case de of
+    KeyNotFound _ -> pure Nothing
+    _             -> throwError de)
+  where
+    focus' = maybe (pure Nothing) (fmap Just . focus d)
+
+-- | A version of 'atKey' that returns its result in 'Maybe'. If the key is
+-- not present in the object, 'Nothing' is returned. If the key is present,
+-- decoding will be performed as with 'atKey'.
+--
+-- For example, if a key could be absent and could be null if present,
+-- it could be decoded as follows:
+--
+-- @
+-- join \<$> atKeyOptional "key" (maybeOrNull text)
+-- @
+atKeyOptional
+  :: Monad f
+  => Text
+  -> Decoder f b
+  -> Decoder f (Maybe b)
+atKeyOptional k d = withCursor (down >=> fromKeyOptional k d)
+
 -- | Used internally in the construction of the basic 'Decoder's. Takes a 'Text'
 -- description of the thing you expect to find at the current cursor, and a
 -- function to convert the 'Json' structure found there into something else.
@@ -686,6 +733,27 @@ simpleDecode d parseFn =
   runPureDecode d parseFn
   . mkCursor
 
+-- | Helper function to handle wrapping up a parse failure using the given
+-- parsing function. Intended to be used with the 'runDecode' or 'simpleDecode'
+-- functions.
+--
+-- @
+-- import Data.Attoparsec.ByteString (parseOnly)
+--
+-- simpleDecode (list int) (parseWith (parseOnly parseWaargonaut)) "[1,1,2]"
+-- @
+--
+parseWith
+  :: ( CharParsing f
+     , Show e
+     )
+  => (f a -> i -> Either e a)
+  -> f a
+  -> i
+  -> Either DecodeError a
+parseWith f p =
+  over _Left (ParseFailed . Text.pack . show) . f p
+
 -- | Similar to the 'simpleDecode' function, however this function expects
 -- you've already converted your input to a 'JCurs'.
 runPureDecode
@@ -748,8 +816,17 @@ prismDOrFail
   -> Prism' a b
   -> Decoder f a
   -> Decoder f b
-prismDOrFail e p d = withCursor $
-  focus d >=> \a -> preview p a <?> e
+prismDOrFail e = prismDOrFail' (const e)
+
+-- | Like 'prismDOrFail'', but lets you use the @a@ to construct the error.
+prismDOrFail'
+  :: Monad f
+  => (a -> DecodeError)
+  -> Prism' a b
+  -> Decoder f a
+  -> Decoder f b
+prismDOrFail' e p d = withCursor $
+  focus d >=> Either.either (throwError . e) pure . matching p
 
 -- | Decode an 'Int'.
 int :: Monad f => Decoder f Int
@@ -763,8 +840,13 @@ scientific = atCursor "scientific" DI.scientific'
 string :: Monad f => Decoder f String
 string = atCursor "string" DI.string'
 
-strictByteString :: Monad f => Decoder f BS8.ByteString
+-- | Decode a strict 'ByteString' value.
+strictByteString :: Monad f => Decoder f ByteString
 strictByteString = atCursor "strict bytestring" DI.strictByteString'
+
+-- | Decode a lazy 'ByteString' value.
+lazyByteString :: Monad f => Decoder f BL.ByteString
+lazyByteString = atCursor "lazy bytestring" DI.lazyByteString'
 
 -- | Decode a 'Char' value that is equivalent to a Haskell 'Char' value, as Haskell 'Char' supports a wider range than JSON.
 unboundedChar :: Monad f => Decoder f Char

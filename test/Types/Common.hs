@@ -39,7 +39,7 @@ module Types.Common
 import           Generics.SOP                (Generic, HasDatatypeInfo)
 import qualified GHC.Generics                as GHC
 
-import           Control.Lens                (makeClassy, over, _Left)
+import           Control.Lens                (makeClassy)
 import           Control.Monad               ((>=>))
 
 import           Data.Functor.Identity       (Identity)
@@ -47,19 +47,23 @@ import qualified Data.List                   as List
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Maybe                  (fromMaybe)
 import           Data.Text                   (Text)
-import qualified Data.Text                   as Text
+
+import qualified Data.Text.Encoding          as Text
+
+import qualified Data.Text.Lazy              as TextL
+import qualified Data.Text.Lazy.Builder      as TextL
+import qualified Data.Text.Lazy.IO           as TextIO
 
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
 import qualified Hedgehog.Range              as Range
 
 import           Data.ByteString             (ByteString)
-import qualified Data.ByteString.Builder     as BB
-import qualified Data.ByteString.Lazy.Char8  as BSL8
+-- import qualified Data.ByteString.Builder     as BB
+-- import qualified Data.ByteString.Lazy.Char8  as BSL8
 
 import qualified Data.Attoparsec.ByteString  as AB
 import qualified Data.Attoparsec.Text        as AT
-import           Data.Attoparsec.Types       (Parser)
 
 import           Data.Proxy                  (Proxy (..))
 import           Data.Tagged                 (Tagged)
@@ -73,7 +77,7 @@ import qualified Waargonaut.Decode.Traversal as D
 import qualified Waargonaut                  as W
 import qualified Waargonaut.Decode           as SD
 
-import           Waargonaut.Decode.Error     (DecodeError (ParseFailed))
+import           Waargonaut.Decode.Error     (DecodeError)
 import qualified Waargonaut.Encode           as E
 import           Waargonaut.Types            (Json, waargonautBuilder)
 import           Waargonaut.Types.Whitespace (Whitespace (..), wsBuilder)
@@ -166,7 +170,7 @@ indentImage = do
   pjson $ prettyJson Neither 2 2 imageJson
   pjson imageJson
   where
-    pjson = BSL8.putStrLn . BB.toLazyByteString . waargonautBuilder wsBuilder
+    pjson = TextIO.putStrLn . TextL.toLazyText . waargonautBuilder wsBuilder
 
 newtype Fudge = Fudge Text
   deriving (Eq, Show, GHC.Generic)
@@ -275,19 +279,11 @@ genWhitespace = Gen.element
 genText :: Gen Text
 genText = Gen.text ( Range.linear 0 100 ) Gen.unicodeAll
 
-parseWith
-  :: Show e
-  => (Parser i a -> i -> Either e a)
-  -> Parser i a
-  -> i
-  -> Either DecodeError a
-parseWith f p = over _Left (ParseFailed . Text.pack . show) . f p
-
 parseBS :: ByteString -> Either DecodeError Json
-parseBS = parseWith AB.parseOnly W.parseWaargonaut
+parseBS = SD.parseWith AB.parseOnly W.parseWaargonaut
 
 parseText :: Text -> Either DecodeError Json
-parseText = parseWith AT.parseOnly W.parseWaargonaut
+parseText = SD.parseWith AT.parseOnly W.parseWaargonaut
 
 prop_generic_tripping
   :: ( MonadTest m
@@ -300,4 +296,4 @@ prop_generic_tripping
   -> m ()
 prop_generic_tripping e d a = tripping a
   (E.simplePureEncodeNoSpaces (T.untag e))
-  (SD.runPureDecode (T.untag d) parseBS . SD.mkCursor . BSL8.toStrict)
+  (SD.runPureDecode (T.untag d) parseBS . SD.mkCursor . Text.encodeUtf8 . TextL.toStrict)

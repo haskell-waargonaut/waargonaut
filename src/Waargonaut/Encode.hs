@@ -32,10 +32,8 @@ module Waargonaut.Encode
   , integral
   , scientific
   , bool
-  , text
   , string
-  , strictByteString
-  , lazyByteString
+  , text
   , null
   , either
   , maybe
@@ -69,10 +67,8 @@ module Waargonaut.Encode
   , integral'
   , scientific'
   , bool'
-  , text'
   , string'
-  , strictByteString'
-  , lazyByteString'
+  , text'
   , null'
   , either'
   , maybe'
@@ -119,14 +115,12 @@ import           Data.Scientific                      (Scientific)
 import           Data.Monoid                          (Monoid, mempty)
 import           Data.Semigroup                       (Semigroup)
 
-import qualified Data.ByteString                      as BS
-import qualified Data.ByteString.Builder              as BB
-import           Data.ByteString.Lazy                 (ByteString)
-
 import           Data.Map                             (Map)
 import qualified Data.Map                             as Map
 
 import           Data.Text                            (Text)
+import qualified Data.Text.Lazy                       as LT
+import qualified Data.Text.Lazy.Builder               as TB
 
 import           Waargonaut.Encode.Types              (Encoder, Encoder',
                                                        ObjEncoder, ObjEncoder',
@@ -140,14 +134,12 @@ import           Waargonaut.Encode.Types              (Encoder, Encoder',
 import           Waargonaut.Types                     (AsJType (..),
                                                        JAssoc (..), JObject,
                                                        Json, MapLikeObj (..),
-                                                       WS,
-                                                       lazyByteStringToJString,
-                                                       strictByteStringToJString,
-                                                       stringToJString,
-                                                       textToJString,
+                                                       WS, stringToJString,
                                                        toMapLikeObj, wsRemover,
                                                        _JNumberInt,
-                                                       _JNumberScientific)
+                                                       _JNumberScientific,
+                                                       _JStringText)
+
 import           Waargonaut.Types.Json                (waargonautBuilder)
 
 
@@ -165,15 +157,15 @@ simpleEncodeNoSpaces
   :: Applicative f
   => Encoder f a
   -> a
-  -> f ByteString
+  -> f LT.Text
 simpleEncodeNoSpaces enc =
-  fmap (BB.toLazyByteString . waargonautBuilder wsRemover) . runEncoder enc
+  fmap (TB.toLazyText . waargonautBuilder wsRemover) . runEncoder enc
 
 -- | As per 'simpleEncodeNoSpaces' but specialised the 'f' to 'Data.Functor.Identity' and remove it.
 simplePureEncodeNoSpaces
   :: Encoder Identity a
   -> a
-  -> ByteString
+  -> LT.Text
 simplePureEncodeNoSpaces enc =
   runIdentity . simpleEncodeNoSpaces enc
 
@@ -216,21 +208,13 @@ integral = encToJsonNoSpaces _JNum (review _JNumberScientific . fromIntegral)
 bool :: Applicative f => Encoder f Bool
 bool = encToJsonNoSpaces _JBool id
 
--- | Encode a 'Text'
-text :: Applicative f => Encoder f Text
-text = encToJsonNoSpaces _JStr textToJString
-
 -- | Encode a 'String'
 string :: Applicative f => Encoder f String
 string = encToJsonNoSpaces _JStr stringToJString
 
--- | Encode a strict 'ByteString'
-strictByteString :: Applicative f => Encoder f BS.ByteString
-strictByteString = encToJsonNoSpaces _JStr strictByteStringToJString
-
--- | Encode a lazy 'ByteString'
-lazyByteString :: Applicative f => Encoder f ByteString
-lazyByteString = encToJsonNoSpaces _JStr lazyByteStringToJString
+-- | Encode a 'Text'
+text :: Applicative f => Encoder f Text
+text = encToJsonNoSpaces _JStr (_JStringText #)
 
 -- | Encode an explicit 'null'.
 null :: Applicative f => Encoder f ()
@@ -323,21 +307,13 @@ scientific' = scientific
 bool' :: Encoder' Bool
 bool' = bool
 
--- | As per 'text' but with the 'f' specialised to 'Data.Functor.Identity'.
-text' :: Encoder' Text
-text' = text
-
 -- | As per 'string' but with the 'f' specialised to 'Data.Functor.Identity'.
 string' :: Encoder' String
 string' = string
 
--- | As per 'strictByteString' but with the 'f' specialised to 'Data.Functor.Identity'.
-strictByteString' :: Encoder' BS.ByteString
-strictByteString' = strictByteString
-
--- | As per 'lazyByteString' but with the 'f' specialised to 'Data.Functor.Identity'.
-lazyByteString' :: Encoder' ByteString
-lazyByteString' = lazyByteString
+-- | As per 'text' but with the 'f' specialised to 'Data.Functor.Identity'.
+text' :: Encoder' Text
+text' = text
 
 -- | As per 'null' but with the 'f' specialised to 'Data.Functor.Identity'.
 null' :: Encoder' ()
@@ -622,7 +598,7 @@ onObj
   -> JObject WS Json
   -> f (JObject WS Json)
 onObj k b encB o = (\j -> o & _Wrapped L.%~ L.cons j)
-  . JAssoc (textToJString k) mempty mempty <$> runEncoder encB b
+  . JAssoc (_JStringText # k) mempty mempty <$> runEncoder encB b
 
 -- | Encode key value pairs as a JSON object, allowing duplicate keys.
 keyValuesAsObj

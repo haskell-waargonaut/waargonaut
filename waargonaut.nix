@@ -10,7 +10,7 @@
 }:
 mkDerivation {
   pname = "waargonaut";
-  version = "0.4.1.0";
+  version = "0.5.0.0";
   src = ./.;
   setupHaskellDepends = [ base Cabal cabal-doctest ];
   libraryHaskellDepends = [

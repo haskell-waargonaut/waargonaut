@@ -12,6 +12,8 @@ import qualified Control.Lens                  as L
 import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
 
+import           Data.Semigroup                ((<>))
+
 import           Natural                       (Natural)
 
 import           Text.PrettyPrint.Annotated.WL (Doc, (<+>))
@@ -34,15 +36,15 @@ data ZipperMove
 -- 'Waargonaut.Decode.Internal.CursorHistory'' to improve the readability of the errors.
 ppZipperMove :: ZipperMove -> Doc a
 ppZipperMove m = case m of
-  U              -> WL.text "up/"
-  D              -> WL.text "down\\"
+  U            -> WL.text "up/" <> WL.linebreak
+  D            -> WL.text "down\\" <> WL.linebreak
 
-  (L n)          -> WL.text "-<-" <+> ntxt n
-  (R n)          -> WL.text "->-" <+> ntxt n
+  L n          -> WL.text "-<-" <+> ntxt n
+  R n          -> WL.text " ->-" <+> ntxt n
 
-  (DAt k)        -> WL.text "into\\" <+> itxt "key" k
-  (Item t)       -> WL.text "-::" <+> itxt "item" t
-  (BranchFail t) -> WL.text "(attempted: " <+> ntxt t <+> WL.text ")"
+  DAt k        -> WL.text "into\\" <+> itxt "key" k <> WL.linebreak
+  Item t       -> WL.text "-::" <+> itxt "item" t <> WL.linebreak
+  BranchFail t -> WL.text "(attempted: " <+> ntxt t <+> WL.text ")" <> WL.linebreak
   where
     itxt t k' = WL.parens (WL.text t <+> WL.colon <+> WL.text (Text.unpack k'))
     ntxt n'   = WL.parens (WL.char 'i' <+> WL.char '+' <+> WL.text (show n'))

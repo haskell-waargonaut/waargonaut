@@ -6,6 +6,7 @@ let
     hedgehog       = import ./nix/hedgehog.nix;
     tasty          = import ./nix/tasty.nix;
     tasty-hedgehog = import ./nix/tasty-hedgehog.nix;
+    hedgehog-fn    = import ./nix/hedgehog-fn.nix;
     hw-json        = import ./nix/hw-json.nix;
   };
 in
@@ -14,6 +15,7 @@ in
 
   hoist-error    = self.callCabal2nix "hoist-error" sources.hoist-error {};
   tasty-hedgehog = self.callCabal2nix "tasty-hedgehog" sources.tasty-hedgehog {};
+  hedgehog-fn    = self.callCabal2nix "hedgehog-fn" sources.hedgehog-fn {};
 
   hedgehog       = self.callCabal2nix "hedgehog" "${sources.hedgehog}/hedgehog" {};
   tasty-hunit    = self.callCabal2nix "tasty-hunit" "${sources.tasty}/hunit" {};

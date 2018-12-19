@@ -62,10 +62,12 @@ import           Data.Semigroup              (Semigroup, (<>))
 import           Data.Traversable            (Traversable (..))
 import           Data.Tuple                  (uncurry)
 
-import           Data.ByteString.Builder     (Builder)
-import qualified Data.ByteString.Builder     as BB
-import           Data.Maybe                  (Maybe (..))
+import           Data.Maybe                  (Maybe)
+
 import           Data.Text                   (Text)
+
+import           Data.Text.Lazy.Builder      (Builder)
+import qualified Data.Text.Lazy.Builder      as TB
 
 import           Text.Parser.Char            (CharParsing, text)
 import           Waargonaut.Types.JArray     (JArray (..), jArrayBuilder,
@@ -218,9 +220,9 @@ jtypeTraversal = bitraverse pure
 jTypesBuilder
   :: (WS -> Builder)
   -> JType WS Json
-  -> BB.Builder
-jTypesBuilder s (JNull tws)     = BB.stringUtf8 "null"                          <> s tws
-jTypesBuilder s (JBool b tws)   = BB.stringUtf8 (if b then "true" else "false") <> s tws
+  -> Builder
+jTypesBuilder s (JNull tws)     = TB.fromText "null"                          <> s tws
+jTypesBuilder s (JBool b tws)   = TB.fromText (if b then "true" else "false") <> s tws
 jTypesBuilder s (JNum jn tws)   = jNumberBuilder jn                             <> s tws
 jTypesBuilder s (JStr js tws)   = jStringBuilder js                             <> s tws
 jTypesBuilder s (JArr js tws)   = jArrayBuilder s waargonautBuilder js          <> s tws

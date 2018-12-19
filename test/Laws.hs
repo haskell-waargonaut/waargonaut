@@ -262,7 +262,7 @@ applicative_homomorphism
      ( Show a, Arg a, Vary a, Eq a
      , Show b, Arg b, Vary b
      , Show (f a), Eq (f a)
-     , Show (f a), Eq (f b)
+     , Eq (f b)
      , Applicative f
      )
   => (forall x. x -> f x)

@@ -1,8 +1,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE RankNTypes       #-}
+-- | Functions and types for pretty printing the Json data structures.
 module Waargonaut.Prettier
-  ( InlineOption (..)
+  ( -- * Types
+    InlineOption (..)
+
+    -- * Functions
   , prettyJson
   ) where
 
@@ -34,11 +38,12 @@ import           Waargonaut.Types.Json       (AsJType (..), JType (..), Json,
                                               jsonTraversal)
 import           Waargonaut.Types.Whitespace (WS (..), Whitespace (..))
 
+-- | Some choices for how the Json is indented.
 data InlineOption
-  = ArrayOnly
-  | ObjectOnly
-  | Both
-  | Neither
+  = ArrayOnly  -- ^ Only keep array elements on the same line, input line breaks between object values.
+  | ObjectOnly -- ^ Only keep object elements on the same line, input line breaks between array values.
+  | Both       -- ^ Keep both object and array elements on the same line.
+  | Neither    -- ^ Input line breaks for both array and object elements.
   deriving (Show, Eq)
 
 objelems :: AsJType r WS a => Traversal' r (Elems WS (JAssoc WS a))
@@ -78,6 +83,15 @@ prettyCommaSep csWrapper nested inline step w =
       L.& CS.elemsLast . CS.elemTrailing . _Just . _2 .~ l
       L.& CS.elemsLast . CS.elemVal . nested . immediateTrailingWS .~ l
 
+-- | Apply some indentation and spacing rules to a given Json input.
+--
+-- To apply newlines to object elements only and indent by two spaces,
+-- increasing that indentation by two spaces for each nested object or array.
+--
+-- @
+-- prettyJson ArrayOnly 2 2 j
+-- @
+--
 prettyJson :: InlineOption -> Int -> Int -> Json -> Json
 prettyJson inlineOpt step w = P.transformOf jsonTraversal (
   prettyCommaSep (_JArr . _1 . _Wrapped) id inlineArr step w .

@@ -38,9 +38,8 @@ import           Control.Category          (id, (.))
 import           Control.Lens              (AsEmpty (..), At (..), Index,
                                             IxValue, Ixed (..), Lens', Prism',
                                             Rewrapped, Wrapped (..), cons,
-                                            isn't, iso, nearly, prism', re, to,
-                                            ( # ), (.~), (<&>), (^.), (^?),
-                                            _Wrapped)
+                                            isn't, iso, nearly, prism', to,
+                                            ( # ), (.~), (<&>), (^.), _Wrapped)
 
 import           Control.Monad             (Monad)
 import           Data.Bifoldable           (Bifoldable (bifoldMap))
@@ -56,8 +55,8 @@ import           Data.Semigroup            (Semigroup ((<>)))
 import           Data.Text                 (Text)
 import           Data.Traversable          (Traversable, traverse)
 
-import           Data.ByteString.Builder   (Builder)
-import qualified Data.ByteString.Builder   as BB
+import           Data.Text.Lazy.Builder    (Builder)
+import qualified Data.Text.Lazy.Builder    as TB
 
 import qualified Data.Witherable           as W
 
@@ -136,7 +135,7 @@ instance HasJAssoc (Elem f ws (JAssoc ws a)) ws a where
 -- This function is analogus to the 'Data.Map.alterF' function.
 jAssocAlterF :: (Monoid ws, Functor f) => Text -> (Maybe a -> f (Maybe a)) -> Maybe (JAssoc ws a) -> f (Maybe (JAssoc ws a))
 jAssocAlterF k f mja = fmap g <$> f (_jsonAssocVal <$> mja) where
-  g v = maybe (JAssoc (textToJString k) mempty mempty v) (jsonAssocVal .~ v) mja
+  g v = maybe (JAssoc (_JStringText # k) mempty mempty v) (jsonAssocVal .~ v) mja
 
 -- | The representation of a JSON object.
 --
@@ -258,7 +257,7 @@ toMapLikeObj (JObject xs) = (\(_,a,b) -> (MLO (JObject a), b)) $ foldr f (mempty
 
 -- Compare a 'Text' to the key for a 'JAssoc' value.
 textKeyMatch :: Text -> JAssoc ws a -> Bool
-textKeyMatch k = (== Just k) . (^? jsonAssocKey . re _JString)
+textKeyMatch k = (== k) . (^. jsonAssocKey . _JStringText)
 
 -- | Parse a single "key:value" pair
 parseJAssoc
@@ -278,7 +277,7 @@ jAssocBuilder
   -> JAssoc ws a
   -> Builder
 jAssocBuilder ws aBuilder (JAssoc k ktws vpws v) =
-  jStringBuilder k <> ws ktws <> BB.charUtf8 ':' <> ws vpws <> aBuilder ws v
+  jStringBuilder k <> ws ktws <> TB.singleton ':' <> ws vpws <> aBuilder ws v
 
 -- |
 --
