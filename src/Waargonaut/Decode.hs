@@ -586,14 +586,14 @@ foldCursor nom f s elemD curs = DecodeResult . ReaderT $ \p ->
 --   | C
 --
 -- decodeMyEnum :: Monad f => Decoder f MyEnum
--- decodeMyEnum = D.oneOf D.text "MyEnum"
+-- decodeMyEnum = D.oneOf D.text \"MyEnum\"
 --   [ ("a", A)
 --   , ("b", B)
 --   , ("c", C)
 --   ]
 --
 -- decodeMyEnumFromInt :: Monad f => Decoder f MyEnum
--- decodeMyEnumFromInt = D.oneOf D.int "MyEnum"
+-- decodeMyEnumFromInt = D.oneOf D.int \"MyEnum\"
 --   [ (1, A)
 --   , (2, B)
 --   , (3, C)
