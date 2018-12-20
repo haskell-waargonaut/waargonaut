@@ -53,7 +53,7 @@ decoderTests = testGroup "Decoding"
   , testCase "Using Alt (Error) - Records BranchFail" decodeAltError
   , testCase "List Decoder" listDecoder
   , testCase "NonEmpty List Decoder" nonEmptyDecoder
-  , testCase "Object Decoder" objectDecoder
+  , testCase "Object Decoder" objectAsKeyValuesDecoder
   , testCase "Absent Key Decoder" absentKeyDecoder
   ]
 
@@ -98,10 +98,10 @@ listDecoder = do
   assertBool "List Decoder - invalid type accepted - num" (Either.isLeft (dec badTypeNum))
   assertBool "List Decoder - invalid element decoder accepted" (Either.isLeft (dec badElem))
 
-objectDecoder :: Assertion
-objectDecoder = do
+objectAsKeyValuesDecoder :: Assertion
+objectAsKeyValuesDecoder = do
   let
-    dec = D.runPureDecode (D.object D.text D.int) parseBS . D.mkCursor
+    dec = D.runPureDecode (D.objectAsKeyValues D.text D.int) parseBS . D.mkCursor
 
     ok = "{\"1\":1,\"2\":2,\"3\":3}"
     okE = "{}"

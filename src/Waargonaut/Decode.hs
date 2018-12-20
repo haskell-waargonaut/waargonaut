@@ -86,8 +86,8 @@ module Waargonaut.Decode
   , nonempty
   , listAt
   , list
-  , objectAt
-  , object
+  , objectAsKeyValuesAt
+  , objectAsKeyValues
   , withDefault
   , maybeOrNull
   , either
@@ -167,8 +167,6 @@ import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
 
 import           HaskellWorks.Data.Json.Cursor             (JsonCursor (..))
 import qualified HaskellWorks.Data.Json.Cursor             as JC
-import           HaskellWorks.Data.Json.Type               (JsonType (..))
-import qualified HaskellWorks.Data.Json.Type               as JT
 
 import           Waargonaut.Decode.Error                   (AsDecodeError (..),
                                                             DecodeError (..),
@@ -583,7 +581,7 @@ withType
   -> JCurs
   -> DecodeResult f a
 withType t d c =
-  if maybe False (== t) $ JT.jsonTypeAt (unJCurs c) then d c
+  if maybe False (== t) $ jsonTypeAt (unJCurs c) then d c
   else throwError (_TypeMismatch # t)
 
 -- | Higher order function for combining a folding function with repeated cursor
@@ -876,7 +874,7 @@ nonemptyAt
   => Decoder f a
   -> JCurs
   -> DecodeResult f (NonEmpty a)
-nonemptyAt elemD = withType JT.JsonTypeArray $ down >=> \curs -> do
+nonemptyAt elemD = withType JsonTypeArray $ down >=> \curs -> do
   h <- focus elemD curs
   DI.try (moveRight1 curs) >>= maybe
     (pure $ h :| [])
@@ -893,7 +891,7 @@ listAt
   => Decoder f a
   -> JCurs
   -> DecodeResult f [a]
-listAt elemD = withType JT.JsonTypeArray $ \c ->
+listAt elemD = withType JsonTypeArray $ \c ->
   DI.try (down c) >>= maybe (pure mempty) (rightwardSnoc mempty elemD)
 
 -- | Helper function to simplify writing a '[]' decoder.
@@ -902,13 +900,13 @@ list d = withCursor (listAt d)
 
 -- | Try to decode an object using the given key and value 'Decoder's at the
 -- given cursor.
-objectAt
+objectAsKeyValuesAt
   :: Monad f
   => Decoder f k
   -> Decoder f v
   -> JCurs
   -> DecodeResult f [(k,v)]
-objectAt keyD valueD = withType JsonTypeObject $ \curs ->
+objectAsKeyValuesAt keyD valueD = withType JsonTypeObject $ \curs ->
   DI.try (down curs) >>= maybe
     (pure mempty)
     (foldCursor snoc (moveRight1 >=> moveRight1) mempty (withCursor $ \c -> do
@@ -918,8 +916,8 @@ objectAt keyD valueD = withType JsonTypeObject $ \curs ->
     ))
 
 -- | Helper function to simplify writing a '{}' decoder.
-object :: Monad f => Decoder f k -> Decoder f v -> Decoder f [(k,v)]
-object k v = withCursor (objectAt k v)
+objectAsKeyValues :: Monad f => Decoder f k -> Decoder f v -> Decoder f [(k,v)]
+objectAsKeyValues k v = withCursor (objectAsKeyValuesAt k v)
 
 -- | Try to decode an optional value, returning the given default value if
 -- 'Nothing' is returned.
