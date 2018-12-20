@@ -53,6 +53,7 @@ decoderTests = testGroup "Decoding"
   , testCase "Using Alt (Error) - Records BranchFail" decodeAltError
   , testCase "List Decoder" listDecoder
   , testCase "NonEmpty List Decoder" nonEmptyDecoder
+  , testCase "Object Decoder" objectAsKeyValuesDecoder
   , testCase "Absent Key Decoder" absentKeyDecoder
   ]
 
@@ -64,11 +65,18 @@ nonEmptyDecoder = do
     ok = "[1]"
     notOkay = "[]"
 
+    badTypeObj = "{}"
+    badTypeText = "\"test\""
+    badTypeNum = "3"
+
     badElem = "[1, \"fred\"]"
 
   assertBool "NonEmpty Decoder - fail! non-empty list decoder BROKEN. Start panicking" (Either.isRight (dec ok))
   assertBool "NonEmpty Decoder - empty list shouldn't succeed" (Either.isLeft (dec notOkay))
   assertBool "NonEmpty Decoder - invalid element decoder accepted" (Either.isLeft (dec badElem))
+  assertBool "NonEmpty Decoder - invalid type accepted - object" (Either.isLeft (dec badTypeObj))
+  assertBool "NonEmpty Decoder - invalid type accepted - text" (Either.isLeft (dec badTypeText))
+  assertBool "NonEmpty Decoder - invalid type accepted - num" (Either.isLeft (dec badTypeNum))
 
 listDecoder :: Assertion
 listDecoder = do
@@ -78,13 +86,39 @@ listDecoder = do
     ok = "[1,2,3]"
     okE = "[]"
 
-    badShape = "{}"
+    badTypeObj = "{}"
+    badTypeText = "\"test\""
+    badTypeNum = "3"
     badElem = "[\"fred\", \"susan\"]"
 
   assertBool "List Decoder - fail! List Decoder BROKEN. Start panicking." (Either.isRight (dec ok))
   assertBool "List Decoder - empty list fail" (Either.isRight (dec okE))
-  assertBool "List Decoder - move down should return empty list" (Either.isRight (dec badShape))
+  assertBool "List Decoder - invalid type accepted - object" (Either.isLeft (dec badTypeObj))
+  assertBool "List Decoder - invalid type accepted - text" (Either.isLeft (dec badTypeText))
+  assertBool "List Decoder - invalid type accepted - num" (Either.isLeft (dec badTypeNum))
   assertBool "List Decoder - invalid element decoder accepted" (Either.isLeft (dec badElem))
+
+objectAsKeyValuesDecoder :: Assertion
+objectAsKeyValuesDecoder = do
+  let
+    dec = D.runPureDecode (D.objectAsKeyValues D.text D.int) parseBS . D.mkCursor
+
+    ok = "{\"1\":1,\"2\":2,\"3\":3}"
+    okE = "{}"
+
+    badTypeArray = "[]"
+    badTypeText = "\"test\""
+    badTypeNum = "3"
+    badKey = "{1:1}"
+    badValue = "{\"1\":\"fred\", \"2\":\"susan\"}"
+
+  assertBool "Object Decoder - fail! Object Decoder BROKEN. Start panicking." (Either.isRight (dec ok))
+  assertBool "Object Decoder - empty list fail" (Either.isRight (dec okE))
+  assertBool "Object Decoder - invalid type accepted - object" (Either.isLeft (dec badTypeArray))
+  assertBool "Object Decoder - invalid type accepted - text" (Either.isLeft (dec badTypeText))
+  assertBool "Object Decoder - invalid type accepted - num" (Either.isLeft (dec badTypeNum))
+  assertBool "Object Decoder - invalid key decoder accepted" (Either.isLeft (dec badKey))
+  assertBool "Object Decoder - invalid value decoder accepted" (Either.isLeft (dec badValue))
 
 decodeTestMissingObjKey :: Assertion
 decodeTestMissingObjKey = do

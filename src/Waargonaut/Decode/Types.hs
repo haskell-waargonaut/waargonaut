@@ -14,6 +14,8 @@ module Waargonaut.Decode.Types
   , Decoder (..)
   , DecodeResult (..)
   , JCurs (..)
+  , jsonTypeAt
+  , JsonType(..)
   ) where
 
 import           Control.Lens                          (Rewrapped, Wrapped (..),
@@ -36,6 +38,7 @@ import           Data.Vector.Storable                  (Vector)
 
 import           HaskellWorks.Data.BalancedParens      (SimpleBalancedParens)
 import           HaskellWorks.Data.Json.Cursor         (JsonCursor (..))
+import           HaskellWorks.Data.Json.Type           (JsonType (..), JsonTypeAt (..))
 import           HaskellWorks.Data.Positioning         (Count)
 import           HaskellWorks.Data.RankSelect.Poppy512 (Poppy512)
 
@@ -95,7 +98,7 @@ instance MFunctor Decoder where
 -- | Wrapper type for the 'SuccinctCursor'
 newtype JCurs = JCurs
   { unJCurs :: SuccinctCursor
-  }
+  } deriving JsonTypeAt
 
 instance JCurs ~ t => Rewrapped JCurs t
 
