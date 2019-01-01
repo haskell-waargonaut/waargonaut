@@ -104,6 +104,7 @@ import           Control.Lens                              (Cons, Lens', Prism',
                                                             traverseOf, view,
                                                             ( # ), (.~), (^.),
                                                             _Left, _Wrapped)
+import           Control.Monad.Error.Lens                  (throwing)
 
 import           Prelude                                   (Bool, Bounded, Char,
                                                             Eq, Int, Integral,
@@ -118,8 +119,7 @@ import           Control.Monad                             (Monad (..), (=<<),
 import           Control.Monad.Morph                       (embed, generalize)
 
 import           Control.Monad.Except                      (catchError, lift,
-                                                            liftEither,
-                                                            throwError)
+                                                            liftEither)
 import           Control.Monad.Reader                      (ReaderT (..), ask,
                                                             local, runReaderT)
 import           Control.Monad.State                       (MonadState)
@@ -179,9 +179,10 @@ import qualified Waargonaut.Decode.Internal                as DI
 import           Waargonaut.Decode.Types                   (CursorHistory,
                                                             DecodeResult (..),
                                                             Decoder (..),
-                                                            JCurs (..), ParseFn,
-                                                            SuccinctCursor,
+                                                            JCurs (..),
                                                             JsonType (..),
+                                                            ParseFn,
+                                                            SuccinctCursor,
                                                             jsonTypeAt)
 
 -- | Function to define a 'Decoder' for a specific data type.
@@ -327,7 +328,7 @@ moveToRankN
 moveToRankN newRank c =
   if JC.balancedParens (c ^. _Wrapped) .?. Pos.lastPositionOf newRank
   then pure $ c & _Wrapped . cursorRankL .~ newRank
-  else throwError $ InputOutOfBounds newRank
+  else throwing _InputOutOfBounds newRank
 
 -- | Move the cursor rightwards 'n' times.
 --
@@ -403,7 +404,7 @@ jsonAtCursor p jc = do
 
   if JC.balancedParens c .?. Pos.lastPositionOf rnk
     then liftEither (p cursorTxt)
-    else throwError (InputOutOfBounds rnk)
+    else throwing _InputOutOfBounds rnk
 
 -- Internal function to record the current rank of the cursor into the zipper history
 recordRank
@@ -525,7 +526,7 @@ fromKeyOptional
 fromKeyOptional k d c =
   focus' =<< catchError (pure <$> moveToKey k c) (\de -> case de of
     KeyNotFound _ -> pure Nothing
-    _             -> throwError de)
+    _             -> throwing _DecodeError de)
   where
     focus' = maybe (pure Nothing) (fmap Just . focus d)
 
@@ -582,7 +583,7 @@ withType
   -> DecodeResult f a
 withType t d c =
   if maybe False (== t) $ jsonTypeAt (unJCurs c) then d c
-  else throwError (_TypeMismatch # t)
+  else throwing _TypeMismatch t
 
 -- | Higher order function for combining a folding function with repeated cursor
 -- movements. This lets you combine arbitrary cursor movements with an accumulating
@@ -654,7 +655,7 @@ oneOf d l =
   foldr (\i x -> g i <!> x) err
   where
     g (a,b) = d >>= \t -> if t == a then pure b else err
-    err = throwError (ConversionFailure l)
+    err = throwing _ConversionFailure l
 
 -- | From the current cursor position, move leftwards one position at a time and
 -- push each 'a' onto the front of some 'Cons' structure.
@@ -820,7 +821,7 @@ prismDOrFail'
   -> Decoder f a
   -> Decoder f b
 prismDOrFail' e p d = withCursor $
-  focus d >=> Either.either (throwError . e) pure . matching p
+  focus d >=> Either.either (throwing _DecodeError . e) pure . matching p
 
 -- | Decode an 'Int'.
 int :: Monad f => Decoder f Int
@@ -936,7 +937,7 @@ maybeOrNull
   => Decoder f a
   -> Decoder f (Maybe a)
 maybeOrNull a =
-  (Nothing <$ null) <!> (Just <$> a)
+  (Just <$> a) <!> (Nothing <$ null)
 
 -- | Decode either an 'a' or a 'b', failing if neither 'Decoder' succeeds. The
 -- 'Right' decoder is attempted first.
@@ -946,4 +947,4 @@ either
   -> Decoder f b
   -> Decoder f (Either a b)
 either leftD rightD =
-  (Left <$> leftD) <!> (Right <$> rightD)
+  (Right <$> rightD) <!> (Left <$> leftD)

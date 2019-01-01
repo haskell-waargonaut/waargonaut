@@ -1,5 +1,11 @@
 # Revision history for waargonaut
 
+## 0.5.1.0  -- 2019-01-02
+
+* Fix order of `either` decoder to match documentation, `Right` decoder was not being attempted first.
+* Expose functionality to check the 'type' of the JSON at the current cursor position.
+* Update list decoder to check that we're at an array before attempting to decode. It will now fail when attempting to decode a list and something of type list is not found. Previously it would return an empty list when a number was present.
+
 ## 0.5.0.0  -- 2018-12-18
 
 * Changed internal builder from `ByteString` to `Text` builder.
