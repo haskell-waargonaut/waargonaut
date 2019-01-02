@@ -20,7 +20,6 @@ import           Data.Bool                  (Bool (..))
 import qualified Data.ByteString            as BS
 import qualified Data.Either                as Either
 import           Data.Function              (const, ($))
-import           Data.Functor.Alt           ((<!>))
 import           Data.Maybe                 (Maybe (Just, Nothing))
 import           Data.Semigroup             (Semigroup ((<>)))
 import qualified Data.Sequence              as Seq
@@ -55,6 +54,7 @@ decoderTests = testGroup "Decoding"
   , testCase "NonEmpty List Decoder" nonEmptyDecoder
   , testCase "Object Decoder" objectAsKeyValuesDecoder
   , testCase "Absent Key Decoder" absentKeyDecoder
+  , testCase "Either decoding order - Right first" decodeEitherRightFirst
   ]
 
 nonEmptyDecoder :: Assertion
@@ -204,7 +204,14 @@ decodeTestEnumError = D.runDecode decodeMyEnum parseBS (D.mkCursor "\"WUT\"")
     (const (assertFailure "Should not succeed"))
 
 decodeEitherAlt :: Monad f => D.Decoder f (Either.Either Text Int)
-decodeEitherAlt = (Either.Left <$> D.text) <!> (Either.Right <$> D.int)
+decodeEitherAlt = D.either D.text D.int
+
+decodeEitherRightFirst :: Assertion
+decodeEitherRightFirst = do
+  let d = D.runPureDecode (D.either D.scientific D.int) parseBS . D.mkCursor
+
+  d "44e333" @?= Either.Right (Either.Left 44e333)
+  d "33" @?= Either.Right (Either.Right 33)
 
 decodeAlt :: Assertion
 decodeAlt = do
