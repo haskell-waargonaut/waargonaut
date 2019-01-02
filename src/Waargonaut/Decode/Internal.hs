@@ -304,9 +304,11 @@ text' = L.preview (_JStr . _1 . _JStringText)
 string' :: AsJType a ws a => a -> Maybe String
 string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map (_JChar L.#)))
 
+-- | Try to decode a 'Data.ByteString.ByteString' value from some 'Json' or value.
 strictByteString' :: AsJType a ws a => a -> Maybe ByteString
 strictByteString' = fmap BL.toStrict . lazyByteString'
 
+-- | Try to decode a 'Data.ByteString.Lazy.ByteString' value from some 'Json' or value.
 lazyByteString' :: AsJType a ws a => a -> Maybe BL.ByteString
 lazyByteString' = L.preview (_JStr . _1 . _Wrapped . L.to mkBS)
   where mkBS = BB.toLazyByteString . foldMap jCharBuilderByteStringL

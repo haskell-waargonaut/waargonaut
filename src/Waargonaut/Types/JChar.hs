@@ -450,6 +450,7 @@ jCharToChar (EscapedJChar jca) = case jca of
     (WhiteSpace ws) -> _WhiteSpace # ws
     Hex hexDig4     -> hexDigit4ToChar hexDig4
 
+-- | Using the given function, return the builder for a single 'JChar'.
 jCharBuilderWith
   :: ( Monoid builder
      , Semigroup builder

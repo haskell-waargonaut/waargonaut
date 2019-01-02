@@ -813,7 +813,7 @@ prismDOrFail
   -> Decoder f b
 prismDOrFail e = prismDOrFail' (const e)
 
--- | Like 'prismDOrFail'', but lets you use the @a@ to construct the error.
+-- | Like 'prismDOrFail', but lets you use the @a@ to construct the error.
 prismDOrFail'
   :: Monad f
   => (a -> DecodeError)
