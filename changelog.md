@@ -1,5 +1,10 @@
 # Revision history for waargonaut
 
+## 0.5.2.1  -- 2019-01-08
+
+* Upgraded the nix overrides to use the overlay technique.
+* Lowered the bound on tagged to 0.8.5 which allowed it to be removed from the list of overridden packages.
+
 ## 0.5.1.0  -- 2019-01-02
 
 * Fix order of `either` decoder to match documentation, `Right` decoder was not being attempted first.
