@@ -1,5 +1,10 @@
 # Revision history for waargonaut
 
+## 0.5.2.1  -- 2019-01-08
+
+* Upgraded the nix overrides to use the overlay technique.
+* Lowered the bound on tagged to 0.8.5 which allowed it to be removed from the list of overridden packages.
+
 ## 0.5.2.0  -- 2019-01-03
 
 * Add `Waargonaut.Prettier` module that contains a traversal to modify a `Json` structure to add indentation and newlines.
