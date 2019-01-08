@@ -97,6 +97,7 @@ library
 
                      , Waargonaut.Generic
                      , Waargonaut.Test
+                     , Waargonaut.Prettier
 
                      , Waargonaut
 
