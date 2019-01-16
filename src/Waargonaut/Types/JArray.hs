@@ -22,9 +22,10 @@ import           Prelude                   (Eq, Show, Int)
 import           Control.Category          ((.))
 import           Control.Error.Util        (note)
 import           Control.Lens              (AsEmpty (..), Cons (..), Rewrapped, Ixed (..), Index, IxValue,
-                                            Wrapped (..), cons, isn't, iso,
+                                            Wrapped (..), cons, iso,
                                             nearly, over, prism, to, ( # ),
                                             (^.), (^?), _2, _Wrapped)
+import           Control.Lens.Extras       (is)
 import           Control.Monad             (Monad)
 
 import           Data.Bifoldable           (Bifoldable (bifoldMap))
@@ -74,7 +75,7 @@ instance Monoid ws => Cons (JArray ws a) (JArray ws a) a a where
   {-# INLINE _Cons #-}
 
 instance (Semigroup ws, Monoid ws) => AsEmpty (JArray ws a) where
-  _Empty = nearly (JArray mempty) (^. _Wrapped . to (isn't _Empty))
+  _Empty = nearly (JArray mempty) (^. _Wrapped . to (is _Empty))
   {-# INLINE _Empty #-}
 
 instance (Monoid ws, Semigroup ws) => Semigroup (JArray ws a) where

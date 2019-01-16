@@ -48,11 +48,12 @@ import           Control.Category        (id, (.))
 
 import           Control.Lens            (AsEmpty (..), Cons (..), Index, Iso,
                                           Iso', IxValue, Ixed (..), Lens',
-                                          Snoc (..), cons, from, isn't, iso,
+                                          Snoc (..), cons, from, iso,
                                           mapped, nearly, over, prism, snoc, to,
                                           traverse, unsnoc, (%%~), (%~), (.~),
                                           (^.), (^..), (^?), _1, _2, _Cons,
                                           _Just, _Nothing)
+import           Control.Lens.Extras     (is)
 
 import           Control.Error.Util      (note)
 import           Control.Monad           (Monad)
@@ -308,7 +309,7 @@ unconsCommaSep (CommaSeparated ws es) = over _2 (CommaSeparated ws) . unconsElem
 {-# INLINE unconsCommaSep #-}
 
 instance (Semigroup ws, Monoid ws) => AsEmpty (CommaSeparated ws a) where
-  _Empty = nearly mempty (^. _CommaSeparated . _2 . to (isn't _Nothing))
+  _Empty = nearly mempty (^. _CommaSeparated . _2 . to (is _Nothing))
 
 type instance IxValue (CommaSeparated ws a) = a
 type instance Index (CommaSeparated ws a)   = Int

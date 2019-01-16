@@ -38,8 +38,9 @@ import           Control.Category          (id, (.))
 import           Control.Lens              (AsEmpty (..), At (..), Index,
                                             IxValue, Ixed (..), Lens', Prism',
                                             Rewrapped, Wrapped (..), cons,
-                                            isn't, iso, nearly, prism', to,
+                                            iso, nearly, prism', to,
                                             ( # ), (.~), (<&>), (^.), _Wrapped)
+import           Control.Lens.Extras       (is)
 
 import           Control.Monad             (Monad)
 import           Data.Bifoldable           (Bifoldable (bifoldMap))
@@ -153,7 +154,7 @@ newtype JObject ws a =
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance (Semigroup ws, Monoid ws) => AsEmpty (JObject ws a) where
-  _Empty = nearly (_Wrapped # _Empty # ()) (^. _Wrapped . to (isn't _Empty))
+  _Empty = nearly (_Wrapped # _Empty # ()) (^. _Wrapped . to (is _Empty))
   {-# INLINE _Empty #-}
 
 instance JObject ws a ~ t => Rewrapped (JObject ws a) t
@@ -219,7 +220,7 @@ instance Wrapped (MapLikeObj ws a) where
   _Wrapped' = iso (\ (MLO x) -> x) MLO
 
 instance (Monoid ws, Semigroup ws) => AsEmpty (MapLikeObj ws a) where
-  _Empty = nearly (_Wrapped # _Empty # ()) (^. _Wrapped . to (isn't _Empty))
+  _Empty = nearly (_Wrapped # _Empty # ()) (^. _Wrapped . to (is _Empty))
   {-# INLINE _Empty #-}
 
 type instance IxValue (MapLikeObj ws a) = a
