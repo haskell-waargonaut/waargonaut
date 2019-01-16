@@ -21,9 +21,10 @@ module Waargonaut.Types.Whitespace
 
 import           Control.Applicative     (liftA2)
 import           Control.Lens            (AsEmpty (..), Cons (..), Prism',
-                                          Rewrapped, Wrapped (..), isn't, iso,
+                                          Rewrapped, Wrapped (..), iso,
                                           mapped, nearly, over, prism, prism',
                                           to, uncons, (^.), _2, _Wrapped)
+import           Control.Lens.Extras     (is)
 
 import           Data.Text.Lazy.Builder  (Builder)
 import qualified Data.Text.Lazy.Builder  as TB
@@ -68,7 +69,7 @@ instance Cons WS WS Whitespace Whitespace where
   {-# INLINE _Cons #-}
 
 instance AsEmpty WS where
-  _Empty = nearly mempty (^. _Wrapped . to (isn't _Empty))
+  _Empty = nearly mempty (^. _Wrapped . to (is _Empty))
   {-# INLINE _Empty #-}
 
 instance WS ~ t => Rewrapped WS t

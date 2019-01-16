@@ -176,6 +176,7 @@ test-suite waarg-tests
                      , Encoder.Laws
                      , Decoder
                      , Decoder.Laws
+                     , Json
 
   type:                exitcode-stdio-1.0
   main-is:             Main.hs

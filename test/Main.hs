@@ -66,6 +66,7 @@ import qualified Decoder
 import qualified Decoder.Laws
 import qualified Encoder
 import qualified Encoder.Laws
+import qualified Json
 
 encodeText
   :: Json
@@ -313,6 +314,7 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
   , tripping_properties
   , unitTests
   , regressionTests
+  , Json.jsonTests
   , mishandlingOfCharVsUtf8Bytes
 
   , Decoder.decoderTests
