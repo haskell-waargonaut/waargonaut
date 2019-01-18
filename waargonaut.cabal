@@ -183,7 +183,7 @@ test-suite waarg-tests
   hs-source-dirs:      test
 
   build-depends:       base                   >= 4.7    && < 4.13
-                     , tasty                  >= 0.11   && < 1.2
+                     , tasty                  >= 0.11   && < 1.3
                      , tasty-hunit            >= 0.10   && < 0.11
                      , tasty-expected-failure >= 0.11   && < 0.12
                      , hedgehog               >= 0.6    && < 0.7
