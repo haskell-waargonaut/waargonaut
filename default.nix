@@ -12,4 +12,4 @@ let
 
   drv = haskellPackages.callPackage ./waargonaut.nix {};
 in
-  pkgs.haskell.lib.shellAware drv
+  drv
