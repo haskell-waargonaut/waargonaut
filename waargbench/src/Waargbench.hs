@@ -14,7 +14,7 @@ import qualified Data.ByteString                              as BS
 
 import           Data.Attoparsec.ByteString                   (parseOnly)
 
-import qualified Gauge                                        as G
+import qualified Criterion.Main                               as G
 import qualified HaskellWorks.Data.Json.Internal.Cursor.Token as HW
 
 import qualified Waargonaut                                   as W

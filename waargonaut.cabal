@@ -165,7 +165,8 @@ test-suite doctests
 test-suite waarg-tests
    other-modules:      Types.Common
                      , Types.CommaSep
-                     , Types.JChar , Types.JNumber
+                     , Types.JChar
+                     , Types.JNumber
                      , Types.JString
                      , Types.Json
                      , Types.Whitespace

@@ -1,8 +1,8 @@
-{ nixpkgsPath ? <nixpkgs>
+{ nixpkgs ? import ./nix/nixpkgs.nix
 , compiler ? "default"
 }:
 let
-  pkgs = import nixpkgsPath {
+  pkgs = import nixpkgs {
     overlays = [ (import ./waargonaut-deps.nix) ];
   };
 

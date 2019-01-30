@@ -1,4 +1,4 @@
-{ nixpkgsPath ? <nixpkgs>
+{ nixpkgs ? import ./nix/nixpkgs.nix
 , compiler ? "default"
 }:
-(import ./default.nix { inherit nixpkgsPath compiler; }).env
+(import ./default.nix { inherit nixpkgs compiler; }).env
