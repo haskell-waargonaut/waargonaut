@@ -57,8 +57,7 @@ bug-reports:         https://github.com/qfpl/waargonaut/issues
 -- Constraint on the version of Cabal needed to build this package.
 cabal-version:       >=1.10
 
-tested-with:         GHC==7.10.3
-                   , GHC==8.0.2
+tested-with:         GHC==8.0.2
                    , GHC==8.2.2
                    , GHC==8.4.4
                    , GHC==8.6.2
@@ -121,7 +120,7 @@ library
                      , hoist-error         >= 0.2     && < 0.3
                      , containers          >= 0.5.6   && < 0.7
                      , witherable          >= 0.2     && < 0.4
-                     , generics-sop        >= 0.3.2   && < 0.4
+                     , generics-sop        >= 0.4     && < 0.5
                      , mmorph              >= 1.1     && < 1.2
                      , transformers        >= 0.4     && < 0.6
                      , bifunctors          >= 5       && < 5.6
@@ -198,7 +197,7 @@ test-suite waarg-tests
                      , semigroups             >= 0.8.4  && < 0.19
                      , zippers                >= 0.2    && < 0.3
                      , vector                 >= 0.12   && < 0.13
-                     , generics-sop           >= 0.3.2  && < 0.4
+                     , generics-sop           >= 0.4    && < 0.5
                      , attoparsec             >= 0.13   && < 0.15
                      , scientific             >= 0.3    && < 0.4
                      , tagged                 >= 0.8.5  && < 0.9
