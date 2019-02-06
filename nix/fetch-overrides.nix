@@ -11,8 +11,6 @@ let
       then rec {
         pinned = initialNixpkgs.pkgs.lib.importJSON pkg-info-path;
         src = initialNixpkgs.pkgs.fetchFromGitHub {
-          # owner = owner;
-          # repo = repo;
           inherit owner repo;
           inherit (pinned) rev sha256;
         };
