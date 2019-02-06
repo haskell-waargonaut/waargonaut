@@ -85,6 +85,7 @@ listDecoder = do
 
     ok = "[1,2,3]"
     okE = "[]"
+    notOkE = "[1,2,3}"
 
     badTypeObj = "{}"
     badTypeText = "\"test\""
@@ -93,6 +94,7 @@ listDecoder = do
 
   assertBool "List Decoder - fail! List Decoder BROKEN. Start panicking." (Either.isRight (dec ok))
   assertBool "List Decoder - empty list fail" (Either.isRight (dec okE))
+  assertBool "List Decoder {DODGE} empty list fail" (Either.isRight (dec notOkE))
   assertBool "List Decoder - invalid type accepted - object" (Either.isLeft (dec badTypeObj))
   assertBool "List Decoder - invalid type accepted - text" (Either.isLeft (dec badTypeText))
   assertBool "List Decoder - invalid type accepted - num" (Either.isLeft (dec badTypeNum))

@@ -18,37 +18,38 @@ module Waargonaut.Decode.Types
   , JsonType(..)
   ) where
 
-import           Control.Lens                          (Rewrapped, Wrapped (..),
-                                                        iso)
-import           Control.Monad.Except                  (MonadError (..))
-import           Control.Monad.Morph                   (MFunctor (..),
-                                                        MMonad (..))
-import           Control.Monad.Reader                  (MonadReader,
-                                                        ReaderT (..))
-import           Control.Monad.State                   (MonadState)
-import           Control.Monad.Trans.Class             (MonadTrans (lift))
+import           Control.Lens                                   (Rewrapped,
+                                                                 Wrapped (..),
+                                                                 iso)
+import           Control.Monad.Except                           (MonadError (..))
+import           Control.Monad.Morph                            (MFunctor (..),
+                                                                 MMonad (..))
+import           Control.Monad.Reader                           (MonadReader,
+                                                                 ReaderT (..))
+import           Control.Monad.State                            (MonadState)
+import           Control.Monad.Trans.Class                      (MonadTrans (lift))
 
-import           Data.Functor.Alt                      (Alt (..))
-import qualified Data.Text                             as Text
+import           Data.Functor.Alt                               (Alt (..))
+import qualified Data.Text                                      as Text
 
-import           GHC.Word                              (Word64)
+import           GHC.Word                                       (Word64)
 
-import           Data.ByteString                       (ByteString)
-import           Data.Vector.Storable                  (Vector)
+import           Data.ByteString                                (ByteString)
+import           Data.Vector.Storable                           (Vector)
 
-import           HaskellWorks.Data.BalancedParens      (SimpleBalancedParens)
-import           HaskellWorks.Data.Json.Cursor         (JsonCursor (..))
-import           HaskellWorks.Data.Json.Type           (JsonType (..), JsonTypeAt (..))
-import           HaskellWorks.Data.Positioning         (Count)
-import           HaskellWorks.Data.RankSelect.Poppy512 (Poppy512)
+import           HaskellWorks.Data.BalancedParens               (SimpleBalancedParens)
+import           HaskellWorks.Data.Json.Backend.Standard.Cursor (JsonCursor (..))
+import           HaskellWorks.Data.Json.Type                    (JsonType (..),
+                                                                 JsonTypeAt (..))
+import           HaskellWorks.Data.Positioning                  (Count)
+import           HaskellWorks.Data.RankSelect.Poppy512          (Poppy512)
 
-import           Waargonaut.Decode.Internal            (CursorHistory',
-                                                        DecodeError (..),
-                                                        DecodeResultT (..),
-                                                        ZipperMove (BranchFail),
-                                                        recordZipperMove)
+import           Waargonaut.Decode.Internal                     (CursorHistory', DecodeError (..),
+                                                                 DecodeResultT (..),
+                                                                 ZipperMove (BranchFail),
+                                                                 recordZipperMove)
 
-import           Waargonaut.Types                      (Json)
+import           Waargonaut.Types                               (Json)
 
 -- | We define the index of our 'CursorHistory'' to be the 'HaskellWorks.Data.Positioning.Count'.
 type CursorHistory =

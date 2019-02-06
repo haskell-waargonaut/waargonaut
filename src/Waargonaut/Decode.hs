@@ -95,95 +95,109 @@ module Waargonaut.Decode
 
   ) where
 
-import           GHC.Word                                  (Word64)
+import           GHC.Word                                       (Word64)
 
-import           Control.Lens                              (Cons, Lens', Prism',
-                                                            Snoc, cons, lens,
-                                                            matching, modifying,
-                                                            over, preview, snoc,
-                                                            traverseOf, view,
-                                                            ( # ), (.~), (^.),
-                                                            _Left, _Wrapped)
-import           Control.Monad.Error.Lens                  (throwing)
+import           Control.Lens                                   (Cons, Lens',
+                                                                 Prism', Snoc,
+                                                                 cons, lens,
+                                                                 matching,
+                                                                 modifying,
+                                                                 over, preview,
+                                                                 snoc,
+                                                                 traverseOf,
+                                                                 view, ( # ),
+                                                                 (.~), (^.),
+                                                                 _Left,
+                                                                 _Wrapped)
+import           Control.Monad.Error.Lens                       (throwing)
 
-import           Prelude                                   (Bool, Bounded, Char,
-                                                            Eq, Int, Integral,
-                                                            Show, String,
-                                                            fromIntegral, show,
-                                                            (-), (==))
+import           Prelude                                        (Bool, Bounded,
+                                                                 Char, Eq, Int,
+                                                                 Integral, Show,
+                                                                 String,
+                                                                 fromIntegral,
+                                                                 show, (-),
+                                                                 (==))
 
-import           Control.Applicative                       (Applicative (..))
-import           Control.Category                          ((.))
-import           Control.Monad                             (Monad (..), (=<<),
-                                                            (>=>))
-import           Control.Monad.Morph                       (embed, generalize)
+import           Control.Applicative                            (Applicative (..))
+import           Control.Category                               ((.))
+import           Control.Monad                                  (Monad (..),
+                                                                 (=<<), (>=>))
+import           Control.Monad.Morph                            (embed,
+                                                                 generalize)
 
-import           Control.Monad.Except                      (catchError, lift,
-                                                            liftEither)
-import           Control.Monad.Reader                      (ReaderT (..), ask,
-                                                            local, runReaderT)
-import           Control.Monad.State                       (MonadState)
+import           Control.Monad.Except                           (catchError,
+                                                                 lift,
+                                                                 liftEither)
+import           Control.Monad.Reader                           (ReaderT (..),
+                                                                 ask, local,
+                                                                 runReaderT)
+import           Control.Monad.State                            (MonadState)
 
-import           Control.Error.Util                        (note)
-import           Control.Monad.Error.Hoist                 ((<!?>), (<?>))
+import           Control.Error.Util                             (note)
+import           Control.Monad.Error.Hoist                      ((<!?>), (<?>))
 
-import           Data.Bool                                 (Bool (..))
-import           Data.Either                               (Either (..))
-import qualified Data.Either                               as Either (either)
-import           Data.Foldable                             (Foldable, foldl,
-                                                            foldr)
-import           Data.Function                             (const, flip, ($),
-                                                            (&))
-import           Data.Functor                              (fmap, (<$), (<$>))
-import           Data.Functor.Alt                          ((<!>))
-import           Data.Functor.Identity                     (Identity,
-                                                            runIdentity)
-import           Data.Monoid                               (mempty)
-import           Data.Scientific                           (Scientific)
+import           Data.Bool                                      (Bool (..))
+import           Data.Either                                    (Either (..))
+import qualified Data.Either                                    as Either (either)
+import           Data.Foldable                                  (Foldable,
+                                                                 foldl, foldr)
+import           Data.Function                                  (const, flip,
+                                                                 ($), (&))
+import           Data.Functor                                   (fmap, (<$),
+                                                                 (<$>))
+import           Data.Functor.Alt                               ((<!>))
+import           Data.Functor.Identity                          (Identity,
+                                                                 runIdentity)
+import           Data.Monoid                                    (mempty)
+import           Data.Scientific                                (Scientific)
 
-import           Data.List.NonEmpty                        (NonEmpty ((:|)))
-import           Data.Maybe                                (Maybe (..),
-                                                            fromMaybe, maybe)
-import           Natural                                   (Natural, replicate,
-                                                            successor', zero')
+import           Data.List.NonEmpty                             (NonEmpty ((:|)))
+import           Data.Maybe                                     (Maybe (..),
+                                                                 fromMaybe,
+                                                                 maybe)
+import           Natural                                        (Natural,
+                                                                 replicate,
+                                                                 successor',
+                                                                 zero')
 
-import           Data.Text                                 (Text)
-import qualified Data.Text                                 as Text
+import           Data.Text                                      (Text)
+import qualified Data.Text                                      as Text
 
-import           Text.Parser.Char                          (CharParsing)
+import           Text.Parser.Char                               (CharParsing)
 
-import           Data.ByteString                           (ByteString)
-import qualified Data.ByteString.Char8                     as BS8
-import qualified Data.ByteString.Lazy                      as BL
+import           Data.ByteString                                (ByteString)
+import qualified Data.ByteString.Char8                          as BS8
+import qualified Data.ByteString.Lazy                           as BL
 
-import           HaskellWorks.Data.Positioning             (Count)
-import qualified HaskellWorks.Data.Positioning             as Pos
+import           HaskellWorks.Data.Positioning                  (Count)
+import qualified HaskellWorks.Data.Positioning                  as Pos
 
-import qualified HaskellWorks.Data.BalancedParens.FindOpen as BP
+import qualified HaskellWorks.Data.BalancedParens.FindOpen      as BP
 
-import           HaskellWorks.Data.Bits                    ((.?.))
-import           HaskellWorks.Data.FromByteString          (fromByteString)
-import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
+import           HaskellWorks.Data.Bits                         ((.?.))
+import           HaskellWorks.Data.TreeCursor                   (TreeCursor (..))
 
-import           HaskellWorks.Data.Json.Cursor             (JsonCursor (..))
-import qualified HaskellWorks.Data.Json.Cursor             as JC
+import           HaskellWorks.Data.Json.Backend.Standard.Cursor (JsonCursor (..))
+import qualified HaskellWorks.Data.Json.Backend.Standard.Cursor as JC
 
-import           Waargonaut.Decode.Error                   (AsDecodeError (..),
-                                                            DecodeError (..),
-                                                            Err (..))
-import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
+import           HaskellWorks.Data.Json.Backend.Standard.Fast   (makeCursor)
+
+import           Waargonaut.Decode.Error                        (AsDecodeError (..),
+                                                                 DecodeError (..),
+                                                                 Err (..))
+import           Waargonaut.Decode.ZipperMove                   (ZipperMove (..))
 import           Waargonaut.Types
 
-import qualified Waargonaut.Decode.Internal                as DI
+import qualified Waargonaut.Decode.Internal                     as DI
 
-import           Waargonaut.Decode.Types                   (CursorHistory,
-                                                            DecodeResult (..),
-                                                            Decoder (..),
-                                                            JCurs (..),
-                                                            JsonType (..),
-                                                            ParseFn,
-                                                            SuccinctCursor,
-                                                            jsonTypeAt)
+import           Waargonaut.Decode.Types                        (CursorHistory, DecodeResult (..),
+                                                                 Decoder (..),
+                                                                 JCurs (..),
+                                                                 JsonType (..),
+                                                                 ParseFn,
+                                                                 SuccinctCursor,
+                                                                 jsonTypeAt)
 
 -- | Function to define a 'Decoder' for a specific data type.
 --
@@ -227,7 +241,7 @@ withCursor g = Decoder $ \p ->
 -- | Take a 'ByteString' input and build an index of the JSON structure inside
 --
 mkCursor :: ByteString -> JCurs
-mkCursor = JCurs . fromByteString
+mkCursor = JCurs . makeCursor --fromByteString
 
 -- | Lens for accessing the 'rank' of the 'JsonCursor'. The 'rank' forms part of
 -- the calculation that is the cursors current position in the index.
