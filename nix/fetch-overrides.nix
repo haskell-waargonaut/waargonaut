@@ -15,7 +15,7 @@ let
           inherit (pinned) rev sha256;
         };
       }
-      else throw "nix/${pkg}.json doesn't exist!"
+      else throw "${pkg}.json doesn't exist!"
   );
 
 in
