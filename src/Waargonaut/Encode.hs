@@ -24,7 +24,9 @@ module Waargonaut.Encode
     -- * Runners
   , runPureEncoder
   , runEncoder
+  , simpleEncode
   , simpleEncodeNoSpaces
+  , simplePureEncode
   , simplePureEncodeNoSpaces
 
     -- * Provided encoders
@@ -93,10 +95,6 @@ import           Control.Lens                         (AReview, At, Index,
                                                        (?~), _Empty, _Wrapped)
 import qualified Control.Lens                         as L
 
-import           Prelude                              (Bool, Int, Integral,
-                                                       Monad, String,
-                                                       fromIntegral, fst)
-
 import           Data.Foldable                        (Foldable, foldr, foldrM)
 import           Data.Function                        (const, flip, ($), (&))
 import           Data.Functor                         (Functor, fmap)
@@ -104,6 +102,9 @@ import           Data.Functor.Contravariant           ((>$<))
 import           Data.Functor.Contravariant.Divisible (divide)
 import           Data.Functor.Identity                (Identity (..))
 import           Data.Traversable                     (Traversable, traverse)
+import           Prelude                              (Bool, Int, Integral,
+                                                       Monad, String,
+                                                       fromIntegral, fst)
 
 import           Data.Either                          (Either)
 import qualified Data.Either                          as Either
@@ -135,7 +136,7 @@ import           Waargonaut.Types                     (AsJType (..),
                                                        JAssoc (..), JObject,
                                                        Json, MapLikeObj (..),
                                                        WS, stringToJString,
-                                                       toMapLikeObj, wsRemover,
+                                                       toMapLikeObj, wsRemover, wsBuilder,
                                                        _JNumberInt,
                                                        _JNumberScientific,
                                                        _JStringText)
@@ -153,6 +154,15 @@ encodePureA :: (a -> Json) -> Encoder' a
 encodePureA f = encodeA (Identity . f)
 
 -- | Encode an @a@ directly to a 'ByteString' using the provided 'Encoder'.
+simpleEncode
+  :: Applicative f
+  => Encoder f a
+  -> a
+  -> f LT.Text
+simpleEncode enc =
+  fmap (TB.toLazyText . waargonautBuilder wsBuilder) . runEncoder enc
+
+-- | Encode an @a@ directly to a 'ByteString' using the provided 'Encoder'.
 simpleEncodeNoSpaces
   :: Applicative f
   => Encoder f a
@@ -160,6 +170,14 @@ simpleEncodeNoSpaces
   -> f LT.Text
 simpleEncodeNoSpaces enc =
   fmap (TB.toLazyText . waargonautBuilder wsRemover) . runEncoder enc
+
+-- | As per 'simpleEncode' but specialised the 'f' to 'Data.Functor.Identity' and remove it.
+simplePureEncode
+  :: Encoder Identity a
+  -> a
+  -> LT.Text
+simplePureEncode enc =
+  runIdentity . simpleEncode enc
 
 -- | As per 'simpleEncodeNoSpaces' but specialised the 'f' to 'Data.Functor.Identity' and remove it.
 simplePureEncodeNoSpaces
@@ -585,8 +603,8 @@ combineObjects
   -> ObjEncoder f b
   -> ObjEncoder f c
   -> ObjEncoder f a
-combineObjects f eB eC =
-  divide f eB eC
+combineObjects =
+  divide
 
 -- | When encoding a JSON object that may contain duplicate keys, this function
 -- works the same as the 'atKey' function for 'MapLikeObj'.
@@ -618,8 +636,8 @@ keyValueTupleFoldable
      )
   => Encoder f a
   -> Encoder f (g (Text, a))
-keyValueTupleFoldable eA = encodeA $ \xs ->
-  (\v -> _JObj # (v,mempty)) <$> foldrM (\(k,v) o -> onObj k v eA o) (_Empty # ()) xs
+keyValueTupleFoldable eA = encodeA $
+  fmap (\v -> _JObj # (v,mempty)) . foldrM (\(k,v) o -> onObj k v eA o) (_Empty # ())
 
 -- | As per 'keyValuesAsObj' but with the 'f' specialised to 'Identity'.
 keyValuesAsObj'
