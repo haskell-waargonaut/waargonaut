@@ -22,41 +22,39 @@ module Waargonaut.Types.JString
   , jStringBuilder
   ) where
 
-import           Prelude                 (Eq, Ord, Show, String, foldr)
+import           Prelude                 (Eq, Ord, Show, String, foldr,
+                                          otherwise, (==))
 
-import           Control.Applicative        ((*>), (<*))
-import           Control.Category           (id, (.))
-import           Control.Error.Util         (note)
-import           Control.Lens               (Prism', Rewrapped, Wrapped (..),
-                                             iso, prism, review, ( # ), (^?))
+import           Control.Applicative     (Applicative, (*>), (<*), (<|>))
+import           Control.Category        (id, (.))
+import           Control.Error.Util      (note)
+import           Control.Lens            (Prism', Choice, Rewrapped, Wrapped (..), iso,
+                                          prism, prism', review, ( # ), (^?))
 
-import           Data.Bifunctor             (first)
-import           Data.Either                (Either (Right))
-import           Data.Foldable              (Foldable, foldMap)
-import           Data.Function              (const, ($))
-import           Data.Functor               (Functor, fmap, (<$>))
-import           Data.Semigroup             ((<>))
-import           Data.Text                  (Text)
-import qualified Data.Text                  as Text
-import qualified Data.Text.Encoding         as Text
-import           Data.Traversable           (Traversable, traverse)
+import           Data.Bifunctor          (first)
+import           Data.Either             (Either (Right))
+import           Data.Foldable           (Foldable, foldMap)
+import           Data.Function           (const, ($))
+import           Data.Functor            (Functor, fmap, (<$>))
+import           Data.Maybe              (Maybe (..))
+import           Data.Semigroup          ((<>))
+import           Data.Text               (Text)
+import qualified Data.Text               as Text
+import           Data.Traversable        (Traversable, traverse)
 
-import           Data.Vector                (Vector)
-import qualified Data.Vector                as V
+import           Data.Vector             (Vector)
+import qualified Data.Vector             as V
 
-import           Data.Digit                 (HeXDigit)
+import           Data.Digit              (HeXDigit)
 
-import           Text.Parser.Char           (CharParsing, char)
-import           Text.Parser.Combinators    (many)
+import           Text.Parser.Char        (CharParsing, char)
+import           Text.Parser.Combinators (many)
 
-import           Data.Text.Lazy.Builder     (Builder)
-import qualified Data.Text.Lazy.Builder     as TB
+import           Data.Text.Lazy.Builder  (Builder)
+import qualified Data.Text.Lazy.Builder  as TB
 
-import qualified Data.ByteString.Lazy.Char8 as BS8
-
-import           Waargonaut.Types.JChar     (JChar, jCharBuilderTextL,
-                                             parseJChar, utf8CharToJChar,
-                                             _JChar)
+import           Waargonaut.Types.JChar  (JChar, jCharBuilderTextL, parseJChar, jCharToChar, charToJChar,
+                                          utf8CharToJChar, _JChar)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -102,18 +100,16 @@ instance AsJString [JChar HeXDigit] where
 
 instance AsJString String where
   _JString = prism
-    (\(JString' cx) -> V.toList $ (_JChar #) <$> cx)
-    (\x -> JString' . V.fromList <$> traverse (note x . (^? _JChar)) x)
+    (\(JString' cx) -> V.toList $ jCharToChar <$> cx)
+    (\x -> JString' . V.fromList <$> traverse (note x . charToJChar) x)
 
 -- | Prism between a 'JString' and 'Text'.
 --
 -- JSON strings a wider range of encodings than 'Text' and to be consistent with
 -- the 'Text' type, these invalid types are replaced with a placeholder value.
 --
-_JStringText :: Prism' JString Text
-_JStringText = prism
-  (JString' . V.fromList . fmap utf8CharToJChar . Text.unpack)
-  (\x -> first (const x) . Text.decodeUtf8' . BS8.toStrict . BS8.pack . review _JString $ x)
+_JStringText :: (Choice p, Applicative f) => p Text (f Text) -> p JString (f JString)
+_JStringText = iso (Text.pack . review _JString) (JString' . V.fromList . fmap utf8CharToJChar . Text.unpack)
 
 -- | Parse a 'JString', storing escaped characters and any explicitly escaped
 -- character encodings '\uXXXX'.

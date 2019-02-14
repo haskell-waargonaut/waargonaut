@@ -31,16 +31,16 @@ module Waargonaut.Types.JChar
   , jCharBuilderTextL
   , jCharBuilderByteStringL
 
-  , jCharToChar
-
     -- * Conversion
   , utf8CharToJChar
   , jCharToUtf8Char
+  , jCharToChar
+  , charToJChar
   ) where
 
 import           Prelude                      (Char, Eq, Int, Ord, Show,
-                                               otherwise, quotRem, (&&), (*),
-                                               (+), (-), (/=), (<=), (==), (>=))
+                                               otherwise, quotRem, (&&), (*), (<), (>),
+                                               (+), (-), (/=), (<=), (==), (>=), (||))
 
 import           Control.Category             (id, (.))
 import           Control.Lens                 (Lens', Prism', Rewrapped,
@@ -51,10 +51,7 @@ import           Control.Lens                 (Lens', Prism', Rewrapped,
 import           Control.Applicative          (pure, (*>), (<$>), (<*>), (<|>))
 import           Control.Monad                ((=<<))
 
-import           Control.Error.Util           (note)
-
 import           Data.Bits                    ((.&.))
-
 import           Data.Char                    (chr, ord)
 import           Data.Either                  (Either (..))
 import           Data.Foldable                (Foldable, any, asum, foldMap,
@@ -134,7 +131,13 @@ instance AsJCharUnescaped Char where
         [ (== '\NUL')
         , (== '"')
         , (== '\\')
-        , \x -> x >= '\x00' && x <= '\x1f'
+        , \x ->
+            let
+              c = ord x
+            in
+              (c < 0x20 && c > 0x21) ||  -- "%x20-21"
+              (c < 0x23 && c > 0x5B) ||  -- "%x23-5B"
+              (c < 0x5D && c > 0x10FFFF) -- "%x5D-10FFFF"
         ]
 
 -- | Things that may be escaped in a JSON string.
@@ -205,40 +208,25 @@ hexDigit4ToChar
 hexDigit4ToChar (HexDigit4 a b c d) =
   chr (foldl (\acc x -> 16 * acc + (D.integralHexadecimal # x)) 0 [a,b,c,d])
 
-sandblast :: Char -> Maybe (HexDigit4 HeXDigit)
-sandblast x = if x >= '\x0' && x <= '\xffff'
-  then shuriken =<< traverse (^? D.integralHexadecimal) (lavawave 4 [] (bile (ord x)))
+charToHexDigit4
+  :: Char
+  -> Maybe (HexDigit4 HeXDigit)
+charToHexDigit4 x = if x >= '\x0' && x <= '\xffff'
+  then mkHexDigit4 =<< traverse (^? D.integralHexadecimal) (collectHexValues 4 [] (getRemainder (ord x)))
   else Nothing
   where
-    shuriken (a:b:c:d:_) = Just (HexDigit4 a b c d)
-    shuriken _           = Nothing
+    mkHexDigit4 (a:b:c:d:_) = Just (HexDigit4 a b c d)
+    mkHexDigit4 _           = Nothing
 
-    bile n = quotRem n 16
+    getRemainder n = quotRem n 16
 
-    lavawave :: Int -> [Int] -> (Int,Int) -> [Int]
-    lavawave 0 acc _     = acc
-    lavawave n acc (0,0) = lavawave (n - 1) (0:acc) (0,0)
-    lavawave n acc (q,r) = lavawave (n - 1) (r:acc) (bile q)
-    {-# INLINE lavawave #-}
-{-# INLINE sandblast #-}
+    collectHexValues :: Int -> [Int] -> (Int,Int) -> [Int]
+    collectHexValues 0 acc _     = acc
+    collectHexValues n acc (0,0) = collectHexValues (n - 1) (0:acc) (0,0)
+    collectHexValues n acc (q,r) = collectHexValues (n - 1) (r:acc) (getRemainder q)
+    {-# INLINE collectHexValues #-}
+{-# INLINE charToHexDigit4 #-}
 
-instance AsJCharEscaped Char HeXDigit where
-  _JCharEscaped = prism
-    (\case
-        QuotationMark  -> '"'
-        ReverseSolidus -> '\\'
-        Solidus        -> '/'
-        Backspace      -> '\b'
-        WhiteSpace wc  -> escapedWhitespaceChar wc
-        Hex hd         -> hexDigit4ToChar hd
-    )
-    (\c -> case c of
-        '"'  -> Right QuotationMark
-        '\\' -> Right ReverseSolidus
-        '/'  -> Right Solidus
-        '\b' -> Right Backspace
-        _    -> note c $ c ^? failing (_WhitespaceChar . to WhiteSpace) (to sandblast . _Just . to Hex)
-    )
 -- | A JChar may be unescaped or escaped.
 data JChar digit
   = EscapedJChar ( JCharEscaped digit )
@@ -280,18 +268,35 @@ instance AsJCharEscaped (JChar digit) digit where
 instance AsJCharUnescaped (JChar digit) where
   _JCharUnescaped = _JChar . _JCharUnescaped
 
-instance AsJChar Char HeXDigit where
-  _JChar = prism
-    (\case
-        UnescapedJChar jcu -> _JCharUnescaped # jcu
-        EscapedJChar jce   -> _JCharEscaped # jce
-    )
-    (\c -> note c $ c ^? failing
-      (_JCharUnescaped . to UnescapedJChar)
-      (_JCharEscaped . to EscapedJChar)
-    )
+-- instance AsJChar Char HeXDigit where
+-- Don't implement this, it's not a lawful prism.
 
--- | Helper to determine if the given 'Char' is an acceptable utf8 value.
+escapedJCharToChar :: JCharEscaped HeXDigit -> Char
+escapedJCharToChar = \case
+  QuotationMark  -> '"'
+  ReverseSolidus -> '\\'
+  Solidus        -> '/'
+  Backspace      -> '\b'
+  WhiteSpace wc  -> unescapedWhitespaceChar wc
+  Hex hd         -> hexDigit4ToChar hd
+
+charToEscapedJChar :: Char -> Maybe (JCharEscaped HeXDigit)
+charToEscapedJChar c = case c of
+  '"'  -> Just QuotationMark
+  '\\' -> Just ReverseSolidus
+  '/'  -> Just Solidus
+  '\b' -> Just Backspace
+  _    -> c ^? failing (_WhitespaceChar . to WhiteSpace) (to charToHexDigit4 . _Just . to Hex)
+
+jCharToChar :: JChar HeXDigit -> Char
+jCharToChar (UnescapedJChar uejc) = _JCharUnescaped # uejc
+jCharToChar (EscapedJChar ejc)    = escapedJCharToChar ejc
+
+charToJChar :: Char -> Maybe (JChar HeXDigit)
+charToJChar c = -- Order matters... oh dear.
+  (UnescapedJChar <$> c ^?_JCharUnescaped) <|>
+  (EscapedJChar <$> charToEscapedJChar c)
+
 utf8SafeChar :: Char -> Maybe Char
 utf8SafeChar c | ord c .&. 0x1ff800 /= 0xd800 = Just c
                | otherwise                    = Nothing
@@ -302,13 +307,14 @@ utf8SafeChar c | ord c .&. 0x1ff800 /= 0xd800 = Just c
 -- Refer to <https://hackage.haskell.org/package/text/docs/Data-Text.html#g:2 'Text'> documentation for more info.
 --
 utf8CharToJChar :: Char -> JChar HeXDigit
-utf8CharToJChar c = fromMaybe scalarReplacement (Text.safe c ^? _JChar)
+utf8CharToJChar c = fromMaybe scalarReplacement (charToJChar $ Text.safe c)
   where scalarReplacement = EscapedJChar (Hex (HexDigit4 D.xf D.xf D.xf D.xd))
 {-# INLINE utf8CharToJChar #-}
 
--- | Try to convert a 'JChar' to a Haskell 'Char'.
+-- | Try to convert a 'JChar' to a 'Text' safe 'Char' value. Refer to the link for more info:
+-- https://hackage.haskell.org/package/text-1.2.3.0/docs/Data-Text-Internal.html#v:safe
 jCharToUtf8Char :: JChar HeXDigit -> Maybe Char
-jCharToUtf8Char jc = utf8SafeChar (_JChar # jc)
+jCharToUtf8Char = utf8SafeChar . jCharToChar
 {-# INLINE jCharToUtf8Char #-}
 
 -- | Parse a single 'HexDigit4'.
@@ -437,18 +443,18 @@ parseJChar = asum
   ]
 
 -- | Convert a 'JChar' to a Haskell 'Char'.
-jCharToChar
-  :: HeXaDeCiMaL digit
-  => JChar digit
-  -> Char
-jCharToChar (UnescapedJChar (JCharUnescaped c)) = c
-jCharToChar (EscapedJChar jca) = case jca of
-    QuotationMark   -> '"'
-    ReverseSolidus  -> '\\'
-    Solidus         -> '/'
-    Backspace       -> '\b'
-    (WhiteSpace ws) -> _WhiteSpace # ws
-    Hex hexDig4     -> hexDigit4ToChar hexDig4
+-- jCharToChar
+--   :: HeXaDeCiMaL digit
+--   => JChar digit
+--   -> Char
+-- jCharToChar (UnescapedJChar (JCharUnescaped c)) = c
+-- jCharToChar (EscapedJChar jca) = case jca of
+--     QuotationMark   -> '"'
+--     ReverseSolidus  -> '\\'
+--     Solidus         -> '/'
+--     Backspace       -> '\b'
+--     (WhiteSpace ws) -> _WhiteSpace # ws
+--     Hex hexDig4     -> hexDigit4ToChar hexDig4
 
 -- | Using the given function, return the builder for a single 'JChar'.
 jCharBuilderWith

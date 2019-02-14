@@ -153,7 +153,7 @@ encodeA = jsonEncoder
 encodePureA :: (a -> Json) -> Encoder' a
 encodePureA f = encodeA (Identity . f)
 
--- | Encode an @a@ directly to a 'ByteString' using the provided 'Encoder'.
+-- | Encode an @a@ directly to a 'LT.Text' using the provided 'Encoder'.
 simpleEncode
   :: Applicative f
   => Encoder f a

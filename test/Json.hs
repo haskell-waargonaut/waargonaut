@@ -1,12 +1,36 @@
+{-# LANGUAGE RankNTypes #-}
 module Json
   ( jsonTests
+  , jsonPrisms
   ) where
 
-import           Control.Lens                (review,preview,_Empty)
+import           Control.Lens        (Prism', preview, review, _Empty, from, (^.))
+
 import           Test.Tasty
-import           Test.Tasty.HUnit
+import           Test.Tasty.Hedgehog (testProperty)
+import           Test.Tasty.HUnit    (testCase, (@?=))
+
+import           Hedgehog            (Gen, MonadGen, Property, forAll, property, withTests,
+                                      (===))
+import qualified Hedgehog.Gen        as Gen
+import qualified Hedgehog.Range      as Range
+
+import Data.Char (ord)
+import Data.Digit (HeXDigit)
+
+import qualified Data.Text.Encoding as T
+
+import           Data.Scientific     (Scientific)
+import qualified Data.Scientific     as Sci
+
 import           Waargonaut.Types
 
+import           Waargonaut          (_ArrayOf, _Bool, _Number, _Text, _ByteStringJson)
+
+import Types.Common (parseBS, parseText)
+import Types.Json (genJson)
+import Types.JChar (genJChar, genJCharUnescaped, genJCharEscaped)
+import Types.JString (genJString)
 
 jsonTests :: TestTree
 jsonTests =
@@ -22,3 +46,34 @@ jsonTests =
     , testCase "WS's _Empty prism law"
       $ preview _Empty (review _Empty () :: WS) @?= Just ()
     ]
+
+prismLaw
+  :: ( Eq a
+     , Show a
+     )
+  => Gen a
+  -> Prism' b a
+  -> Property
+prismLaw genA prismA = property $ do
+  a <- forAll genA
+  preview prismA (review prismA a) === Just a
+
+genScientific :: MonadGen m => Maybe Int -> m Scientific
+genScientific lim = either fst fst . Sci.fromRationalRepetend lim
+  <$> Gen.realFrac_ (Range.linearFrac 0.0001 1000.0)
+
+jsonPrisms :: TestTree
+jsonPrisms =
+  testGroup "Json Prisms"
+  [ testProperty "_Bool"
+    $ prismLaw Gen.bool _Bool
+
+  , testProperty "_Number"
+    $ prismLaw (genScientific (Just 10)) _Number
+
+  , testProperty "_ArrayOf"
+    $ prismLaw (Gen.list (Range.linear 0 100) (genScientific (Just 10))) (_ArrayOf _Number)
+
+  , testProperty "_ByteStringJson"
+    $ prismLaw genJson (_ByteStringJson parseBS)
+  ]

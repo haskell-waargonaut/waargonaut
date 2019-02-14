@@ -34,7 +34,7 @@ module Waargonaut.Types.JNumber
 import           Prelude                    (Bool (..), Eq, Int, Integral, Ord,
                                              Show, abs, fromIntegral, maxBound,
                                              minBound, negate, (-), (<), (>),
-                                             (||))
+                                             (||), (==))
 
 import           Data.Scientific            (Scientific)
 import qualified Data.Scientific            as Sci
@@ -243,13 +243,18 @@ _JNumberScientific = prism toJNum (\v -> note v $ jNumberToScientific v)
     toJNum s =
       let (is, e) = Sci.toDecimalDigits (abs s)
           sign = s < 0
+
+          mkNum hdD tlD = JNumber sign hdD (fmap Frac $ NE.nonEmpty =<< traverse (^? D.integralDecimal) tlD) (ex' e)
+          mkExp isNeg expN = Just $ Exp Ee (Just isNeg) (D._NaturalDigits # fromIntegral expN)
+
+          ex' 0  = Nothing
+          ex' e' = mkExp (e' < 0) (abs (e' - 1))
+
       in case is of
-        [] -> JNumber sign JZero Nothing Nothing
-        [0] -> JNumber sign JZero Nothing Nothing
-        [d] -> JNumber sign (mkjInt d) Nothing Nothing
-        (d:ds) -> JNumber sign (mkjInt d)
-          (fmap Frac $ NE.nonEmpty =<< traverse (^? D.integralDecimal) ds)
-          (Just $ Exp Ee (Just $ e < 0) (D._NaturalDigits # fromIntegral (abs (e - 1))))
+        []     -> JNumber sign JZero Nothing Nothing
+        [0]    -> JNumber sign JZero Nothing Nothing
+        [d]    -> JNumber sign (mkjInt d) Nothing (ex' e)
+        (d:ds) -> if e == 0 then mkNum JZero is else mkNum (mkjInt d) ds
 
 -- | Parse the integer component of a JSON number.
 --

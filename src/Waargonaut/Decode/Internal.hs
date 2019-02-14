@@ -87,9 +87,10 @@ import           Waargonaut.Types              (AsJType (..), JString,
                                                 jCharBuilderByteStringL,
                                                 jNumberToScientific,
                                                 jsonAssocKey, jsonAssocVal,
-                                                _JChar, _JStringText)
+                                                _JStringText)
+
 import           Waargonaut.Types.CommaSep     (toList)
-import           Waargonaut.Types.JChar        (jCharToUtf8Char)
+import           Waargonaut.Types.JChar        (jCharToChar, jCharToUtf8Char)
 
 import           Text.PrettyPrint.Annotated.WL (Doc, (<+>))
 
@@ -302,7 +303,7 @@ text' = L.preview (_JStr . _1 . _JStringText)
 
 -- | Try to decode a 'String' value from some 'Json' or value.
 string' :: AsJType a ws a => a -> Maybe String
-string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map (_JChar L.#)))
+string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map jCharToChar))
 
 -- | Try to decode a 'Data.ByteString.ByteString' value from some 'Json' or value.
 strictByteString' :: AsJType a ws a => a -> Maybe ByteString
@@ -321,7 +322,7 @@ boundedChar' = L.preview (_JStr . _1 . _Wrapped . L._head) >=> jCharToUtf8Char
 -- | Decoder for a Haskell 'Char' value whose values represent Unicode
 -- (or equivalently ISO/IEC 10646) characters
 unboundedChar' :: AsJType a ws a => a -> Maybe Char
-unboundedChar' = L.preview (_JStr . _1 . _Wrapped . L._head . L.re _JChar)
+unboundedChar' = L.preview (_JStr . _1 . _Wrapped . L._head . L.to jCharToChar)
 
 -- | Try to decode a 'Scientific' value from some 'Json' or value.
 scientific' :: AsJType a ws a => a -> Maybe Scientific
