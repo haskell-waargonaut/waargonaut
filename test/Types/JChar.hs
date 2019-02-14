@@ -2,6 +2,8 @@ module Types.JChar
   ( genJChar
   , genHex4
   , genHex4Lower
+  , genJCharEscaped
+  , genJCharUnescaped
   ) where
 
 import           Hedgehog

@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE RankNTypes            #-}
@@ -26,41 +27,36 @@ module Waargonaut
   , waargonautBuilder
 
     -- * Prisms
-  , _Json
   , _ByteStringJson
-  , _TextJson
   , _Number
-  , _String
+  , _Text
   , _Bool
   , _ArrayOf
   , _Null
 
   ) where
 
-import           Prelude                   (Bool)
+import           Prelude                   (Bool, String)
 
-import qualified Waargonaut.Types.CommaSep as CS
-import           Waargonaut.Types.JString  (_JStringText)
-
-import           Waargonaut.Types.JNumber  (_JNumberScientific)
-import           Waargonaut.Types.Json     (AsJType (..), JType (..), Json (..),
-                                            parseWaargonaut, waargonautBuilder)
-
+import           Control.Applicative       (Applicative)
 import           Control.Category          (id, (.))
 import           Control.Error.Util        (note)
+import           Control.Lens              (Choice, Prism', folded, preview,
+                                            prism, prism', review, ( # ), (^..),
+                                            (^?), _1, _Wrapped)
 import           Data.Bifunctor            (first)
 import           Data.Function             (const, ($))
 import           Data.Functor              ((<$), (<$>))
 import           Data.Scientific           (Scientific)
 
-import           Data.ByteString.Lazy      (ByteString)
 import qualified Data.ByteString.Lazy      as B
 
+import           Data.ByteString           (ByteString)
 import qualified Data.ByteString           as BS
 
 import           Data.Either               (Either (..))
 import           Data.Maybe                (maybe)
-import           Data.Monoid               (Monoid, mempty)
+import           Data.Monoid               (mempty)
 
 import           Data.Text.Lazy            (Text)
 import qualified Data.Text.Lazy            as TL
@@ -72,50 +68,40 @@ import qualified Data.Text.Encoding        as T
 import qualified Waargonaut.Decode         as D
 import qualified Waargonaut.Encode         as E
 
-import           Control.Lens              (Prism', folded, prism, review,
-                                            ( # ), (^..), (^?), _1, _Wrapped)
+import qualified Waargonaut.Types.CommaSep as CS
+import           Waargonaut.Types.JString  (_JString, _JStringText)
 
--- | Using the functions to convert to and from 'Text' and 'BS.ByteString',
--- provide a 'Prism''.
-_Json
-  :: (Text -> c)
-  -> (c -> BS.ByteString)
-  -> D.ParseFn
-  -> Prism' c Json
-_Json t f pf = prism
-  (t . E.simplePureEncode E.json)
-  (\b -> first (const b) $ D.simpleDecode D.json pf (f b))
+import           Waargonaut.Types.JNumber  (_JNumberScientific)
+import           Waargonaut.Types.Json     (AsJType (..), JType (..), Json (..),
+                                            parseWaargonaut, waargonautBuilder)
+
 
 -- | Specialised to 'BS.ByteString'
-_ByteStringJson :: D.ParseFn -> Prism' ByteString Json
-_ByteStringJson = _Json TL.encodeUtf8 B.toStrict
-
--- | Specialised to 'Text'
-_TextJson :: D.ParseFn -> Prism' Text Json
-_TextJson = _Json id (T.encodeUtf8 . TL.toStrict)
+_ByteStringJson :: D.ParseFn -> Prism' BS.ByteString Json
+_ByteStringJson pf = prism
+  (B.toStrict . TL.encodeUtf8 . E.simplePureEncode E.json)
+  (\b -> first (const b) $ D.simpleDecode D.json pf b)
 
 -- | 'Prism'' between some 'Json' and a 'Scientific' value
-_Number  :: (Monoid ws, AsJType r ws a) => Prism' r Scientific
+_Number  :: Prism' Json Scientific
 _Number = prism
   (review _JNum . (,mempty) . review _JNumberScientific)
   (\j -> note j $ j ^? _JNum . _1 . _JNumberScientific)
 
--- | 'Prism'' between some 'Json' and a 'Text' value
-_String :: (Monoid ws, AsJType r ws a) => Prism' r T.Text
-_String = prism
-  (review _JStr . (,mempty) . review _JStringText)
-  (\j -> note j $ j ^? _JStr . _1 . _JStringText)
+-- | Not a lawful 'Prism'' between some 'Json' and a 'Text' value
+_Text :: Applicative f => (T.Text -> f T.Text) -> Json -> f Json
+_Text = prism (review _JStr . (,mempty) . review _JStringText) (\j -> note j $ j ^? _JStr . _1 . _JStringText)
 
 -- | 'Prism'' between some 'Json' and a '()' value
-_Null :: (Monoid ws, AsJType r ws a) => Prism' r ()
+_Null :: Prism' Json ()
 _Null = prism (const (_JNull # mempty)) (\n -> note n $ () <$ n ^? _JNull)
 
 -- | 'Prism'' between some 'Json' and a 'Bool' value
-_Bool :: (Monoid ws, AsJType r ws a) => Prism' r Bool
+_Bool :: Prism' Json Bool
 _Bool = prism (\b -> _JBool # (b, mempty)) (\j -> note j $ j ^? _JBool . _1)
 
 -- | 'Prism'' between some 'Json' and an array of something given the provided 'Prism''
-_ArrayOf :: (Monoid ws, AsJType r ws a) => Prism' a x -> Prism' r [x]
+_ArrayOf :: Prism' Json x -> Prism' Json [x]
 _ArrayOf elemT = prism fromList' toList'
   where
     fromList' xs = _JArr #

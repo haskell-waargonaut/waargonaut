@@ -12,7 +12,8 @@ import           Data.Either                 (isLeft)
 
 import qualified Data.Scientific             as Sci
 
-import Data.Functor.Contravariant ((>$<))
+import           Data.Functor.Contravariant  ((>$<))
+
 import           Data.Maybe                  (fromMaybe)
 import           Data.Semigroup              ((<>))
 import           Data.Text                   (Text)
@@ -37,13 +38,10 @@ import           Test.Tasty.HUnit
 
 import           Natural                     (_Natural)
 
-import           Data.Digit                  (HeXDigit)
-
 import           Waargonaut                  (Json)
 import qualified Waargonaut                  as W
 import qualified Waargonaut.Types.CommaSep   as CommaSep
 
-import           Waargonaut.Types.JChar      (JChar)
 import qualified Waargonaut.Types.JChar      as JChar
 
 import qualified Waargonaut.Types.JNumber    as JNumber
@@ -141,13 +139,7 @@ prop_uncons_consCommaSepVal = property $ do
 prop_jchar :: Property
 prop_jchar = property $ do
   c <- forAll Gen.unicodeAll
-  tripping c toJChar (fmap fromJChar)
-  where
-    fromJChar :: JChar HeXDigit -> Char
-    fromJChar = (JChar._JChar #)
-
-    toJChar :: Char -> Maybe (JChar HeXDigit)
-    toJChar = (^? JChar._JChar)
+  tripping c JChar.charToJChar (fmap JChar.jCharToChar)
 
 prop_jnumber_scientific_prism :: Property
 prop_jnumber_scientific_prism = property $ do
@@ -161,7 +153,7 @@ prop_jnumber_scientific_prism = property $ do
     maxI = 2 ^ (32 :: Integer)
 
 simpleDecodeWith :: D.Decoder L.Identity a -> TextL.Text -> Either (DecodeError, D.CursorHistory) a
-simpleDecodeWith d = D.simpleDecode d Common.parseBS . Text.encodeUtf8 . TextL.toStrict
+simpleDecodeWith d = D.simpleDecode d (Common.parseText . Text.decodeUtf8) . Text.encodeUtf8 . TextL.toStrict
 
 prop_tripping_int_list :: Property
 prop_tripping_int_list = property $ do
@@ -271,6 +263,7 @@ unitTests =
       , "test5.json"
       , "test7.json"
       , "numbers.json"
+      , "backslash128.json"
       ]
 
 mishandlingOfCharVsUtf8Bytes :: TestTree
@@ -278,9 +271,13 @@ mishandlingOfCharVsUtf8Bytes = testCaseSteps "Mishandling of UTF-8 Bytes vs Hask
   let
     valChar      = '\128'          :: Char
     valText      = "\128"          :: Text
-    valStr       = [valChar]        :: String
+    valStr       = [valChar]       :: String
     encVal       = "\"\128\""      :: Text
-    valUtf8Bytes = [34,194,128,34] :: [Word8]
+    valBytes = [34,194,128,34] :: [Word8]
+
+    testFilePath = "test/json-data/mishandling.json"
+
+    decodeFn = D.runDecode D.text (Common.parseText . Text.decodeUtf8) . D.mkCursor
 
   step "Pack String to Text"
   Text.pack valStr @?= valText
@@ -289,11 +286,18 @@ mishandlingOfCharVsUtf8Bytes = testCaseSteps "Mishandling of UTF-8 Bytes vs Hask
   x <- TextL.toStrict <$> E.simpleEncodeNoSpaces E.text valText
   x @?= encVal
 
-  step "encoder output ~ packed bytes"
-  Text.encodeUtf8 x @?= BS.pack valUtf8Bytes
+  step "Create JSON file"
+  Text.writeFile testFilePath x
 
-  step "Decoder via Text"
-  y <- D.runDecode D.text Common.parseBS (D.mkCursor (Text.encodeUtf8 x))
+  step "encoder output ~ packed bytes"
+  Text.encodeUtf8 x @?= BS.pack valBytes
+
+  step "Decode file input"
+  decodedFile <- BS.readFile testFilePath >>= decodeFn
+  decodedFile @?= Right valText
+
+  step "Decode 'encodeUtf8' input"
+  y <- decodeFn $ Text.encodeUtf8 x
   y @?= Right valText
 
 regressionTests :: TestTree
@@ -315,6 +319,7 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
   , unitTests
   , regressionTests
   , Json.jsonTests
+  , Json.jsonPrisms
   , mishandlingOfCharVsUtf8Bytes
 
   , Decoder.decoderTests

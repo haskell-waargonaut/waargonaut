@@ -153,7 +153,7 @@ encodeA = jsonEncoder
 encodePureA :: (a -> Json) -> Encoder' a
 encodePureA f = encodeA (Identity . f)
 
--- | Encode an @a@ directly to a 'ByteString' using the provided 'Encoder'.
+-- | Encode an @a@ directly to a 'LT.Text' using the provided 'Encoder'.
 simpleEncode
   :: Applicative f
   => Encoder f a
@@ -520,7 +520,7 @@ nonemptyAt =
 --   intAt \"Height\" (_imageH img) .
 --   textAt \"Title\" (_imageTitle img) .
 --   boolAt \"Animated\" (_imageAnimated img) .
---   arrayAt int \"IDs\" (_imageIDs img) -- ^ Set an @[Int]@ value at the \"IDs\" key.
+--   listAt int \"IDs\" (_imageIDs img) -- ^ Set an @[Int]@ value at the \"IDs\" key.
 -- @
 --
 mapLikeObj

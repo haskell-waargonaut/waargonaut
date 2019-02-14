@@ -8,25 +8,34 @@ module Decoder
 import           Prelude                    (Char, Eq, Int, Show (show), String,
                                              print, (==))
 
-import           Control.Applicative        (liftA3, (<$>))
+import           Control.Applicative        (liftA3, pure, (<$>))
 import           Control.Category           ((.))
+import           Control.Lens               (preview)
 import           Control.Monad              (Monad, (>=>), (>>=))
 
 import           Test.Tasty                 (TestTree, testGroup)
 import           Test.Tasty.HUnit           (Assertion, assertBool, assertEqual,
                                              assertFailure, testCase, (@?=))
 
+import           Hedgehog                   (Property, evalIO, property,
+                                             withTests, (/==), (===))
+import           Test.Tasty.Hedgehog        (testProperty)
+
 import           Data.Bool                  (Bool (..))
 import qualified Data.ByteString            as BS
 import qualified Data.Either                as Either
 import           Data.Function              (const, ($))
+import           Data.Functor               (fmap)
 import           Data.Maybe                 (Maybe (Just, Nothing))
 import           Data.Semigroup             (Semigroup ((<>)))
 import qualified Data.Sequence              as Seq
 import           Data.Tagged                (untag)
 import           Data.Text                  (Text)
+import qualified Data.Text                  as T
 
 import qualified Natural                    as N
+
+import           Waargonaut                 (_Text)
 
 import           Waargonaut.Generic         (mkDecoder)
 
@@ -55,7 +64,61 @@ decoderTests = testGroup "Decoding"
   , testCase "Object Decoder" objectAsKeyValuesDecoder
   , testCase "Absent Key Decoder" absentKeyDecoder
   , testCase "Either decoding order - Right first" decodeEitherRightFirst
+  , testProperty "Unicode codepoint handling regression" unicodeHandlingRegression
   ]
+
+unicodeHandlingRegression :: Property
+unicodeHandlingRegression = withTests 1 . property $ do
+  let
+    -- Prepare a decoder function
+    dec d = D.runPureDecode d parseBS . D.mkCursor
+
+    -- Decoder for JSON -> Text
+    decText = dec D.text
+    -- Decoder for JSON -> Json
+    decJson = dec D.json
+
+    -- Manual created JSON "String" input
+    manualInput  = "\"\\u2705\""
+
+    -- what the above JSON string should parse into.
+    strGood      = ("\x2705" :: String)
+
+    -- what issue #58 claims is produced by parsing to 'Text'
+    strBad       = ("\x05" :: String)
+
+    -- This is the expected 'Text' value
+    expectedText = Either.Right ("\x2705" :: Text)
+
+  -- Read the JSON string in from a file to try to avoid differences from
+  -- creating the text input via haskell values.
+  fileInput <- evalIO $ BS.readFile "test/json-data/unicode_2705.json"
+
+  let
+    -- Decode the manual and file inputs to 'Text'
+    fileInputDecoded = decText fileInput
+    manualInputDecoded = decText manualInput
+
+    -- Decode the manual and file inputs to their 'Json' representations
+    fileInputJson = decJson fileInput
+    manualInputJson = decJson manualInput
+
+  -- Do the 'Text' decoded values match our expectations
+  fileInputDecoded === expectedText
+  manualInputDecoded === expectedText
+
+  -- If we decode to 'Json' and then use the prism, do we still get the required
+  -- string. There should be no reason this is different to decoding to text.
+  -- Key words being "should be".
+  (fmap (preview _Text) fileInputJson) === fmap pure expectedText
+  (fmap (preview _Text) manualInputJson) === fmap pure expectedText
+
+  -- For comparison, take the expected good/bad 'String' values and pack them to 'Text'.
+  Either.Right (T.pack strGood) === fileInputDecoded
+  Either.Right (T.pack strGood) === manualInputDecoded
+
+  Either.Right (T.pack strBad) /== fileInputDecoded
+  Either.Right (T.pack strBad) /== manualInputDecoded
 
 nonEmptyDecoder :: Assertion
 nonEmptyDecoder = do
