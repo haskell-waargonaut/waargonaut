@@ -502,7 +502,7 @@ nonemptyAt =
 --   intAt \"Height\" (_imageH img) .
 --   textAt \"Title\" (_imageTitle img) .
 --   boolAt \"Animated\" (_imageAnimated img) .
---   arrayAt int \"IDs\" (_imageIDs img) -- ^ Set an @[Int]@ value at the \"IDs\" key.
+--   listAt int \"IDs\" (_imageIDs img) -- ^ Set an @[Int]@ value at the \"IDs\" key.
 -- @
 --
 mapLikeObj
