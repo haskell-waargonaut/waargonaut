@@ -7,16 +7,19 @@ module Types.JChar
   ) where
 
 import           Hedgehog
-import qualified Hedgehog.Gen           as Gen
+import qualified Hedgehog.Gen                     as Gen
 
-import           Control.Lens           (preview)
-import           Types.Common           (genHeXaDeCiMaLDigit, genHexadecimalDigitLower, genWhitespace)
+import           Control.Lens                     (preview)
+import           Types.Common                     (genHeXaDeCiMaLDigit,
+                                                   genHexadecimalDigitLower,
+                                                   genWhitespace)
 
-import           Data.Digit             (HeXDigit,HexDigit)
+import           Data.Digit                       (HeXDigit, HexDigit)
 
-import           Waargonaut.Types.JChar (HexDigit4 (..), JChar (..),
-                                         JCharEscaped (..), JCharUnescaped (..),
-                                         _JCharUnescaped)
+import           Waargonaut.Types.JChar           (JChar (..))
+import           Waargonaut.Types.JChar.Escaped   (Escaped (..))
+import           Waargonaut.Types.JChar.HexDigit4 (HexDigit4 (..))
+import           Waargonaut.Types.JChar.Unescaped (AsUnescaped (..), Unescaped)
 
 genJChar :: Gen (JChar HeXDigit)
 genJChar = Gen.choice
@@ -24,10 +27,10 @@ genJChar = Gen.choice
   , UnescapedJChar <$> genJCharUnescaped
   ]
 
-genJCharUnescaped :: Gen JCharUnescaped
-genJCharUnescaped = Gen.just $ preview _JCharUnescaped <$> Gen.unicode
+genJCharUnescaped :: Gen Unescaped
+genJCharUnescaped = Gen.just $ preview _Unescaped <$> Gen.unicode
 
-genJCharEscaped :: Gen (JCharEscaped HeXDigit)
+genJCharEscaped :: Gen (Escaped HeXDigit)
 genJCharEscaped = do
   h4 <- genHex4
   ws <- genWhitespace

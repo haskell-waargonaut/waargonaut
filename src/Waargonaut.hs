@@ -27,7 +27,6 @@ module Waargonaut
   , waargonautBuilder
 
     -- * Prisms
-  , _ByteStringJson
   , _Number
   , _Text
   , _Bool
@@ -36,13 +35,13 @@ module Waargonaut
 
   ) where
 
-import           Prelude                   (Bool, String)
+import           Prelude                   (Bool)
 
 import           Control.Applicative       (Applicative)
-import           Control.Category          (id, (.))
+import           Control.Category          ((.))
 import           Control.Error.Util        (note)
-import           Control.Lens              (Choice, Prism', folded, preview,
-                                            prism, prism', review, ( # ), (^..),
+import           Control.Lens              (Prism', folded, 
+                                            prism, review, ( # ), (^..),
                                             (^?), _1, _Wrapped)
 import           Data.Bifunctor            (first)
 import           Data.Function             (const, ($))
@@ -51,36 +50,38 @@ import           Data.Scientific           (Scientific)
 
 import qualified Data.ByteString.Lazy      as B
 
-import           Data.ByteString           (ByteString)
 import qualified Data.ByteString           as BS
 
 import           Data.Either               (Either (..))
 import           Data.Maybe                (maybe)
 import           Data.Monoid               (mempty)
 
-import           Data.Text.Lazy            (Text)
-import qualified Data.Text.Lazy            as TL
 import qualified Data.Text.Lazy.Encoding   as TL
 
 import qualified Data.Text                 as T
-import qualified Data.Text.Encoding        as T
 
 import qualified Waargonaut.Decode         as D
 import qualified Waargonaut.Encode         as E
 
 import qualified Waargonaut.Types.CommaSep as CS
-import           Waargonaut.Types.JString  (_JString, _JStringText)
+import           Waargonaut.Types.JString  (_JStringText)
 
 import           Waargonaut.Types.JNumber  (_JNumberScientific)
 import           Waargonaut.Types.Json     (AsJType (..), JType (..), Json (..),
                                             parseWaargonaut, waargonautBuilder)
 
 
--- | Specialised to 'BS.ByteString'
-_ByteStringJson :: D.ParseFn -> Prism' BS.ByteString Json
-_ByteStringJson pf = prism
-  (B.toStrict . TL.encodeUtf8 . E.simplePureEncode E.json)
-  (\b -> first (const b) $ D.simpleDecode D.json pf b)
+-- -- | Specialised to 'BS.ByteString'
+-- _ByteStringJson :: D.ParseFn -> Prism' BS.ByteString Json
+-- _ByteStringJson pf = prism
+--   (B.toStrict . TL.encodeUtf8 . E.simplePureEncode E.json)
+--   (\b -> first (const b) $ D.simpleDecode D.json pf b)
+
+-- -- | Specialised to 'BS.ByteString'
+-- _TextJson :: D.ParseFn -> Prism' T.Text Json
+-- _TextJson pf = prism
+--   (E.simplePureEncode E.json)
+--   (\b -> first (const b) $ D.simpleDecode D.json (pf) (T.encodeUtf8 b))
 
 -- | 'Prism'' between some 'Json' and a 'Scientific' value
 _Number  :: Prism' Json Scientific

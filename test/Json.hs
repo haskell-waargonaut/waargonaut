@@ -4,33 +4,26 @@ module Json
   , jsonPrisms
   ) where
 
-import           Control.Lens        (Prism', preview, review, _Empty, from, (^.))
+import           Control.Lens        (Prism', preview, review, _Empty)
 
 import           Test.Tasty
 import           Test.Tasty.Hedgehog (testProperty)
 import           Test.Tasty.HUnit    (testCase, (@?=))
 
-import           Hedgehog            (Gen, MonadGen, Property, forAll, property, withTests,
+import           Hedgehog            (Gen, MonadGen, Property, forAll, property,
                                       (===))
 import qualified Hedgehog.Gen        as Gen
 import qualified Hedgehog.Range      as Range
-
-import Data.Char (ord)
-import Data.Digit (HeXDigit)
-
-import qualified Data.Text.Encoding as T
 
 import           Data.Scientific     (Scientific)
 import qualified Data.Scientific     as Sci
 
 import           Waargonaut.Types
 
-import           Waargonaut          (_ArrayOf, _Bool, _Number, _Text, _ByteStringJson)
+import           Waargonaut          (_ArrayOf, _Bool, _Number)
 
-import Types.Common (parseBS, parseText)
-import Types.Json (genJson)
-import Types.JChar (genJChar, genJCharUnescaped, genJCharEscaped)
-import Types.JString (genJString)
+import           Types.Common        (parseBS)
+import           Types.Json          (genJson)
 
 jsonTests :: TestTree
 jsonTests =
@@ -74,6 +67,6 @@ jsonPrisms =
   , testProperty "_ArrayOf"
     $ prismLaw (Gen.list (Range.linear 0 100) (genScientific (Just 10))) (_ArrayOf _Number)
 
-  , testProperty "_ByteStringJson"
-    $ prismLaw genJson (_ByteStringJson parseBS)
+  -- , testProperty "_ByteStringJson"
+  --   $ prismLaw genJson (_ByteStringJson parseBS)
   ]
