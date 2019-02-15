@@ -22,9 +22,6 @@ import           Waargonaut.Types
 
 import           Waargonaut          (_ArrayOf, _Bool, _Number)
 
-import           Types.Common        (parseBS)
-import           Types.Json          (genJson)
-
 jsonTests :: TestTree
 jsonTests =
   testGroup "Json types"

@@ -2,63 +2,67 @@
 {-# LANGUAGE TupleSections     #-}
 module Main (main) where
 
-import           GHC.Word                    (Word8)
+import           GHC.Word                         (Word8)
 
-import           Control.Lens                (( # ), (^.), (^?), _2)
-import qualified Control.Lens                as L
-import           Control.Monad               (when)
+import           Control.Lens                     (( # ), (^.), (^?), _2)
+import qualified Control.Lens                     as L
+import           Control.Monad                    (when)
 
-import           Data.Either                 (isLeft)
+import           Data.Either                      (isLeft)
 
-import qualified Data.Scientific             as Sci
+import qualified Data.Scientific                  as Sci
 
-import           Data.Functor.Contravariant  ((>$<))
+import           Data.Functor.Contravariant       ((>$<))
 
-import           Data.Maybe                  (fromMaybe)
-import           Data.Semigroup              ((<>))
-import           Data.Text                   (Text)
-import qualified Data.Text                   as Text
-import qualified Data.Text.Encoding          as Text
-import qualified Data.Text.IO                as Text
+import           Data.Maybe                       (fromMaybe)
+import           Data.Semigroup                   ((<>))
 
-import qualified Data.Text.Lazy              as TextL
-import qualified Data.Text.Lazy.Builder      as TB
+import           Data.Char                        (ord)
 
-import qualified Data.ByteString             as BS
+import           Data.Text                        (Text)
+import qualified Data.Text                        as Text
+import qualified Data.Text.Encoding               as Text
+import qualified Data.Text.IO                     as Text
 
-import qualified Data.Sequence               as S
+import qualified Data.Text.Lazy                   as TextL
+import qualified Data.Text.Lazy.Builder           as TB
+
+import qualified Data.ByteString                  as BS
+import qualified Data.Sequence                    as S
 
 import           Hedgehog
-import qualified Hedgehog.Gen                as Gen
-import qualified Hedgehog.Range              as Range
+import qualified Hedgehog.Gen                     as Gen
+import qualified Hedgehog.Range                   as Range
 
 import           Test.Tasty
 import           Test.Tasty.Hedgehog
 import           Test.Tasty.HUnit
 
-import           Natural                     (_Natural)
+import           Natural                          (_Natural)
 
-import           Waargonaut                  (Json)
-import qualified Waargonaut                  as W
-import qualified Waargonaut.Types.CommaSep   as CommaSep
+import           Waargonaut                       (Json)
+import qualified Waargonaut                       as W
+import qualified Waargonaut.Types.CommaSep        as CommaSep
 
-import qualified Waargonaut.Types.JChar      as JChar
+import qualified Waargonaut.Types.JChar           as JChar
+import qualified Waargonaut.Types.JChar.HexDigit4 as Hex4
 
-import qualified Waargonaut.Types.JNumber    as JNumber
-import qualified Waargonaut.Types.Whitespace as WS
+import qualified Waargonaut.Types.JNumber         as JNumber
+import qualified Waargonaut.Types.Whitespace      as WS
 
-import qualified Waargonaut.Decode           as D
-import           Waargonaut.Decode.Error     (DecodeError)
-import           Waargonaut.Decode.Internal  (CursorHistory' (..),
-                                              ZipperMove (..), compressHistory)
-import qualified Waargonaut.Encode           as E
+import qualified Waargonaut.Decode                as D
+import           Waargonaut.Decode.Error          (DecodeError)
+import           Waargonaut.Decode.Internal       (CursorHistory' (..),
+                                                   ZipperMove (..),
+                                                   compressHistory)
+import qualified Waargonaut.Encode                as E
 
-import           Waargonaut.Generic          (mkDecoder, mkEncoder)
+import           Waargonaut.Generic               (mkDecoder, mkEncoder)
 
-import qualified Types.CommaSep              as CS
-import qualified Types.Common                as Common
-import qualified Types.Json                  as J
-import qualified Types.Whitespace            as WS
+import qualified Types.CommaSep                   as CS
+import qualified Types.Common                     as Common
+import qualified Types.Json                       as J
+import qualified Types.Whitespace                 as WS
 
 import qualified Decoder
 import qualified Decoder.Laws
@@ -226,7 +230,21 @@ tripping_properties = testGroup "Properties"
   , testProperty "Image record (generic)"                              prop_tripping_image_record_generic
   , testProperty "Newtype with Options (generic)"                      prop_tripping_newtype_fudge_generic
   , testProperty "Condensing History"                                  prop_history_condense
+  , testProperty "HexDigit4 conversion "            prop_char_heXDigit
   ]
+
+prop_char_heXDigit :: Property
+prop_char_heXDigit = property $ do
+  c <- forAll Gen.unicode
+
+  if inRange c
+    then annotate "Char in valid range" *>
+         (fmap Hex4.hexDigit4ToChar (Hex4.charToHexDigit4 c) === Just c)
+
+    else annotate "Char out of valid range" *>
+         (fmap Hex4.hexDigit4ToChar (Hex4.charToHexDigit4 c) === Just c)
+  where
+    inRange c' = (ord c') >= 0x0 && (ord c') <= 0xffff
 
 parser_properties :: TestTree
 parser_properties = testGroup "Parser Round-Trip"

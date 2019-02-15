@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
 {-# LANGUAGE DeriveTraversable      #-}
@@ -23,20 +24,25 @@ module Waargonaut.Types.JChar.HexDigit4
   ) where
 
 import           Prelude             (Eq, Int, Num (..), Ord (..), Show,
-                                      quotRem, (&&))
+                                      quotRem, (&&), (||), otherwise)
 
 import           Control.Applicative ((<*>))
-import           Control.Category    (id)
+import           Control.Category    (id, (.))
 import           Control.Lens        (Lens', preview, review)
 import           Control.Monad       ((=<<))
 
+import Control.Error.Util (hush)
+
+import Data.List.NonEmpty (NonEmpty ((:|)))
+
+import Data.Function (($))
 import           Data.Foldable       (Foldable, foldl)
-import           Data.Functor        (Functor, (<$>))
+import           Data.Functor        (Functor, (<$>), fmap)
 import           Data.Traversable    (Traversable, traverse)
 
 import           Data.Char           (Char, chr, ord)
 import           Data.Maybe          (Maybe (..))
-
+import Data.Either (Either (..), either)
 import           Text.Parser.Char    (CharParsing)
 
 import           Data.Digit          (HeXDigit, HeXaDeCiMaL)
@@ -64,31 +70,47 @@ class HasHexDigit4 c d | c -> d where
 instance HasHexDigit4 (HexDigit4 d) d where
   hexDigit4 = id
 
+hexHeX :: D.HexDigit -> D.HeXDigit
+hexHeX = \case
+  D.HexDigit0 -> D.HeXDigit0
+  D.HexDigit1 -> D.HeXDigit1
+  D.HexDigit2 -> D.HeXDigit2
+  D.HexDigit3 -> D.HeXDigit3
+  D.HexDigit4 -> D.HeXDigit4
+  D.HexDigit5 -> D.HeXDigit5
+  D.HexDigit6 -> D.HeXDigit6
+  D.HexDigit7 -> D.HeXDigit7
+  D.HexDigit8 -> D.HeXDigit8
+  D.HexDigit9 -> D.HeXDigit9
+  D.HexDigita -> D.HeXDigita
+  D.HexDigitb -> D.HeXDigitb
+  D.HexDigitc -> D.HeXDigitc
+  D.HexDigitd -> D.HeXDigitd
+  D.HexDigite -> D.HeXDigite
+  D.HexDigitf -> D.HeXDigitf
+
 -- | Convert a given 'HexDigit4' to a Haskell 'Char'.
-hexDigit4ToChar
-  :: HeXaDeCiMaL digit
-  => HexDigit4 digit
-  -> Char
-hexDigit4ToChar (HexDigit4 a b c d) =
-  chr (foldl (\acc x -> 16 * acc + (review D.integralHexadecimal x)) 0 [a,b,c,d])
+hexDigit4ToChar :: HexDigit4 HeXDigit -> Char
+hexDigit4ToChar (HexDigit4 a b c d) = chr (D._HeXDigitsIntegral (Right $ a :| [b,c,d]))
 
-charToHexDigit4
-  :: Char
-  -> Maybe (HexDigit4 HeXDigit)
-charToHexDigit4 x = if x >= '\x0' && x <= '\xffff'
-  then mkHexDigit4 =<< traverse (preview D.integralHexadecimal) (collectHexValues 4 [] (getRemainder (ord x)))
-  else Nothing
+-- | Try to convert a Haskell 'Char' to a JSON acceptable character. NOTE: This
+-- cannot preserve the upper or lower casing of any original 'Json' data structure
+-- inputs that may have been used to create this 'Char'. Also the JSON RFC
+-- specifies a "limited" range of @U+0000@ to @U+FFFF@ as permissible as a six
+-- character sequence: @\u0000@.
+charToHexDigit4 :: Char -> Maybe (HexDigit4 HeXDigit)
+charToHexDigit4 x
+  | x < '\x0' || x > '\xffff' = Nothing
+  | otherwise                 = toHexDig . fmap hexHeX =<< hush (D.integralHexDigits (ord x))
   where
-    mkHexDigit4 (a:b:c:d:_) = Just (HexDigit4 a b c d)
-    mkHexDigit4 _           = Nothing
+    z = D.x0
 
-    getRemainder n = quotRem n 16
+    toHexDig (a :| [b,c,d]) = Just (HexDigit4 a b c d)
+    toHexDig (  b :| [c,d]) = Just (HexDigit4 z b c d)
+    toHexDig (    c :| [d]) = Just (HexDigit4 z z c d)
+    toHexDig (     d :| []) = Just (HexDigit4 z z z d)
+    toHexDig              _ = Nothing
 
-    collectHexValues :: Int -> [Int] -> (Int,Int) -> [Int]
-    collectHexValues 0 acc _     = acc
-    collectHexValues n acc (0,0) = collectHexValues (n - 1) (0:acc) (0,0)
-    collectHexValues n acc (q,r) = collectHexValues (n - 1) (r:acc) (getRemainder q)
-    {-# INLINE collectHexValues #-}
 {-# INLINE charToHexDigit4 #-}
 
 -- | Parse a single 'HexDigit4'.

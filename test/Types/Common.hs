@@ -10,11 +10,9 @@ module Types.Common
   , genDecimalDigitNoZero
   , genHeXaDeCiMaLDigit
   , genHeXaDeCiMaLDigitNoZero
-  , genHexadecimalDigitLower
   , genNonEmptyDecimalDigit
   , genText
   , genWhitespace
-  , hexadecimalDigitLower
 
   , prop_generic_tripping
   , parseBS
@@ -61,7 +59,7 @@ import qualified Data.Attoparsec.Text        as AT
 import           Data.Tagged                 (Tagged)
 import qualified Data.Tagged                 as T
 
-import           Data.Digit                  (DecDigit, HeXDigit, HexDigit)
+import           Data.Digit                  (DecDigit, HeXDigit)
 import qualified Data.Digit                  as D
 
 import           Waargonaut                  (parseWaargonaut)
@@ -172,8 +170,8 @@ data Overlayed = Overlayed
 genDecimalDigit :: Gen DecDigit
 genDecimalDigit = Gen.element decimalDigit
 
-genHexadecimalDigitLower :: Gen HexDigit
-genHexadecimalDigitLower = Gen.element hexadecimalDigitLower
+-- genHexadecimalDigitLower :: Gen HexDigit
+-- genHexadecimalDigitLower = Gen.element hexadecimalDigitLower
 
 genHeXaDeCiMaLDigit :: Gen HeXDigit
 genHeXaDeCiMaLDigit = Gen.element hExAdEcImAlDigit
@@ -190,16 +188,6 @@ decimalDigit =
   , D.DecDigit7
   , D.DecDigit8
   , D.DecDigit9
-  ]
-
-hexadecimalDigitLower :: [HexDigit]
-hexadecimalDigitLower =
-  [ D.HexDigita
-  , D.HexDigitb
-  , D.HexDigitc
-  , D.HexDigitd
-  , D.HexDigite
-  , D.HexDigitf
   ]
 
 hExAdEcImAlDigit :: [HeXDigit]
