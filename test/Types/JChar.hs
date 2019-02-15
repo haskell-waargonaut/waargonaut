@@ -1,7 +1,6 @@
 module Types.JChar
   ( genJChar
   , genHex4
-  , genHex4Lower
   , genJCharEscaped
   , genJCharUnescaped
   ) where
@@ -11,10 +10,9 @@ import qualified Hedgehog.Gen                     as Gen
 
 import           Control.Lens                     (preview)
 import           Types.Common                     (genHeXaDeCiMaLDigit,
-                                                   genHexadecimalDigitLower,
                                                    genWhitespace)
 
-import           Data.Digit                       (HeXDigit, HexDigit)
+import           Data.Digit                       (HeXDigit)
 
 import           Waargonaut.Types.JChar           (JChar (..))
 import           Waargonaut.Types.JChar.Escaped   (Escaped (..))
@@ -49,10 +47,3 @@ genHex4 = HexDigit4
   <*> genHeXaDeCiMaLDigit
   <*> genHeXaDeCiMaLDigit
   <*> genHeXaDeCiMaLDigit
-
-genHex4Lower :: Gen (HexDigit4 HexDigit)
-genHex4Lower = HexDigit4
-  <$> genHexadecimalDigitLower
-  <*> genHexadecimalDigitLower
-  <*> genHexadecimalDigitLower
-  <*> genHexadecimalDigitLower
