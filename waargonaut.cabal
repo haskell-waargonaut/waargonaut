@@ -74,10 +74,20 @@ source-repository    head
 library
   -- Modules included in this executable, other than Main.
   exposed-modules:     Waargonaut.Types.Whitespace
+
+                     , Waargonaut.Types.CommaSep.Elem
+                     , Waargonaut.Types.CommaSep.Elems
                      , Waargonaut.Types.CommaSep
+
+                     , Waargonaut.Types.JChar.HexDigit4
+                     , Waargonaut.Types.JChar.Escaped
+                     , Waargonaut.Types.JChar.Unescaped
                      , Waargonaut.Types.JChar
-                     , Waargonaut.Types.JArray
+
+                     , Waargonaut.Types.JObject.JAssoc
                      , Waargonaut.Types.JObject
+
+                     , Waargonaut.Types.JArray
                      , Waargonaut.Types.JString
                      , Waargonaut.Types.JNumber
                      , Waargonaut.Types.Json

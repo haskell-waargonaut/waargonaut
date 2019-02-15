@@ -88,6 +88,7 @@ import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
 -- >>> import Data.Either (Either (..), isLeft)
 -- >>> import Data.Function (($))
 -- >>> import Waargonaut.Decode.Error (DecodeError)
+-- >>> import Waargonaut.Types.JChar.Unescaped (Unescaped (..))
 -- >>> import Data.Digit (HeXDigit)
 -- >>> import qualified Waargonaut.Encode as E
 -- >>> let intList = E.runPureEncoder (E.list E.int) [1,2,3]
@@ -327,25 +328,25 @@ parseJNum ws =
 -- Right (JStr (JString' []) ())
 --
 -- >>> testparse (parseJStr (return ())) "\"abc\""
--- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
+-- Right (JStr (JString' [UnescapedJChar (Unescaped 'a'),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c')]) ())
 --
 -- >>> testparse (parseJStr (return ())) "\"a\\rbc\""
--- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
+-- Right (JStr (JString' [UnescapedJChar (Unescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c')]) ())
 --
 -- >>> testparse (parseJStr (return ())) "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either DecodeError (JType () a)
--- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) ())
+-- Right (JStr (JString' [UnescapedJChar (Unescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (Unescaped 'd'),UnescapedJChar (Unescaped 'e'),UnescapedJChar (Unescaped 'f'),EscapedJChar QuotationMark]) ())
 --
 -- >>> testparsetheneof (parseJStr (return ())) "\"\""
 -- Right (JStr (JString' []) ())
 --
 -- >>> testparsetheneof (parseJStr (return ())) "\"abc\""
--- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) ())
+-- Right (JStr (JString' [UnescapedJChar (Unescaped 'a'),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c')]) ())
 --
 -- >>> testparsethennoteof (parseJStr (return ())) "\"a\"\\u"
--- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a')]) ())
+-- Right (JStr (JString' [UnescapedJChar (Unescaped 'a')]) ())
 --
 -- >>> testparsethennoteof (parseJStr (return ())) "\"a\"\t"
--- Right (JStr (JString' [UnescapedJChar (JCharUnescaped 'a')]) ())
+-- Right (JStr (JString' [UnescapedJChar (Unescaped 'a')]) ())
 parseJStr
   :: CharParsing f
   => f ws

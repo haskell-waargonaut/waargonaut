@@ -30,44 +30,48 @@ module Waargonaut.Types.JObject
   , parseJObject
   ) where
 
-import           Prelude                   (Eq, Int, Show, elem, fst, not,
-                                            otherwise, (==))
+import           Prelude                         (Eq, Int, Show, elem, fst, not,
+                                                  otherwise, (==))
 
-import           Control.Applicative       ((<*), (<*>))
-import           Control.Category          (id, (.))
-import           Control.Lens              (AsEmpty (..), At (..), Index,
-                                            IxValue, Ixed (..), Lens', Prism',
-                                            Rewrapped, Wrapped (..), cons,
-                                            iso, nearly, prism', to,
-                                            ( # ), (.~), (<&>), (^.), _Wrapped)
-import           Control.Lens.Extras       (is)
+import           Control.Category                (id, (.))
+import           Control.Lens                    (AsEmpty (..), At (..), Index,
+                                                  IxValue, Ixed (..), Lens',
+                                                  Prism', Rewrapped,
+                                                  Wrapped (..), cons, iso,
+                                                  nearly, prism', to, ( # ),
+                                                  (<&>), (^.), _Wrapped)
+import           Control.Lens.Extras             (is)
 
-import           Control.Monad             (Monad)
-import           Data.Bifoldable           (Bifoldable (bifoldMap))
-import           Data.Bifunctor            (Bifunctor (bimap))
-import           Data.Bitraversable        (Bitraversable (bitraverse))
-import           Data.Bool                 (Bool (..))
-import           Data.Foldable             (Foldable, find, foldr)
-import           Data.Function             (($))
-import           Data.Functor              (Functor, fmap, (<$>))
-import           Data.Maybe                (Maybe (..), maybe)
-import           Data.Monoid               (Monoid (mappend, mempty))
-import           Data.Semigroup            (Semigroup ((<>)))
-import           Data.Text                 (Text)
-import           Data.Traversable          (Traversable, traverse)
+import           Control.Monad                   (Monad)
+import           Data.Bifoldable                 (Bifoldable (bifoldMap))
+import           Data.Bifunctor                  (Bifunctor (bimap))
+import           Data.Bitraversable              (Bitraversable (bitraverse))
+import           Data.Bool                       (Bool (..))
+import           Data.Foldable                   (Foldable, find, foldr)
+import           Data.Function                   (($))
+import           Data.Functor                    (Functor, (<$>))
+import           Data.Maybe                      (Maybe (..), maybe)
+import           Data.Monoid                     (Monoid (mappend, mempty))
+import           Data.Semigroup                  (Semigroup ((<>)))
+import           Data.Text                       (Text)
+import           Data.Traversable                (Traversable, traverse)
 
-import           Data.Text.Lazy.Builder    (Builder)
-import qualified Data.Text.Lazy.Builder    as TB
+import           Data.Text.Lazy.Builder          (Builder)
 
-import qualified Data.Witherable           as W
+import qualified Data.Witherable                 as W
 
-import           Text.Parser.Char          (CharParsing, char)
+import           Text.Parser.Char                (CharParsing, char)
 
-import           Waargonaut.Types.CommaSep (CommaSeparated (..),
-                                            commaSeparatedBuilder,
-                                            parseCommaSeparated)
+import           Waargonaut.Types.CommaSep       (CommaSeparated (..),
+                                                  commaSeparatedBuilder,
+                                                  parseCommaSeparated)
 
-import           Waargonaut.Types.JString
+import           Waargonaut.Types.JObject.JAssoc (HasJAssoc (..), JAssoc (..),
+                                                  jAssocAlterF, jAssocBuilder,
+                                                  parseJAssoc)
+
+import           Waargonaut.Types.JString        (_JStringText)
+
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -79,61 +83,6 @@ import           Waargonaut.Types.JString
 -- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Data.Digit (HeXDigit)
 ----
-
--- | This type represents the key-value pair inside of a JSON object.
---
--- It is built like this so that we can preserve any whitespace information that
--- may surround it.
-data JAssoc ws a = JAssoc
-  { _jsonAssocKey             :: JString
-  , _jsonAssocKeyTrailingWS   :: ws
-  , _jsonAssocValPreceedingWS :: ws
-  , _jsonAssocVal             :: a
-  }
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-
-instance Bifunctor JAssoc where
-  bimap f g (JAssoc k w1 w2 v) = JAssoc k (f w1) (f w2) (g v)
-
-instance Bifoldable JAssoc where
-  bifoldMap f g (JAssoc _ w1 w2 v) = f w1 `mappend` f w2 `mappend` g v
-
-instance Bitraversable JAssoc where
-  bitraverse f g (JAssoc k w1 w2 v) = JAssoc k <$> f w1 <*> f w2 <*> g v
-
--- | This class allows you to write connective lenses for other data structures
--- that may contain a 'JAssoc'.
-class HasJAssoc c ws a | c -> ws a where
-  jAssoc :: Lens' c (JAssoc ws a)
-  jsonAssocKey :: Lens' c JString
-  {-# INLINE jsonAssocKey #-}
-  jsonAssocKeyTrailingWS :: Lens' c ws
-  {-# INLINE jsonAssocKeyTrailingWS #-}
-  jsonAssocVal :: Lens' c a
-  {-# INLINE jsonAssocVal #-}
-  jsonAssocValPreceedingWS :: Lens' c ws
-  {-# INLINE jsonAssocValPreceedingWS #-}
-  jsonAssocKey             = jAssoc . jsonAssocKey
-  jsonAssocKeyTrailingWS   = jAssoc . jsonAssocKeyTrailingWS
-  jsonAssocVal             = jAssoc . jsonAssocVal
-  jsonAssocValPreceedingWS = jAssoc . jsonAssocValPreceedingWS
-
-instance HasJAssoc (JAssoc ws a) ws a where
-  jAssoc = id
-  jsonAssocKey f (JAssoc x1 x2 x3 x4)             = fmap (\y1 -> JAssoc y1 x2 x3 x4) (f x1)
-  {-# INLINE jsonAssocKey #-}
-  jsonAssocKeyTrailingWS f (JAssoc x1 x2 x3 x4)   = fmap (\y1 -> JAssoc x1 y1 x3 x4) (f x2)
-  {-# INLINE jsonAssocKeyTrailingWS #-}
-  jsonAssocVal f (JAssoc x1 x2 x3 x4)             = fmap (JAssoc x1 x2 x3) (f x4)
-  {-# INLINE jsonAssocVal #-}
-  jsonAssocValPreceedingWS f (JAssoc x1 x2 x3 x4) = fmap (\y1 -> JAssoc x1 x2 y1 x4) (f x3)
-  {-# INLINE jsonAssocValPreceedingWS #-}
-
--- Helper function for trying to update/create a JAssoc value in some Functor.
--- This function is analogus to the 'Data.Map.alterF' function.
-jAssocAlterF :: (Monoid ws, Functor f) => Text -> (Maybe a -> f (Maybe a)) -> Maybe (JAssoc ws a) -> f (Maybe (JAssoc ws a))
-jAssocAlterF k f mja = fmap g <$> f (_jsonAssocVal <$> mja) where
-  g v = maybe (JAssoc (_JStringText # k) mempty mempty v) (jsonAssocVal .~ v) mja
 
 -- | The representation of a JSON object.
 --
@@ -257,33 +206,13 @@ toMapLikeObj (JObject xs) = (\(_,a,b) -> (MLO (JObject a), b)) $ foldr f (mempty
 textKeyMatch :: Text -> JAssoc ws a -> Bool
 textKeyMatch k = (== k) . (^. jsonAssocKey . _JStringText)
 
--- | Parse a single "key:value" pair
-parseJAssoc
-  :: ( Monad f
-     , CharParsing f
-     )
-  => f ws
-  -> f a
-  -> f (JAssoc ws a)
-parseJAssoc ws a = JAssoc
-  <$> parseJString <*> ws <* char ':' <*> ws <*> a
-
--- | Builder for a single "key:value" pair.
-jAssocBuilder
-  :: (ws -> Builder)
-  -> ((ws -> Builder) -> a -> Builder)
-  -> JAssoc ws a
-  -> Builder
-jAssocBuilder ws aBuilder (JAssoc k ktws vpws v) =
-  jStringBuilder k <> ws ktws <> TB.singleton ':' <> ws vpws <> aBuilder ws v
-
 -- |
 --
 -- >>> testparse (parseJObject parseWhitespace parseWaargonaut) "{\"foo\":null }"
--- Right (JObject (CommaSeparated (WS []) (Just (Elems {_elemsElems = [], _elemsLast = Elem {_elemVal = JAssoc {_jsonAssocKey = JString' [UnescapedJChar (JCharUnescaped 'f'),UnescapedJChar (JCharUnescaped 'o'),UnescapedJChar (JCharUnescaped 'o')], _jsonAssocKeyTrailingWS = WS [], _jsonAssocValPreceedingWS = WS [], _jsonAssocVal = Json (JNull (WS [Space]))}, _elemTrailing = Nothing}}))))
+-- Right (JObject (CommaSeparated (WS []) (Just (Elems {_elemsElems = [], _elemsLast = Elem {_elemVal = JAssoc {_jsonAssocKey = JString' [UnescapedJChar (Unescaped 'f'),UnescapedJChar (Unescaped 'o'),UnescapedJChar (Unescaped 'o')], _jsonAssocKeyTrailingWS = WS [], _jsonAssocValPreceedingWS = WS [], _jsonAssocVal = Json (JNull (WS [Space]))}, _elemTrailing = Nothing}}))))
 --
 -- >>> testparse (parseJObject parseWhitespace parseWaargonaut) "{\"foo\":null, }"
--- Right (JObject (CommaSeparated (WS []) (Just (Elems {_elemsElems = [], _elemsLast = Elem {_elemVal = JAssoc {_jsonAssocKey = JString' [UnescapedJChar (JCharUnescaped 'f'),UnescapedJChar (JCharUnescaped 'o'),UnescapedJChar (JCharUnescaped 'o')], _jsonAssocKeyTrailingWS = WS [], _jsonAssocValPreceedingWS = WS [], _jsonAssocVal = Json (JNull (WS []))}, _elemTrailing = Just (Comma,WS [Space])}}))))
+-- Right (JObject (CommaSeparated (WS []) (Just (Elems {_elemsElems = [], _elemsLast = Elem {_elemVal = JAssoc {_jsonAssocKey = JString' [UnescapedJChar (Unescaped 'f'),UnescapedJChar (Unescaped 'o'),UnescapedJChar (Unescaped 'o')], _jsonAssocKeyTrailingWS = WS [], _jsonAssocValPreceedingWS = WS [], _jsonAssocVal = Json (JNull (WS []))}, _elemTrailing = Just (Comma,WS [Space])}}))))
 --
 parseJObject
   :: ( Monad f

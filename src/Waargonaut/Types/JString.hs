@@ -22,21 +22,18 @@ module Waargonaut.Types.JString
   , jStringBuilder
   ) where
 
-import           Prelude                 (Eq, Ord, Show, String, foldr,
-                                          otherwise, (==))
+import           Prelude                 (Eq, Ord, Show, String, foldr)
 
-import           Control.Applicative     (Applicative, (*>), (<*), (<|>))
+import           Control.Applicative     (Applicative, (*>), (<*))
 import           Control.Category        (id, (.))
 import           Control.Error.Util      (note)
 import           Control.Lens            (Prism', Choice, Rewrapped, Wrapped (..), iso,
-                                          prism, prism', review, ( # ), (^?))
+                                          prism, review)
 
-import           Data.Bifunctor          (first)
 import           Data.Either             (Either (Right))
 import           Data.Foldable           (Foldable, foldMap)
-import           Data.Function           (const, ($))
+import           Data.Function           (($))
 import           Data.Functor            (Functor, fmap, (<$>))
-import           Data.Maybe              (Maybe (..))
 import           Data.Semigroup          ((<>))
 import           Data.Text               (Text)
 import qualified Data.Text               as Text
@@ -54,7 +51,7 @@ import           Data.Text.Lazy.Builder  (Builder)
 import qualified Data.Text.Lazy.Builder  as TB
 
 import           Waargonaut.Types.JChar  (JChar, jCharBuilderTextL, parseJChar, jCharToChar, charToJChar,
-                                          utf8CharToJChar, _JChar)
+                                          utf8CharToJChar)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -67,6 +64,9 @@ import           Waargonaut.Types.JChar  (JChar, jCharBuilderTextL, parseJChar, 
 -- >>> import Utils
 -- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Waargonaut.Types.Whitespace
+-- >>> import Waargonaut.Types.JChar.Unescaped
+-- >>> import Waargonaut.Types.JChar.Escaped
+-- >>> import Waargonaut.Types.JChar.HexDigit4
 -- >>> import Waargonaut.Types.JChar
 -- >>> import Data.Text.Lazy.Builder (toLazyText)
 ----
@@ -121,19 +121,19 @@ _JStringText = iso (Text.pack . review _JString) (JString' . V.fromList . fmap u
 -- Right (JString' [EscapedJChar ReverseSolidus])
 --
 -- >>> testparse parseJString "\"abc\""
--- Right (JString' [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')])
+-- Right (JString' [UnescapedJChar (Unescaped 'a'),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c')])
 --
 -- >>> testparse parseJString "\"a\\rbc\""
--- Right (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')])
+-- Right (JString' [UnescapedJChar (Unescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c')])
 --
 -- >>> testparse parseJString "\"a\\rbc\\uab12\\ndef\\\"\"" :: Either DecodeError JString
--- Right (JString' [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark])
+-- Right (JString' [UnescapedJChar (Unescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (Unescaped 'd'),UnescapedJChar (Unescaped 'e'),UnescapedJChar (Unescaped 'f'),EscapedJChar QuotationMark])
 --
 -- >>> testparsethennoteof parseJString "\"a\"\\u"
--- Right (JString' [UnescapedJChar (JCharUnescaped 'a')])
+-- Right (JString' [UnescapedJChar (Unescaped 'a')])
 --
 -- >>> testparsethennoteof parseJString "\"a\"\t"
--- Right (JString' [UnescapedJChar (JCharUnescaped 'a')])
+-- Right (JString' [UnescapedJChar (Unescaped 'a')])
 parseJString
   :: CharParsing f
   => f JString
@@ -145,16 +145,16 @@ parseJString =
 -- >>> toLazyText $ jStringBuilder ((JString' V.empty) :: JString)
 -- "\"\""
 --
--- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (Unescaped 'a'),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c')]) :: JString)
 -- "\"abc\""
 --
--- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c')]) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (Unescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c')]) :: JString)
 -- "\"a\\rbc\""
 --
--- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (JCharUnescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (JCharUnescaped 'b'),UnescapedJChar (JCharUnescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (JCharUnescaped 'd'),UnescapedJChar (JCharUnescaped 'e'),UnescapedJChar (JCharUnescaped 'f'),EscapedJChar QuotationMark]) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (Unescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (Unescaped 'd'),UnescapedJChar (Unescaped 'e'),UnescapedJChar (Unescaped 'f'),EscapedJChar QuotationMark]) :: JString)
 -- "\"a\\rbc\\uab12\\ndef\\\"\""
 --
--- >>> toLazyText $ jStringBuilder ((JString' $ V.singleton (UnescapedJChar (JCharUnescaped 'a'))) :: JString)
+-- >>> toLazyText $ jStringBuilder ((JString' $ V.singleton (UnescapedJChar (Unescaped 'a'))) :: JString)
 -- "\"a\""
 --
 -- >>> toLazyText $ jStringBuilder (JString' $ V.singleton (EscapedJChar ReverseSolidus) :: JString)
