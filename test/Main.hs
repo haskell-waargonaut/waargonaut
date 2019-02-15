@@ -242,7 +242,7 @@ prop_char_heXDigit = property $ do
          (fmap Hex4.hexDigit4ToChar (Hex4.charToHexDigit4 c) === Just c)
 
     else annotate "Char out of valid range" *>
-         (fmap Hex4.hexDigit4ToChar (Hex4.charToHexDigit4 c) === Just c)
+         (fmap Hex4.hexDigit4ToChar (Hex4.charToHexDigit4 c) === Nothing)
   where
     inRange c' = (ord c') >= 0x0 && (ord c') <= 0xffff
 
