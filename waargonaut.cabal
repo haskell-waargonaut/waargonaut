@@ -51,6 +51,7 @@ extra-source-files:  changelog.md
                    , test/json-data/test6.json
                    , test/json-data/test7.json
                    , test/json-data/unicode_2705.json
+                   , test/json-data/backslash128.json
 
 homepage:            https://github.com/qfpl/waargonaut
 bug-reports:         https://github.com/qfpl/waargonaut/issues
