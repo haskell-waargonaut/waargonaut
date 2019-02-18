@@ -35,33 +35,32 @@ module Waargonaut
 
   ) where
 
-import           Prelude                   (Bool)
+import           Prelude                   (Bool, Show)
 
 import           Control.Applicative       (Applicative)
 import           Control.Category          ((.))
 import           Control.Error.Util        (note)
-import           Control.Lens              (Prism', folded, 
-                                            prism, review, ( # ), (^..),
-                                            (^?), _1, _Wrapped)
-import           Data.Bifunctor            (first)
+import           Control.Lens              (Prism', folded, prism, review, preview,
+                                            ( # ), (^..), (^?), _1, _Wrapped)
+import           Control.Monad             (Monad)
 import           Data.Function             (const, ($))
 import           Data.Functor              ((<$), (<$>))
 import           Data.Scientific           (Scientific)
 
-import qualified Data.ByteString.Lazy      as B
-
-import qualified Data.ByteString           as BS
-
+import           Data.Bifunctor            (first)
 import           Data.Either               (Either (..))
 import           Data.Maybe                (maybe)
 import           Data.Monoid               (mempty)
 
-import qualified Data.Text.Lazy.Encoding   as TL
+import           Text.Parser.Char          (CharParsing)
 
+import           Data.Text                 (Text)
 import qualified Data.Text                 as T
+import qualified Data.Text.Lazy            as TL
+import qualified Data.Text.Lazy.Encoding   as TLE
 
-import qualified Waargonaut.Decode         as D
-import qualified Waargonaut.Encode         as E
+import           Data.ByteString           (ByteString)
+import qualified Data.ByteString.Lazy      as BL
 
 import qualified Waargonaut.Types.CommaSep as CS
 import           Waargonaut.Types.JString  (_JStringText)
@@ -70,18 +69,31 @@ import           Waargonaut.Types.JNumber  (_JNumberScientific)
 import           Waargonaut.Types.Json     (AsJType (..), JType (..), Json (..),
                                             parseWaargonaut, waargonautBuilder)
 
+import qualified Waargonaut.Decode         as D
+import qualified Waargonaut.Encode         as E
 
--- -- | Specialised to 'BS.ByteString'
--- _ByteStringJson :: D.ParseFn -> Prism' BS.ByteString Json
--- _ByteStringJson pf = prism
---   (B.toStrict . TL.encodeUtf8 . E.simplePureEncode E.json)
---   (\b -> first (const b) $ D.simpleDecode D.json pf b)
+_ByteStringJson
+  :: ( CharParsing g
+     , Monad g
+     , Show e
+     )
+  => (forall a. g a -> ByteString -> Either e a)
+  -> Prism' ByteString Json
+_ByteStringJson pf = prism
+  (BL.toStrict . TLE.encodeUtf8 . E.simplePureEncode E.json)
+  (\b -> first (const b) $ D.pureDecodeFromByteString pf D.json b)
 
--- -- | Specialised to 'BS.ByteString'
--- _TextJson :: D.ParseFn -> Prism' T.Text Json
--- _TextJson pf = prism
---   (E.simplePureEncode E.json)
---   (\b -> first (const b) $ D.simpleDecode D.json (pf) (T.encodeUtf8 b))
+-- | Specialised to 'BS.ByteString'
+_TextJson
+  :: ( CharParsing g
+     , Monad g
+     , Show e
+     )
+  => (forall a. g a -> Text -> Either e a)
+  -> Prism' Text Json
+_TextJson pf = prism
+  (TL.toStrict . E.simplePureEncode E.json)
+  (\b -> first (const b) $ D.pureDecodeFromText pf D.json b)
 
 -- | 'Prism'' between some 'Json' and a 'Scientific' value
 _Number  :: Prism' Json Scientific
@@ -111,7 +123,7 @@ _ArrayOf elemT = prism fromList' toList'
       )
 
     toList' r = maybe (Left r) (Right . (^.. folded . elemT))
-      $ r ^? _JArr . _1 . _Wrapped
+      $ preview (_JArr . _1 . _Wrapped) r
 
 -- $basicdecode
 --
@@ -230,44 +242,59 @@ _ArrayOf elemT = prism fromList' toList'
 -- allows you to choose your own favourite parsing library to do the heavy lifting. Provided it
 -- implements the right typeclasses from 'parsers'.
 --
--- To apply a 'Waargonaut.Decode.Decoder' to some output you will need:
+-- To apply a 'Waargonaut.Decode.Decoder' to some input you will need one of the
+-- decoder running functions from 'Waargonaut.Decode'. There are a few different
+-- functions provided for some of the common input text-like types.:
 --
 -- @
--- runDecode
---   :: Monad f
---   => Decoder f a
---   -> ParseFn
---   -> JCurs
---   -> f (Either (DecodeError, CursorHistory) a)
+-- decodeFromByteString
+--   :: ( CharParsing f
+--      , Monad f
+--      , Monad g
+--      , Show e
+--      )
+--   => (forall a. f a -> ByteString -> Either e a)
+--   -> Decoder g x
+--   -> ByteString
+--   -> g (Either (DecodeError, CursorHistory) x)
+-- @
+--
+--
+-- As well as a parsing function from your parsing library of choice, that also
+-- has an implementation of the 'CharParsing' typeclass from 'parsers'. We will
+-- use 'attoparsec' in the examples below.
+--
+-- @
+-- import qualified Data.Attoparsec.ByteString as AB
 -- @
 --
 -- @
--- runDecode personDecode parseByteString (mkCursor inp)
+-- decodeFromByteString AB.parseOnly personDecode inp
 -- @
 --
 -- Which will run the 'personDecode' 'Waargonaut.Decode.Decoder' using the parsing function
--- ('parseByteString'), starting at the cursor from the top of the 'inp' input.
---
--- We use the 'Waargonaut.Decode.mkCursor' function to create the index for our, presumed to be
--- JSON containing, 'Data.ByteString.ByteString' input.
+-- (@AB.parseOnly@), starting at the cursor from the top of the 'inp' input.
 --
 -- Again the 'Monad' constraint is there so that you have more options available for utilising the
 -- 'Waargonaut.Decode.Decoder' in ways we haven't thought of.
 --
--- Or if you don't need the 'Monad' constraint and you don't need to call
--- 'Waargonaut.Decode.mkCursor' separately, then you may use 'Waargonaut.Decode.simpleDecode'. This
--- function specialises the 'Monad' constraint to 'Data.Functor.Identity'.:
+-- Or if you don't need the 'Monad' constraint then you may use 'Waargonaut.Decode.pureDecodeFromByteString'.
+-- This function specialises the 'Monad' constraint to 'Data.Functor.Identity'.:
 --
 -- @
--- simpleDecode
---   :: Decoder Identity a
---   -> ParseFn
+-- pureDecodeFromByteString
+--   :: ( Monad f
+--      , CharParsing f
+--      , Show e
+--      )
+--   => (forall a. f a -> ByteString -> Either e a)
+--   -> Decoder Identity x
 --   -> ByteString
---   -> Either (DecodeError, CursorHistory) a
+--   -> Either (DecodeError, CursorHistory) x
 -- @
 --
 -- @
--- simpleDecode personDecode parseByteString inp
+-- pureDecodeFromByteString AB.parseOnly personDecode inp
 -- @
 --
 
@@ -330,16 +357,18 @@ _ArrayOf elemT = prism fromList' toList'
 -- To then turn these values into JSON output:
 --
 -- @
+-- simpleEncode         :: Applicative f => Encoder f a -> a -> f ByteString
 -- simpleEncodeNoSpaces :: Applicative f => Encoder f a -> a -> f ByteString
 -- @
 --
 -- Or
 --
 -- @
+-- simplePureEncode         :: Encoder' a -> a -> ByteString
 -- simplePureEncodeNoSpaces :: Encoder' a -> a -> ByteString
 -- @
 --
--- The latter specialises the 'f' to be 'Data.Functor.Identity'.
+-- The latter functions specialise the 'f' to be 'Data.Functor.Identity'.
 --
 -- Then, like the use of the 'Waargonaut.Decode.Decoder' you select the 'Waargonaut.Encode.Encoder'
 -- you wish to use and run it against a value of a matching type:

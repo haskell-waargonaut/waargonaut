@@ -4,7 +4,7 @@ module Main (main) where
 
 import           GHC.Word                         (Word8)
 
-import           Control.Lens                     (( # ), (^.), (^?), _2)
+import           Control.Lens                     ((^.), _2)
 import qualified Control.Lens                     as L
 import           Control.Monad                    (when)
 
@@ -25,7 +25,6 @@ import qualified Data.Text.Encoding               as Text
 import qualified Data.Text.IO                     as Text
 
 import qualified Data.Text.Lazy                   as TextL
-import qualified Data.Text.Lazy.Builder           as TB
 
 import qualified Data.ByteString                  as BS
 import qualified Data.Sequence                    as S
@@ -40,15 +39,12 @@ import           Test.Tasty.HUnit
 
 import           Natural                          (_Natural)
 
-import           Waargonaut                       (Json)
-import qualified Waargonaut                       as W
 import qualified Waargonaut.Types.CommaSep        as CommaSep
 
 import qualified Waargonaut.Types.JChar           as JChar
 import qualified Waargonaut.Types.JChar.HexDigit4 as Hex4
 
 import qualified Waargonaut.Types.JNumber         as JNumber
-import qualified Waargonaut.Types.Whitespace      as WS
 
 import qualified Waargonaut.Decode                as D
 import           Waargonaut.Decode.Error          (DecodeError)
@@ -69,19 +65,6 @@ import qualified Decoder.Laws
 import qualified Encoder
 import qualified Encoder.Laws
 import qualified Json
-
-encodeText
-  :: Json
-  -> Text
-encodeText = TextL.toStrict
-  . TB.toLazyText
-  . W.waargonautBuilder WS.wsBuilder
-
-decode
-  :: Text
-  -> Either DecodeError Json
-decode =
-  Common.parseText
 
 prop_history_condense :: Property
 prop_history_condense = property $ do
@@ -151,20 +134,17 @@ prop_jnumber_scientific_prism = property $ do
     <$> Gen.integral (Range.linear 0 maxI)
     <*> Gen.int Range.linearBounded
 
-  tripping sci (JNumber._JNumberScientific #) (^? JNumber._JNumberScientific)
+  L.preview JNumber._JNumberScientific (L.review JNumber._JNumberScientific sci) === Just sci
   where
     maxI :: Integer
     maxI = 2 ^ (32 :: Integer)
-
-simpleDecodeWith :: D.Decoder L.Identity a -> TextL.Text -> Either (DecodeError, D.CursorHistory) a
-simpleDecodeWith d = D.simpleDecode d (Common.parseText . Text.decodeUtf8) . Text.encodeUtf8 . TextL.toStrict
 
 prop_tripping_int_list :: Property
 prop_tripping_int_list = property $ do
   xs <- forAll . Gen.list (Range.linear 0 100) $ Gen.int (Range.linear 0 9999)
   tripping xs
     (E.simplePureEncodeNoSpaces (E.traversable E.int))
-    (simpleDecodeWith (D.list D.int))
+    (Common.simpleDecodeWith (D.list D.int))
 
 prop_tripping_image_record_generic :: Property
 prop_tripping_image_record_generic = withTests 1 . property $
@@ -185,12 +165,12 @@ prop_tripping_int_list_generic = property $ do
 
 prop_tripping :: Property
 prop_tripping = withTests 200 . property $
-  forAll J.genJson >>= (\j -> tripping j encodeText decode)
+  forAll J.genJson >>= (\j -> tripping j Common.encodeText Common.decodeText)
 
 prop_print_parse_print_id :: Property
 prop_print_parse_print_id = withTests 200 . property $ do
-  printedA <- forAll $ encodeText <$> J.genJson
-  Right printedA === (encodeText <$> decode printedA)
+  printedA <- forAll $ Common.encodeText <$> J.genJson
+  Right printedA === (Common.encodeText <$> Common.decodeText printedA)
 
 prop_maybe_maybe :: Property
 prop_maybe_maybe = withTests 1 . property $ do
@@ -207,7 +187,7 @@ prop_maybe_maybe = withTests 1 . property $ do
   where
     trippin' a = tripping a
       (E.simplePureEncodeNoSpaces enc)
-      (simpleDecodeWith dec)
+      (Common.simpleDecodeWith dec)
 
     enc = E.maybeOrNull' . E.mapLikeObj' . E.atKey' "boop"
       $ E.maybeOrNull' (E.mapLikeObj' (E.atKey' "beep" E.bool'))
@@ -237,12 +217,12 @@ prop_char_heXDigit :: Property
 prop_char_heXDigit = property $ do
   c <- forAll Gen.unicode
 
-  if inRange c
-    then annotate "Char in valid range" *>
-         (fmap Hex4.hexDigit4ToChar (Hex4.charToHexDigit4 c) === Just c)
+  let (anno, expect) = if inRange c
+        then ("Char in valid range", Just c)
+        else ("Char out of valid range", Nothing)
 
-    else annotate "Char out of valid range" *>
-         (fmap Hex4.hexDigit4ToChar (Hex4.charToHexDigit4 c) === Nothing)
+  annotate anno
+  fmap Hex4.hexDigit4ToChar (Hex4.charToHexDigit4 c) === expect
   where
     inRange c' = (ord c') >= 0x0 && (ord c') <= 0xffff
 
@@ -252,8 +232,8 @@ parser_properties = testGroup "Parser Round-Trip"
   , testProperty "print . parse . print = print" prop_print_parse_print_id
   ]
 
-parsePrint :: Text -> Either DecodeError Text
-parsePrint = fmap encodeText . decode
+parsePrint :: Text -> Either (DecodeError, D.CursorHistory) Text
+parsePrint = fmap Common.encodeText . Common.decodeText
 
 readTestFile :: FilePath -> IO Text
 readTestFile fp = Text.readFile ("test/json-data" <> "/" <> fp)
@@ -295,8 +275,6 @@ mishandlingOfCharVsUtf8Bytes = testCaseSteps "Mishandling of UTF-8 Bytes vs Hask
 
     testFilePath = "test/json-data/mishandling.json"
 
-    decodeFn = D.runDecode D.text (Common.parseText . Text.decodeUtf8) . D.mkCursor
-
   step "Pack String to Text"
   Text.pack valStr @?= valText
 
@@ -311,12 +289,8 @@ mishandlingOfCharVsUtf8Bytes = testCaseSteps "Mishandling of UTF-8 Bytes vs Hask
   Text.encodeUtf8 x @?= BS.pack valBytes
 
   step "Decode file input"
-  decodedFile <- BS.readFile testFilePath >>= decodeFn
+  decodedFile <- Common.parseText D.text <$> Text.readFile testFilePath
   decodedFile @?= Right valText
-
-  step "Decode 'encodeUtf8' input"
-  y <- decodeFn $ Text.encodeUtf8 x
-  y @?= Right valText
 
 regressionTests :: TestTree
 regressionTests =
@@ -346,12 +320,12 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
   , Decoder.Laws.decoderLaws
   , Encoder.Laws.encoderLaws
 
-  , testGroup "text gen - text e/d"
+  , testGroup "text gen - text encoder/decoder"
     [ testProperty "unicode"       $ p Gen.text Gen.unicode E.text D.text
     , testProperty "latin1"        $ p Gen.text Gen.latin1 E.text D.text
     , testProperty "ascii"         $ p Gen.text Gen.ascii E.text D.text
     ]
-  , testGroup "bytestring gen - via text e/d"
+  , testGroup "bytestring gen - via text encoder/decoder"
     [ testProperty "unicode"       $ p Gen.utf8 Gen.unicode bsE bsD
     , testProperty "latin1"        $ p Gen.utf8 Gen.latin1 bsE bsD
     , testProperty "ascii"         $ p Gen.utf8 Gen.ascii bsE bsD
@@ -371,4 +345,4 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
       -> Property
     p f g e d = property $ do
       inp <- forAll $ f (Range.linear 0 1000) g
-      tripping inp (E.simplePureEncodeNoSpaces e) (simpleDecodeWith d)
+      tripping inp (E.simplePureEncodeNoSpaces e) (Common.simpleDecodeWith d)

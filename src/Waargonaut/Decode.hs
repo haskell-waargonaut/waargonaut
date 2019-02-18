@@ -18,21 +18,15 @@ module Waargonaut.Decode
   , DecodeResult (..)
   , Decoder (..)
   , JCurs (..)
-  , ParseFn
   , Err (..)
   , JsonType (..)
 
     -- * Runners
-  , runDecode
-  , runDecodeResult
-  , runPureDecode
-  , simpleDecode
-  , overrideParser
-  , generaliseDecoder
+  , module Waargonaut.Decode.Runners
 
     -- * Helpers
+  , generaliseDecoder
   , DI.ppCursorHistory
-  , parseWith
 
     -- * Cursors
   , withCursor
@@ -100,17 +94,17 @@ import           GHC.Word                                  (Word64)
 import           Control.Lens                              (Cons, Lens', Prism',
                                                             Snoc, cons, lens,
                                                             matching, modifying,
-                                                            over, preview, snoc,
+                                                            preview, snoc,
                                                             traverseOf, view,
                                                             ( # ), (.~), (^.),
-                                                            _Left, _Wrapped)
+                                                            _Wrapped)
 import           Control.Monad.Error.Lens                  (throwing)
 
 import           Prelude                                   (Bool, Bounded, Char,
                                                             Eq, Int, Integral,
-                                                            Show, String,
-                                                            fromIntegral, show,
-                                                            (-), (==))
+                                                            String,
+                                                            fromIntegral, (-),
+                                                            (==))
 
 import           Control.Applicative                       (Applicative (..))
 import           Control.Category                          ((.))
@@ -121,13 +115,12 @@ import           Control.Monad.Morph                       (embed, generalize)
 import           Control.Monad.Except                      (catchError, lift,
                                                             liftEither)
 import           Control.Monad.Reader                      (ReaderT (..), ask,
-                                                            local, runReaderT)
+                                                            runReaderT)
 import           Control.Monad.State                       (MonadState)
 
 import           Control.Error.Util                        (note)
 import           Control.Monad.Error.Hoist                 ((<!?>), (<?>))
 
-import           Data.Bool                                 (Bool (..))
 import           Data.Either                               (Either (..))
 import qualified Data.Either                               as Either (either)
 import           Data.Foldable                             (Foldable, foldl,
@@ -136,8 +129,7 @@ import           Data.Function                             (const, flip, ($),
                                                             (&))
 import           Data.Functor                              (fmap, (<$), (<$>))
 import           Data.Functor.Alt                          ((<!>))
-import           Data.Functor.Identity                     (Identity,
-                                                            runIdentity)
+import           Data.Functor.Identity                     (Identity)
 import           Data.Monoid                               (mempty)
 import           Data.Scientific                           (Scientific)
 
@@ -148,9 +140,6 @@ import           Natural                                   (Natural, replicate,
                                                             successor', zero')
 
 import           Data.Text                                 (Text)
-import qualified Data.Text                                 as Text
-
-import           Text.Parser.Char                          (CharParsing)
 
 import           Data.ByteString                           (ByteString)
 import qualified Data.ByteString.Char8                     as BS8
@@ -162,7 +151,6 @@ import qualified HaskellWorks.Data.Positioning             as Pos
 import qualified HaskellWorks.Data.BalancedParens.FindOpen as BP
 
 import           HaskellWorks.Data.Bits                    ((.?.))
-import           HaskellWorks.Data.FromByteString          (fromByteString)
 import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
 
 import           HaskellWorks.Data.Json.Cursor             (JsonCursor (..))
@@ -176,14 +164,16 @@ import           Waargonaut.Types
 
 import qualified Waargonaut.Decode.Internal                as DI
 
+import           Waargonaut.Decode.Runners
+
 import           Waargonaut.Decode.Types                   (CursorHistory,
                                                             DecodeResult (..),
                                                             Decoder (..),
                                                             JCurs (..),
                                                             JsonType (..),
-                                                            ParseFn,
                                                             SuccinctCursor,
-                                                            jsonTypeAt)
+                                                            jsonTypeAt,
+                                                            mkCursor)
 
 -- | Function to define a 'Decoder' for a specific data type.
 --
@@ -223,11 +213,6 @@ withCursor
   -> Decoder f a
 withCursor g = Decoder $ \p ->
   DI.runDecoder' $ DI.withCursor' (flip runReaderT p . unDecodeResult . g)
-
--- | Take a 'ByteString' input and build an index of the JSON structure inside
---
-mkCursor :: ByteString -> JCurs
-mkCursor = JCurs . fromByteString
 
 -- | Lens for accessing the 'rank' of the 'JsonCursor'. The 'rank' forms part of
 -- the calculation that is the cursors current position in the index.
@@ -582,7 +567,7 @@ withType
   -> JCurs
   -> DecodeResult f a
 withType t d c =
-  if maybe False (== t) $ jsonTypeAt (unJCurs c) then d c
+  if Just t == jsonTypeAt (unJCurs c) then d c
   else throwing _TypeMismatch t
 
 -- | Higher order function for combining a folding function with repeated cursor
@@ -682,105 +667,6 @@ rightwardSnoc
   -> DecodeResult f s
 rightwardSnoc =
   foldCursor snoc moveRight1
-
--- | Run a 'Decoder' for the final result to see if you have your 'a' or an error.
-runDecode
-  :: Monad f
-  => Decoder f a
-  -> ParseFn
-  -> JCurs
-  -> f (Either (DecodeError, CursorHistory) a)
-runDecode dr p =
-  DI.runDecoderResultT . runDecoder dr p
-
--- |
--- Using the 'ParseFn', complete a 'DecodeResult' to find out if we have the type we're after. This
--- is mostly used internally to help build 'Decoder' structures. Exported as it may prove useful
--- when abstracting over the 'Decoder' types or other such shenanigans.
-runDecodeResult
-  :: Monad f
-  => ParseFn
-  -> DecodeResult f a
-  -> f (Either (DecodeError, CursorHistory) a)
-runDecodeResult p =
-  DI.runDecoderResultT
-  . flip runReaderT p
-  . unDecodeResult
-
--- | Basic usage of a 'Decoder' is to specialise the 'f' to be 'Identity', then
--- provide the 'ParseFn' and the 'ByteString' input. This will run the 'Decoder' to
--- try to parse and decode the JSON to the 'a' you require.
---
--- This function takes care of converting the 'ByteString' to a 'JCurs'.
---
--- @
--- simpleDecode (list int) myParseFn "[1,2,3]"
--- =
--- Right [1,2,3]
--- @
---
-simpleDecode
-  :: Decoder Identity a
-  -> ParseFn
-  -> ByteString
-  -> Either (DecodeError, CursorHistory) a
-simpleDecode d parseFn =
-  runPureDecode d parseFn
-  . mkCursor
-
--- | Helper function to handle wrapping up a parse failure using the given
--- parsing function. Intended to be used with the 'runDecode' or 'simpleDecode'
--- functions.
---
--- @
--- import Data.Attoparsec.ByteString (parseOnly)
---
--- simpleDecode (list int) (parseWith (parseOnly parseWaargonaut)) "[1,1,2]"
--- @
---
-parseWith
-  :: ( CharParsing f
-     , Show e
-     )
-  => (f a -> i -> Either e a)
-  -> f a
-  -> i
-  -> Either DecodeError a
-parseWith f p =
-  over _Left (ParseFailed . Text.pack . show) . f p
-
--- | Similar to the 'simpleDecode' function, however this function expects
--- you've already converted your input to a 'JCurs'.
-runPureDecode
-  :: Decoder Identity a
-  -> ParseFn
-  -> JCurs
-  -> Either (DecodeError, CursorHistory) a
-runPureDecode dr p =
-  runIdentity . runDecode dr p
-
--- | This function lets you override the parsing function that is being used in
--- a decoder for a different one. This means that when building your 'Decoder' you
--- are not bound to only using a single parsing function. If you have specific
--- needs for alternate parsers then you can use this function in your 'Decoder' to
--- make that change.
---
--- @
--- myTricksyObj = withCursor $ \curs -> do
---   curs' <- down curs
---   fA <- fromKey "normalFieldA" int curs'
---   fB <- fromKey "normalFieldB" text curs'
---   wB <- overrideParser handTunedParser $ fromKey "weirdFieldC" fieldCDecoder curs'
---   pure $ Foo fA fB wB
--- @
---
-overrideParser
-  :: Monad f
-  => ParseFn
-  -> DecodeResult f a
-  -> DecodeResult f a
-overrideParser parseOverride =
-  local (const parseOverride)
 
 -- | Decoder for some 'Integral' type. This conversion is walked through Mayan,
 -- I mean, 'Scientific' to try to avoid numeric explosion issues.

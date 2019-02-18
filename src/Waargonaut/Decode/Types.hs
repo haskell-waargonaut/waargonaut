@@ -14,6 +14,7 @@ module Waargonaut.Decode.Types
   , Decoder (..)
   , DecodeResult (..)
   , JCurs (..)
+  , mkCursor
   , jsonTypeAt
   , JsonType(..)
   ) where
@@ -37,8 +38,10 @@ import           Data.ByteString                       (ByteString)
 import           Data.Vector.Storable                  (Vector)
 
 import           HaskellWorks.Data.BalancedParens      (SimpleBalancedParens)
+import           HaskellWorks.Data.FromByteString      (fromByteString)
 import           HaskellWorks.Data.Json.Cursor         (JsonCursor (..))
-import           HaskellWorks.Data.Json.Type           (JsonType (..), JsonTypeAt (..))
+import           HaskellWorks.Data.Json.Type           (JsonType (..),
+                                                        JsonTypeAt (..))
 import           HaskellWorks.Data.Positioning         (Count)
 import           HaskellWorks.Data.RankSelect.Poppy512 (Poppy512)
 
@@ -58,8 +61,8 @@ type CursorHistory =
 type SuccinctCursor =
   JsonCursor ByteString Poppy512 (SimpleBalancedParens (Vector Word64))
 
--- | Another convenience alias for the type of the function we will use to parse the input string
--- into the 'Json' structure.
+-- Another convenience alias for the type of the function we will use to parse
+-- the input string into the 'Json' structure.
 type ParseFn =
   ByteString -> Either DecodeError Json
 
@@ -105,6 +108,11 @@ instance JCurs ~ t => Rewrapped JCurs t
 instance Wrapped JCurs where
   type Unwrapped JCurs = SuccinctCursor
   _Wrapped' = iso unJCurs JCurs
+
+-- | Take a 'ByteString' input and build an index of the JSON structure inside
+--
+mkCursor :: ByteString -> JCurs
+mkCursor = JCurs . fromByteString
 
 -- | Provide some of the type parameters that the underlying 'DecodeResultT'
 -- requires. This contains the state and error management as we walk around our

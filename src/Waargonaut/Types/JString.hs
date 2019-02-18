@@ -27,8 +27,8 @@ import           Prelude                 (Eq, Ord, Show, String, foldr)
 import           Control.Applicative     (Applicative, (*>), (<*))
 import           Control.Category        (id, (.))
 import           Control.Error.Util      (note)
-import           Control.Lens            (Prism', Choice, Rewrapped, Wrapped (..), iso,
-                                          prism, review)
+import           Control.Lens            (Prism', Profunctor, Rewrapped,
+                                          Wrapped (..), iso, prism, review)
 
 import           Data.Either             (Either (Right))
 import           Data.Foldable           (Foldable, foldMap)
@@ -50,7 +50,8 @@ import           Text.Parser.Combinators (many)
 import           Data.Text.Lazy.Builder  (Builder)
 import qualified Data.Text.Lazy.Builder  as TB
 
-import           Waargonaut.Types.JChar  (JChar, jCharBuilderTextL, parseJChar, jCharToChar, charToJChar,
+import           Waargonaut.Types.JChar  (JChar, charToJChar, jCharBuilderTextL,
+                                          jCharToChar, parseJChar,
                                           utf8CharToJChar)
 
 -- $setup
@@ -103,12 +104,12 @@ instance AsJString String where
     (\(JString' cx) -> V.toList $ jCharToChar <$> cx)
     (\x -> JString' . V.fromList <$> traverse (note x . charToJChar) x)
 
--- | Prism between a 'JString' and 'Text'.
+-- | Conversion between a 'JString' and 'Text'.
 --
 -- JSON strings a wider range of encodings than 'Text' and to be consistent with
 -- the 'Text' type, these invalid types are replaced with a placeholder value.
 --
-_JStringText :: (Choice p, Applicative f) => p Text (f Text) -> p JString (f JString)
+_JStringText :: (Profunctor p, Applicative f) => p Text (f Text) -> p JString (f JString)
 _JStringText = iso (Text.pack . review _JString) (JString' . V.fromList . fmap utf8CharToJChar . Text.unpack)
 
 -- | Parse a 'JString', storing escaped characters and any explicitly escaped
