@@ -5,7 +5,7 @@ module Waargonaut.Types.JChar.Unescaped
     Unescaped (..)
   , AsUnescaped (..)
 
-    -- * Parser / Builder
+    -- * Parser
   , parseUnescaped
   ) where
 

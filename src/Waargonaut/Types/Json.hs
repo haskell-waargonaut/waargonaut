@@ -20,8 +20,7 @@ module Waargonaut.Types.Json
     -- * Top level JSON type
   , Json (..)
 
-    -- * Parser / Builder
-  , waargonautBuilder
+    -- * Parser
   , parseWaargonaut
 
   -- * Traversals
@@ -35,7 +34,6 @@ module Waargonaut.Types.Json
   , oix
   , aix
   ) where
-
 
 import           Prelude                     (Eq, Int, Show)
 
@@ -58,26 +56,20 @@ import           Data.Foldable               (Foldable (..), asum)
 import           Data.Function               (flip)
 import           Data.Functor                (Functor (..))
 import           Data.Monoid                 (Monoid (..))
-import           Data.Semigroup              (Semigroup, (<>))
+import           Data.Semigroup              (Semigroup)
 import           Data.Traversable            (Traversable (..))
 import           Data.Tuple                  (uncurry)
 
 import           Data.Maybe                  (Maybe)
 import           Data.Text                   (Text)
 
-import           Data.Text.Lazy.Builder      (Builder)
-import qualified Data.Text.Lazy.Builder      as TB
-
 import           Text.Parser.Char            (CharParsing, text)
 
-import           Waargonaut.Types.JArray     (JArray (..), jArrayBuilder,
-                                              parseJArray)
-import           Waargonaut.Types.JNumber    (JNumber, jNumberBuilder,
-                                              parseJNumber)
-import           Waargonaut.Types.JObject    (JObject (..), jObjectBuilder,
-                                              parseJObject, _MapLikeObj)
-import           Waargonaut.Types.JString    (JString, jStringBuilder,
-                                              parseJString)
+import           Waargonaut.Types.JArray     (JArray (..), parseJArray)
+import           Waargonaut.Types.JNumber    (JNumber, parseJNumber)
+import           Waargonaut.Types.JObject    (JObject (..), parseJObject,
+                                              _MapLikeObj)
+import           Waargonaut.Types.JString    (JString, parseJString)
 import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
 
 -- $setup
@@ -216,18 +208,6 @@ jtypeWSTraversal = flip bitraverse pure
 -- | Traverse the possible values of a 'JType', skipping whitespace.
 jtypeTraversal :: Traversal (JType ws a) (JType ws a') a a'
 jtypeTraversal = bitraverse pure
-
--- | Using the provided whitespace builder, create a builder for a given 'JType'.
-jTypesBuilder
-  :: (WS -> Builder)
-  -> JType WS Json
-  -> Builder
-jTypesBuilder s (JNull tws)     = TB.fromText "null"                          <> s tws
-jTypesBuilder s (JBool b tws)   = TB.fromText (if b then "true" else "false") <> s tws
-jTypesBuilder s (JNum jn tws)   = jNumberBuilder jn                             <> s tws
-jTypesBuilder s (JStr js tws)   = jStringBuilder js                             <> s tws
-jTypesBuilder s (JArr js tws)   = jArrayBuilder s waargonautBuilder js          <> s tws
-jTypesBuilder s (JObj jobj tws) = jObjectBuilder s waargonautBuilder jobj       <> s tws
 
 -- |
 -- A 'Control.Lens.Traversal'' over the 'a' at the given 'Text' key on a JSON object.
@@ -390,14 +370,6 @@ parseJType =
     , parseJArr
     , parseJObj
     ]
-
--- | Using the given whitespace builder, create a builder for a given 'Json' value.
-waargonautBuilder
-  :: (WS -> Builder)
-  -> Json
-  -> Builder
-waargonautBuilder ws (Json jt) =
-  jTypesBuilder ws jt
 
 -- | Parse to a 'Json' value, keeping all of the information about the leading
 -- and trailing whitespace.

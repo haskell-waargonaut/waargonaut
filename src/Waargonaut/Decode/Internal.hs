@@ -47,58 +47,58 @@ module Waargonaut.Decode.Internal
   , module Waargonaut.Decode.ZipperMove
   ) where
 
-import           Control.Applicative           (liftA2, (<|>))
-import           Control.Lens                  (Rewrapped, Wrapped (..), (%=),
-                                                _1, _Wrapped)
-import qualified Control.Lens                  as L
-import           Control.Monad                 ((>=>))
-import           Control.Monad.Except          (ExceptT (..), MonadError (..),
-                                                liftEither, runExceptT)
-import           Control.Monad.State           (MonadState (..), StateT (..))
-import           Control.Monad.Trans.Class     (MonadTrans (lift))
+import           Control.Applicative             (liftA2, (<|>))
+import           Control.Lens                    (Rewrapped, Wrapped (..), (%=),
+                                                  _1, _Wrapped)
+import qualified Control.Lens                    as L
+import           Control.Monad                   ((>=>))
+import           Control.Monad.Except            (ExceptT (..), MonadError (..),
+                                                  liftEither, runExceptT)
+import           Control.Monad.State             (MonadState (..), StateT (..))
+import           Control.Monad.Trans.Class       (MonadTrans (lift))
 
-import           Control.Monad.Error.Hoist     ((<!?>))
-import           Control.Monad.Morph           (MFunctor (..), MMonad (..))
+import           Control.Monad.Error.Hoist       ((<!?>))
+import           Control.Monad.Morph             (MFunctor (..), MMonad (..))
 
-import           Data.Bifunctor                (first)
-import qualified Data.Foldable                 as F
-import           Data.Functor                  (($>))
-import           Data.Semigroup                ((<>))
-import           Data.Sequence                 (Seq, fromList)
+import           Data.Bifunctor                  (first)
+import qualified Data.Foldable                   as F
+import           Data.Functor                    (($>))
+import           Data.Semigroup                  ((<>))
+import           Data.Sequence                   (Seq, fromList)
 
-import           Data.ByteString               (ByteString)
-import qualified Data.ByteString.Lazy          as BL
-import qualified Data.ByteString.Lazy.Builder  as BB
-import           Data.Text                     (Text)
+import           Data.ByteString                 (ByteString)
+import qualified Data.ByteString.Lazy            as BL
+import qualified Data.ByteString.Lazy.Builder    as BB
+import           Data.Text                       (Text)
 
-import           Data.Map                      (Map)
-import qualified Data.Map                      as Map
+import           Data.Map                        (Map)
+import qualified Data.Map                        as Map
 
-import qualified Data.Vector                   as V
+import qualified Data.Vector                     as V
 
-import qualified Data.Witherable               as Wither
+import qualified Data.Witherable                 as Wither
 
-import           Data.Scientific               (Scientific)
-import qualified Data.Scientific               as Sci
+import           Data.Scientific                 (Scientific)
+import qualified Data.Scientific                 as Sci
 
-import           Natural                       (Natural, _Natural)
+import           Natural                         (Natural, _Natural)
 
-import           Waargonaut.Types              (AsJType (..), JString,
-                                                jCharBuilderByteStringL,
-                                                jNumberToScientific,
-                                                jsonAssocKey, jsonAssocVal,
-                                                _JStringText)
+import           Waargonaut.Types                (AsJType (..), JString,
+                                                  jNumberToScientific,
+                                                  jsonAssocKey, jsonAssocVal,
+                                                  _JStringText)
 
-import           Waargonaut.Types.CommaSep     (toList)
-import           Waargonaut.Types.JChar        (jCharToChar, jCharToUtf8Char)
+import           Waargonaut.Types.CommaSep       (toList)
+import           Waargonaut.Types.JChar          (jCharToChar, jCharToUtf8Char)
 
-import           Text.PrettyPrint.Annotated.WL (Doc, (<+>))
+import           Text.PrettyPrint.Annotated.WL   (Doc, (<+>))
 
-import           Waargonaut.Decode.Error       (AsDecodeError (..),
-                                                DecodeError (..))
-import           Waargonaut.Decode.ZipperMove  (ZipperMove (..), ppZipperMove)
+import           Waargonaut.Decode.Error         (AsDecodeError (..),
+                                                  DecodeError (..))
+import           Waargonaut.Decode.ZipperMove    (ZipperMove (..), ppZipperMove)
 
-
+import           Waargonaut.Encode.Builder       (bsBuilder)
+import           Waargonaut.Encode.Builder.JChar (jCharBuilder)
 -- |
 -- Track the history of the cursor as we move around the zipper.
 --
@@ -312,7 +312,7 @@ strictByteString' = fmap BL.toStrict . lazyByteString'
 -- | Try to decode a 'Data.ByteString.Lazy.ByteString' value from some 'Json' or value.
 lazyByteString' :: AsJType a ws a => a -> Maybe BL.ByteString
 lazyByteString' = L.preview (_JStr . _1 . _Wrapped . L.to mkBS)
-  where mkBS = BB.toLazyByteString . foldMap jCharBuilderByteStringL
+  where mkBS = BB.toLazyByteString . foldMap (jCharBuilder bsBuilder)
 
 -- | Decoder for a 'Char' value that cannot contain values in the range U+D800
 -- to U+DFFF. This decoder will fail if the 'Char' is outside of this range.

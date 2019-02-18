@@ -59,7 +59,7 @@ tCase
   -> Text
   -> TestTree
 tCase nm enc a expected = testCase nm $
-  E.simplePureEncodeNoSpaces enc a @?= expected
+  E.simplePureEncodeTextNoSpaces enc a @?= expected
 
 encoderTests :: TestTree
 encoderTests = testGroup "Encoder"

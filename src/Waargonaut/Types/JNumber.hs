@@ -23,56 +23,50 @@ module Waargonaut.Types.JNumber
   , _JNumberInt
   , _JNumberScientific
 
-    -- * Parser / Builder
-  , jNumberBuilder
+    -- * Parser
   , parseJNumber
 
     -- * Other
   , jNumberToScientific
+  , jIntToDigits
   ) where
 
-import           Prelude                    (Bool (..), Eq, Int, Integral, Ord,
-                                             Show, abs, fromIntegral, maxBound,
-                                             minBound, negate, (-), (<), (>),
-                                             (||), (==))
+import           Prelude                 (Bool (..), Eq, Int, Integral, Ord,
+                                          Show, abs, fromIntegral, maxBound,
+                                          minBound, negate, (-), (<), (==), (>),
+                                          (||))
 
-import           Data.Scientific            (Scientific)
-import qualified Data.Scientific            as Sci
+import           Data.Scientific         (Scientific)
+import qualified Data.Scientific         as Sci
 
-import           Control.Category           (id, (.))
-import           Control.Lens               (Lens', Prism', Rewrapped,
-                                             Wrapped (..), iso, prism, ( # ),
-                                             (^?), _Just, _Wrapped)
+import           Control.Category        (id, (.))
+import           Control.Lens            (Lens', Prism', Rewrapped,
+                                          Wrapped (..), iso, prism, ( # ), (^?),
+                                          _Just, _Wrapped)
 
-import           Control.Applicative        (pure, (*>), (<$), (<$>), (<*>))
-import           Control.Monad              (Monad, (=<<))
+import           Control.Applicative     (pure, (*>), (<$), (<$>), (<*>))
+import           Control.Monad           (Monad, (=<<))
 
-import           Control.Error.Util         (note)
+import           Control.Error.Util      (note)
 
-import           Data.Either                (Either (..))
-import           Data.Function              (const, ($))
-import           Data.Functor               (fmap)
-import           Data.Maybe                 (Maybe (..), fromMaybe, isJust,
-                                             maybe)
-import           Data.Monoid                (mappend, mempty)
-import           Data.Semigroup             ((<>))
-import           Data.Traversable           (traverse)
-import           Data.Tuple                 (uncurry)
+import           Data.Either             (Either (..))
+import           Data.Function           (const, ($))
+import           Data.Functor            (fmap)
+import           Data.Maybe              (Maybe (..), fromMaybe, isJust, maybe)
+import           Data.Semigroup          ((<>))
+import           Data.Traversable        (traverse)
+import           Data.Tuple              (uncurry)
 
-import           Data.List.NonEmpty         (NonEmpty ((:|)), some1)
-import qualified Data.List.NonEmpty         as NE
+import           Data.List.NonEmpty      (NonEmpty ((:|)), some1)
+import qualified Data.List.NonEmpty      as NE
 
-import           Data.Foldable              (asum, foldMap, length)
+import           Data.Foldable           (asum, length)
 
-import           Data.Digit                 (DecDigit)
-import qualified Data.Digit                 as D
+import           Data.Digit              (DecDigit)
+import qualified Data.Digit              as D
 
-import           Text.Parser.Char           (CharParsing, char)
-import           Text.Parser.Combinators    (many, optional)
-
-import           Data.Text.Lazy.Builder     (Builder)
-import qualified Data.Text.Lazy.Builder     as TB
-import qualified Data.Text.Lazy.Builder.Int as TB
+import           Text.Parser.Char        (CharParsing, char)
+import           Text.Parser.Combinators (many, optional)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -345,12 +339,6 @@ parseE =
   , EE <$ char 'E'
   ]
 
-eBuilder
-  :: E
-  -> Builder
-eBuilder Ee = TB.singleton 'e'
-eBuilder EE = TB.singleton 'E'
-
 -- | Parse the fractional component of a JSON number.
 --
 -- >>> testparsetheneof parseFrac "1"
@@ -385,13 +373,6 @@ parseFrac ::
 parseFrac =
   Frac <$> some1 D.parseDecimal
 
--- | Builder for the fractional component.
-fracBuilder
-  :: Frac
-  -> Builder
-fracBuilder (Frac digs) =
-  digitsBuilder digs
-
 -- | Parse the full exponent portion of a JSON number.
 --
 -- >>> testparsethen parseExp "e10x"
@@ -412,31 +393,6 @@ parseExp = Exp
   <$> parseE
   <*> optional (asum [False <$ char '+', True <$ char '-'])
   <*> some1 D.parseDecimal
-
--- | Helper to provide the right symbol for the sign of the exponent.
-getExpSymbol
-  :: Maybe Bool
-  -> Builder
-getExpSymbol (Just True)  = TB.singleton '-'
-getExpSymbol (Just False) = TB.singleton '+'
-getExpSymbol _            = mempty
-
--- | Builder for a list of digits.
-digitsBuilder
-  :: NonEmpty DecDigit
-  -> Builder
-digitsBuilder =
-  foldMap (int8 . (D.integralDecimal #))
-  where
-    int8 :: Int -> Builder
-    int8 = TB.decimal
-
--- | Builder for the exponent portion.
-expBuilder
-  :: Exp
-  -> Builder
-expBuilder (Exp e sign digs) =
-  eBuilder e <> getExpSymbol sign <> digitsBuilder digs
 
 -- | Parse a JSON numeric value.
 --
@@ -489,28 +445,6 @@ parseJNumber = JNumber
   <*> parseJInt
   <*> optional (char '.' *> parseFrac)
   <*> optional parseExp
-
--- | Printing of JNumbers
---
--- >>> toLazyText $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = D.DecDigit1 :| [D.DecDigit0]})})
--- "3.45e+10"
---
--- >>> toLazyText $ jNumberBuilder (JNumber {_minus = True, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.DecDigit0 :| [D.x2]})})
--- "-3.45e-02"
---
--- >>> toLazyText $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit0 [D.DecDigit0], _frac = Nothing, _expn = Nothing})
--- "00"
---
-jNumberBuilder
-  :: JNumber
-  -> Builder
-jNumberBuilder (JNumber sign digs mfrac mexp) =
-  s <> digits <> frac' <> expo
-  where
-    s      = if sign then TB.singleton '-' else mempty
-    digits = digitsBuilder . jIntToDigits $ digs
-    frac'  = foldMap (mappend (TB.singleton '.') . fracBuilder) mfrac
-    expo   = foldMap expBuilder mexp
 
 -- | Returns a normalised 'Scientific' value or Nothing if the exponent
 --   is out of the range @[minBound,maxBound::Int]@

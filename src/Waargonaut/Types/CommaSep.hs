@@ -21,11 +21,9 @@ module Waargonaut.Types.CommaSep
   , HasElem (..)
   , Comma (..)
 
-    -- * Parse / Build
+    -- * Parse
   , parseComma
-  , commaBuilder
   , parseCommaSeparated
-  , commaSeparatedBuilder
 
     -- * Conversion
   , _CommaSeparated
@@ -60,7 +58,6 @@ import           Control.Monad                   (Monad)
 import           Data.Bifoldable                 (Bifoldable (bifoldMap))
 import           Data.Bifunctor                  (Bifunctor (bimap))
 import           Data.Bitraversable              (Bitraversable (bitraverse))
-import           Data.Char                       (Char)
 import           Data.Either                     (Either (..))
 import           Data.Foldable                   (Foldable, asum, foldMap,
                                                   foldr, length)
@@ -74,18 +71,14 @@ import           Data.Tuple                      (uncurry)
 
 import qualified Data.Vector                     as V
 
-import           Data.Text.Lazy.Builder          (Builder)
-import qualified Data.Text.Lazy.Builder          as TB
-
 import           Text.Parser.Char                (CharParsing)
 
 import           Data.Witherable                 (Filterable (..),
                                                   Witherable (..))
 
 import           Waargonaut.Types.CommaSep.Elem  (Comma (..), Elem (..),
-                                                  HasElem (..), commaBuilder,
-                                                  commaTrailingBuilder,
-                                                  parseComma, _ElemTrailingIso)
+                                                  HasElem (..), parseComma,
+                                                  _ElemTrailingIso)
 
 import           Waargonaut.Types.CommaSep.Elems (Elems (..), HasElems (..),
                                                   consElems,
@@ -209,27 +202,6 @@ toList :: CommaSeparated ws a -> [a]
 toList = maybe [] g . (^. _CommaSeparated . _2) where
   g e = snoc (e ^.. elemsElems . traverse . elemVal) (e ^. elemsLast . elemVal)
 {-# INLINE toList #-}
-
--- | Using the given builders for the whitespace and elements ('a'), create a
--- builder for a 'CommaSeparated'.
-commaSeparatedBuilder
-  :: forall ws a. Char
-  -> Char
-  -> (ws -> Builder)
-  -> (a -> Builder)
-  -> CommaSeparated ws a
-  -> Builder
-commaSeparatedBuilder op fin wsB aB (CommaSeparated lws sepElems) =
-  TB.singleton op <> wsB lws <> maybe mempty buildElems sepElems <> TB.singleton fin
-  where
-    elemBuilder
-      :: Foldable f
-      => Elem f ws a -> Builder
-    elemBuilder (Elem e eTrailing) =
-      aB e <> commaTrailingBuilder wsB eTrailing
-
-    buildElems (Elems es elst) =
-      foldMap elemBuilder es <> elemBuilder elst
 
 -- | Parse a 'CommaSeparated' data structure.
 --

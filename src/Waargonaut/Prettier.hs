@@ -13,40 +13,44 @@ module Waargonaut.Prettier
   , simpleEncodePretty
   ) where
 
-import           Prelude                     (Eq, Show, (+), (-))
+import           Prelude                              (Eq, Show, (+), (-))
 
-import           Control.Applicative         (Applicative, (<$>))
-import           Control.Category            (id, (.))
-import           Control.Lens                (Traversal', over, traverseOf,
-                                              (%~), (.~), _1, _2, _Just,
-                                              _Wrapped)
+import           Control.Applicative                  (Applicative, (<$>))
+import           Control.Category                     (id, (.))
+import           Control.Lens                         (Traversal', over,
+                                                       traverseOf, (%~), (.~),
+                                                       _1, _2, _Just, _Wrapped)
 
-import           Natural                     (Natural, minus, successor', zero',
-                                              _Natural)
+import           Natural                              (Natural, minus,
+                                                       successor', zero',
+                                                       _Natural)
 
-import qualified Data.Text.Lazy              as LT
-import qualified Data.Text.Lazy.Builder      as TB
+import qualified Data.Text.Lazy                       as LT
+import qualified Data.Text.Lazy.Builder               as TB
 
-import           Data.Bool                   (Bool, bool)
-import           Data.Foldable               (elem, length)
-import           Data.Function               (($))
-import           Data.Functor                (fmap)
-import           Data.Maybe                  (maybe)
-import           Data.Semigroup              ((<>))
-import           Data.Traversable            (traverse)
-import qualified Data.Vector                 as V
+import           Data.Bool                            (Bool, bool)
+import           Data.Foldable                        (elem, length)
+import           Data.Function                        (($))
+import           Data.Functor                         (fmap)
+import           Data.Maybe                           (maybe)
+import           Data.Semigroup                       ((<>))
+import           Data.Traversable                     (traverse)
+import qualified Data.Vector                          as V
 
-import qualified Control.Lens                as L
-import qualified Control.Lens.Plated         as P
+import qualified Control.Lens                         as L
+import qualified Control.Lens.Plated                  as P
 
-import           Waargonaut.Encode           (Encoder, runEncoder)
-import           Waargonaut.Types.CommaSep   (Elems)
-import qualified Waargonaut.Types.CommaSep   as CS
-import           Waargonaut.Types.JObject    (HasJAssoc (..), JAssoc)
-import           Waargonaut.Types.Json       (AsJType (..), JType (..), Json,
-                                              jsonTraversal, waargonautBuilder)
-import           Waargonaut.Types.Whitespace (WS (..), Whitespace (..),
-                                              wsBuilder)
+import           Waargonaut.Encode                    (Encoder, runEncoder)
+import           Waargonaut.Types.CommaSep            (Elems)
+import qualified Waargonaut.Types.CommaSep            as CS
+import           Waargonaut.Types.JObject             (HasJAssoc (..), JAssoc)
+import           Waargonaut.Types.Json                (AsJType (..), JType (..),
+                                                       Json, jsonTraversal)
+import           Waargonaut.Types.Whitespace          (WS (..), Whitespace (..))
+
+import           Waargonaut.Encode.Builder            (textBuilder,
+                                                       waargonautBuilder)
+import           Waargonaut.Encode.Builder.Whitespace (wsBuilder)
 
 -- | Some choices for how the Json is indented.
 data InlineOption
@@ -82,7 +86,7 @@ simpleEncodePretty
   -> a
   -> f LT.Text
 simpleEncodePretty io step ind enc =
-  fmap (TB.toLazyText . waargonautBuilder wsBuilder . prettyJson io step ind)
+  fmap (TB.toLazyText . waargonautBuilder wsBuilder textBuilder . prettyJson io step ind)
   . runEncoder enc
 
 objelems :: AsJType r WS a => Traversal' r (Elems WS (JAssoc WS a))

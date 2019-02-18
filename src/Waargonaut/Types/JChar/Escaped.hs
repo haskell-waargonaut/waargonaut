@@ -13,7 +13,7 @@ module Waargonaut.Types.JChar.Escaped
     Escaped (..)
   , AsEscaped (..)
 
-    -- * Parser / Builder
+    -- * Parser
   , parseEscaped
 
     -- * Conversion
@@ -26,7 +26,8 @@ import           Prelude                          (Eq, Ord, Show)
 import           Control.Applicative              (pure, (*>), (<|>))
 import           Control.Category                 (id, (.))
 
-import           Control.Lens                     (Prism', prism, preview, to, _Just)
+import           Control.Lens                     (Prism', preview, prism, to,
+                                                   _Just)
 
 import           Data.Foldable                    (Foldable, asum)
 import           Data.Functor                     (Functor, (<$>))
@@ -42,10 +43,12 @@ import           Data.Digit                       (HeXDigit, HeXaDeCiMaL)
 
 import           Text.Parser.Char                 (CharParsing, char)
 
-import           Waargonaut.Types.JChar.HexDigit4 (HexDigit4, hexDigit4ToChar, charToHexDigit4,
+import           Waargonaut.Types.JChar.HexDigit4 (HexDigit4, charToHexDigit4,
+                                                   hexDigit4ToChar,
                                                    parseHexDigit4)
-import           Waargonaut.Types.Whitespace      (Whitespace (..), _WhitespaceChar,
-                                                   unescapedWhitespaceChar)
+import           Waargonaut.Types.Whitespace      (Whitespace (..),
+                                                   unescapedWhitespaceChar,
+                                                   _WhitespaceChar)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
