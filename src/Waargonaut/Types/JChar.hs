@@ -16,11 +16,8 @@ module Waargonaut.Types.JChar
   , AsJChar (..)
   , HasJChar (..)
 
-    -- * Parser / Builder
+    -- * Parser
   , parseJChar
-  , jCharBuilderWith
-  , jCharBuilderTextL
-  , jCharBuilderByteStringL
 
     -- * Conversion
   , utf8CharToJChar
@@ -34,32 +31,23 @@ import           Prelude                          (Char, Eq, Ord, Show,
 
 import           Control.Category                 (id, (.))
 import           Control.Lens                     (Lens', Prism', preview,
-                                                   prism, review, ( # ))
+                                                   prism, review)
 
 import           Control.Applicative              ((<$>), (<|>))
 
 import           Data.Bits                        ((.&.))
 import           Data.Char                        (ord)
 import           Data.Either                      (Either (..))
-import           Data.Foldable                    (Foldable, asum, foldMap)
+import           Data.Foldable                    (Foldable, asum)
 import           Data.Function                    (($))
 import           Data.Functor                     (Functor)
 import           Data.Maybe                       (Maybe (..), fromMaybe)
-import           Data.Monoid                      (Monoid)
-import           Data.Semigroup                   (Semigroup, (<>))
 import           Data.Traversable                 (Traversable)
 
 import qualified Data.Text.Internal               as Text
 
 import           Data.Digit                       (HeXDigit, HeXaDeCiMaL)
 import qualified Data.Digit                       as D
-
-import           Data.Text.Lazy.Builder           (Builder)
-import qualified Data.Text.Lazy.Builder           as TB
-
-import qualified Data.ByteString.Lazy.Builder     as BB
-
-import           Waargonaut.Types.Whitespace      (unescapedWhitespaceChar)
 
 import           Text.Parser.Char                 (CharParsing)
 
@@ -181,32 +169,3 @@ parseJChar = asum
   [ EscapedJChar <$> parseEscaped
   , UnescapedJChar <$> parseUnescaped
   ]
-
--- | Using the given function, return the builder for a single 'JChar'.
-jCharBuilderWith
-  :: ( Monoid builder
-     , Semigroup builder
-     , HeXaDeCiMaL digit
-     )
-  => (Char -> builder)
-  -> JChar digit
-  -> builder
-jCharBuilderWith f (UnescapedJChar c) = f (review _Unescaped c)
-jCharBuilderWith f (EscapedJChar jca) = f '\\' <> case jca of
-    QuotationMark           -> f '"'
-    ReverseSolidus          -> f '\\'
-    Solidus                 -> f '/'
-    Backspace               -> f 'b'
-    (WhiteSpace ws)         -> f (unescapedWhitespaceChar ws)
-    Hex (HexDigit4 a b c d) -> f 'u' <> foldMap hexChar [a,b,c,d]
-  where
-    hexChar =
-      f . (D.charHeXaDeCiMaL #)
-
--- | Create a Lazy 'Text' 'Data.Text.Lazy.Builder' for the given 'JChar'.
-jCharBuilderTextL :: HeXaDeCiMaL digit => JChar digit -> Builder
-jCharBuilderTextL = jCharBuilderWith TB.singleton
-
--- | Create a Lazy 'ByteString' 'Data.ByteString.Lazy.Builder' for a given 'JChar'
-jCharBuilderByteStringL :: HeXaDeCiMaL digit => JChar digit -> BB.Builder
-jCharBuilderByteStringL = jCharBuilderWith BB.charUtf8

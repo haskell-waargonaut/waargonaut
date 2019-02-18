@@ -103,6 +103,16 @@ library
 
                      , Waargonaut.Encode.Types
 
+                     , Waargonaut.Encode.Builder.JChar
+                     , Waargonaut.Encode.Builder.Whitespace
+                     , Waargonaut.Encode.Builder.JString
+                     , Waargonaut.Encode.Builder.JNumber
+                     , Waargonaut.Encode.Builder.JObject
+                     , Waargonaut.Encode.Builder.JArray
+                     , Waargonaut.Encode.Builder.CommaSep
+                     , Waargonaut.Encode.Builder.Types
+                     , Waargonaut.Encode.Builder
+
                      , Waargonaut.Decode
                      , Waargonaut.Decode.Traversal
 

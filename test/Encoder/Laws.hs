@@ -19,7 +19,7 @@ import qualified Waargonaut.Encode          as E
 import qualified Laws
 
 runSE :: ShowEncoder a -> a -> Text
-runSE (SE e) = E.simplePureEncodeNoSpaces e
+runSE (SE e) = E.simplePureEncodeTextNoSpaces e
 
 newtype ShowEncoder a = SE (Encoder Identity a)
 

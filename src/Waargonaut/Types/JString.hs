@@ -17,9 +17,8 @@ module Waargonaut.Types.JString
   , _JStringText
   , stringToJString
 
-    -- * Parser / Builder
+    -- * Parser
   , parseJString
-  , jStringBuilder
   ) where
 
 import           Prelude                 (Eq, Ord, Show, String, foldr)
@@ -31,10 +30,9 @@ import           Control.Lens            (Prism', Profunctor, Rewrapped,
                                           Wrapped (..), iso, prism, review)
 
 import           Data.Either             (Either (Right))
-import           Data.Foldable           (Foldable, foldMap)
+import           Data.Foldable           (Foldable)
 import           Data.Function           (($))
 import           Data.Functor            (Functor, fmap, (<$>))
-import           Data.Semigroup          ((<>))
 import           Data.Text               (Text)
 import qualified Data.Text               as Text
 import           Data.Traversable        (Traversable, traverse)
@@ -47,12 +45,8 @@ import           Data.Digit              (HeXDigit)
 import           Text.Parser.Char        (CharParsing, char)
 import           Text.Parser.Combinators (many)
 
-import           Data.Text.Lazy.Builder  (Builder)
-import qualified Data.Text.Lazy.Builder  as TB
-
-import           Waargonaut.Types.JChar  (JChar, charToJChar, jCharBuilderTextL,
-                                          jCharToChar, parseJChar,
-                                          utf8CharToJChar)
+import           Waargonaut.Types.JChar  (JChar, charToJChar, jCharToChar,
+                                          parseJChar, utf8CharToJChar)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -140,32 +134,6 @@ parseJString
   => f JString
 parseJString =
   char '"' *> (JString' . V.fromList <$> many parseJChar) <* char '"'
-
--- | Builder for a 'JString'.
---
--- >>> toLazyText $ jStringBuilder ((JString' V.empty) :: JString)
--- "\"\""
---
--- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (Unescaped 'a'),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c')]) :: JString)
--- "\"abc\""
---
--- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (Unescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c')]) :: JString)
--- "\"a\\rbc\""
---
--- >>> toLazyText $ jStringBuilder ((JString' $ V.fromList [UnescapedJChar (Unescaped 'a'),EscapedJChar (WhiteSpace CarriageReturn),UnescapedJChar (Unescaped 'b'),UnescapedJChar (Unescaped 'c'),EscapedJChar (Hex (HexDigit4 HeXDigita HeXDigitb HeXDigit1 HeXDigit2)),EscapedJChar (WhiteSpace NewLine),UnescapedJChar (Unescaped 'd'),UnescapedJChar (Unescaped 'e'),UnescapedJChar (Unescaped 'f'),EscapedJChar QuotationMark]) :: JString)
--- "\"a\\rbc\\uab12\\ndef\\\"\""
---
--- >>> toLazyText $ jStringBuilder ((JString' $ V.singleton (UnescapedJChar (Unescaped 'a'))) :: JString)
--- "\"a\""
---
--- >>> toLazyText $ jStringBuilder (JString' $ V.singleton (EscapedJChar ReverseSolidus) :: JString)
--- "\"\\\\\""
---
-jStringBuilder
-  :: JString
-  -> Builder
-jStringBuilder (JString' jcs) =
-  TB.singleton '\"' <> foldMap jCharBuilderTextL jcs <> TB.singleton '\"'
 
 -- | Convert a 'String' to a 'JString'.
 stringToJString :: String -> JString

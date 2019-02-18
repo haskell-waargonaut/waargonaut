@@ -34,5 +34,5 @@ roundTripSimple
   -> b
   -> g (Either (DecodeError, CursorHistory) Bool)
 roundTripSimple f e d a = do
-  encodedA <- E.simpleEncodeNoSpaces e a
+  encodedA <- E.simpleEncodeTextNoSpaces e a
   fmap (== a) <$> D.decodeFromText f d (TextL.toStrict encodedA)

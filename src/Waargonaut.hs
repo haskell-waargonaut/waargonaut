@@ -35,42 +35,49 @@ module Waargonaut
 
   ) where
 
-import           Prelude                   (Bool, Show)
+import           Prelude                              (Bool, Show)
 
-import           Control.Applicative       (Applicative)
-import           Control.Category          ((.))
-import           Control.Error.Util        (note)
-import           Control.Lens              (Prism', folded, prism, review, preview,
-                                            ( # ), (^..), (^?), _1, _Wrapped)
-import           Control.Monad             (Monad)
-import           Data.Function             (const, ($))
-import           Data.Functor              ((<$), (<$>))
-import           Data.Scientific           (Scientific)
+import           Control.Applicative                  (Applicative)
+import           Control.Category                     ((.))
+import           Control.Error.Util                   (note)
+import           Control.Lens                         (Prism', folded, preview,
+                                                       prism, review, ( # ),
+                                                       (^..), (^?), _1,
+                                                       _Wrapped)
+import           Control.Monad                        (Monad)
+import           Data.Function                        (const, ($))
+import           Data.Functor                         ((<$), (<$>))
+import           Data.Scientific                      (Scientific)
 
-import           Data.Bifunctor            (first)
-import           Data.Either               (Either (..))
-import           Data.Maybe                (maybe)
-import           Data.Monoid               (mempty)
+import           Data.Bifunctor                       (first)
+import           Data.Either                          (Either (..))
+import           Data.Maybe                           (maybe)
+import           Data.Monoid                          (mempty)
 
-import           Text.Parser.Char          (CharParsing)
+import           Text.Parser.Char                     (CharParsing)
 
-import           Data.Text                 (Text)
-import qualified Data.Text                 as T
-import qualified Data.Text.Lazy            as TL
-import qualified Data.Text.Lazy.Encoding   as TLE
+import           Data.Text                            (Text)
+import qualified Data.Text                            as T
+import qualified Data.Text.Lazy                       as TL
 
-import           Data.ByteString           (ByteString)
-import qualified Data.ByteString.Lazy      as BL
+import           Data.ByteString                      (ByteString)
+import qualified Data.ByteString.Lazy                 as BL
+import qualified Data.ByteString.Lazy.Builder         as BB
 
-import qualified Waargonaut.Types.CommaSep as CS
-import           Waargonaut.Types.JString  (_JStringText)
+import qualified Waargonaut.Types.CommaSep            as CS
+import           Waargonaut.Types.JString             (_JStringText)
 
-import           Waargonaut.Types.JNumber  (_JNumberScientific)
-import           Waargonaut.Types.Json     (AsJType (..), JType (..), Json (..),
-                                            parseWaargonaut, waargonautBuilder)
+import           Waargonaut.Types.JNumber             (_JNumberScientific)
+import           Waargonaut.Types.Json                (AsJType (..), JType (..),
+                                                       Json (..),
+                                                       parseWaargonaut)
 
-import qualified Waargonaut.Decode         as D
-import qualified Waargonaut.Encode         as E
+import           Waargonaut.Encode.Builder            (bsBuilder,
+                                                       waargonautBuilder)
+import           Waargonaut.Encode.Builder.Whitespace (wsBuilder)
+
+import qualified Waargonaut.Decode                    as D
+import qualified Waargonaut.Encode                    as E
 
 _ByteStringJson
   :: ( CharParsing g
@@ -80,7 +87,7 @@ _ByteStringJson
   => (forall a. g a -> ByteString -> Either e a)
   -> Prism' ByteString Json
 _ByteStringJson pf = prism
-  (BL.toStrict . TLE.encodeUtf8 . E.simplePureEncode E.json)
+  (BL.toStrict . E.simplePureEncodeWith bsBuilder BB.toLazyByteString wsBuilder E.json)
   (\b -> first (const b) $ D.pureDecodeFromByteString pf D.json b)
 
 -- | Specialised to 'BS.ByteString'
@@ -92,7 +99,7 @@ _TextJson
   => (forall a. g a -> Text -> Either e a)
   -> Prism' Text Json
 _TextJson pf = prism
-  (TL.toStrict . E.simplePureEncode E.json)
+  (TL.toStrict . E.simplePureEncodeText E.json)
   (\b -> first (const b) $ D.pureDecodeFromText pf D.json b)
 
 -- | 'Prism'' between some 'Json' and a 'Scientific' value

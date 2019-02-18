@@ -14,17 +14,15 @@ module Waargonaut.Types.CommaSep.Elem
 
   , _ElemTrailingIso
 
-    -- * Parse / Build
-  , commaBuilder
+    -- * Parse
   , parseComma
   , parseCommaTrailingMaybe
-  , commaTrailingBuilder
   ) where
 
 import           Prelude                 (Eq, Show (showsPrec), showString,
                                           shows, (&&), (==))
 
-import           Control.Applicative     (Applicative (..), pure, (<*>), liftA2)
+import           Control.Applicative     (Applicative (..), liftA2, pure, (<*>))
 import           Control.Category        (id, (.))
 
 import           Control.Lens            (Iso, Iso', Lens', from, iso, (^.))
@@ -37,14 +35,9 @@ import           Data.Functor            (Functor, fmap, (<$), (<$>))
 import           Data.Functor.Classes    (Eq1, Show1, eq1, showsPrec1)
 import           Data.Maybe              (Maybe (..), fromMaybe)
 import           Data.Monoid             (Monoid (..), mempty)
-import           Data.Semigroup          ((<>))
 import           Data.Traversable        (Traversable, traverse)
-import           Data.Tuple              (snd)
 
 import           Data.Functor.Identity   (Identity (..))
-
-import           Data.Text.Lazy.Builder  (Builder)
-import qualified Data.Text.Lazy.Builder  as TB
 
 import           Text.Parser.Char        (CharParsing)
 import qualified Text.Parser.Char        as C
@@ -61,11 +54,6 @@ import qualified Text.Parser.Combinators as C
 -- | Unary type to represent a comma.
 data Comma = Comma
   deriving (Eq, Show)
-
--- | Builder for UTF8 Comma
-commaBuilder :: Builder
-commaBuilder = TB.singleton ','
-{-# INLINE commaBuilder #-}
 
 -- | Parse a single comma (,)
 parseComma :: CharParsing f => f Comma
@@ -89,15 +77,6 @@ parseCommaTrailingMaybe
   -> f (Maybe (Comma, ws))
 parseCommaTrailingMaybe =
   C.optional . liftA2 (,) parseComma
-
--- | Builder for a comma and trailing whitespace combination.
-commaTrailingBuilder
-  :: Foldable f
-  => (ws -> Builder)
-  -> f (Comma, ws)
-  -> Builder
-commaTrailingBuilder wsB =
-  foldMap ((commaBuilder <>) . wsB . snd)
 
 -- | Data type to represent a single element in a 'CommaSeparated' list. Carries
 -- information about it's own trailing whitespace. Denoted by the 'f'.

@@ -25,8 +25,7 @@ module Waargonaut.Types.JObject
   , fromMapLikeObj
   , _MapLikeObj
 
-    -- * Parser / Builder
-  , jObjectBuilder
+    -- * Parser
   , parseJObject
   ) where
 
@@ -56,19 +55,15 @@ import           Data.Semigroup                  (Semigroup ((<>)))
 import           Data.Text                       (Text)
 import           Data.Traversable                (Traversable, traverse)
 
-import           Data.Text.Lazy.Builder          (Builder)
-
 import qualified Data.Witherable                 as W
 
 import           Text.Parser.Char                (CharParsing, char)
 
 import           Waargonaut.Types.CommaSep       (CommaSeparated (..),
-                                                  commaSeparatedBuilder,
                                                   parseCommaSeparated)
 
 import           Waargonaut.Types.JObject.JAssoc (HasJAssoc (..), JAssoc (..),
-                                                  jAssocAlterF, jAssocBuilder,
-                                                  parseJAssoc)
+                                                  jAssocAlterF, parseJAssoc)
 
 import           Waargonaut.Types.JString        (_JStringText)
 
@@ -223,12 +218,3 @@ parseJObject
   -> f (JObject ws a)
 parseJObject ws a = JObject <$>
   parseCommaSeparated (char '{') (char '}') ws (parseJAssoc ws a)
-
--- | Construct a 'Builder' for an entire 'JObject', duplicate keys are preserved.
-jObjectBuilder
-  :: (ws -> Builder)
-  -> ((ws -> Builder) -> a -> Builder)
-  -> JObject ws a
-  -> Builder
-jObjectBuilder ws aBuilder (JObject c) =
-  commaSeparatedBuilder '{' '}' ws (jAssocBuilder ws aBuilder) c

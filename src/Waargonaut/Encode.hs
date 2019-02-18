@@ -24,10 +24,12 @@ module Waargonaut.Encode
     -- * Runners
   , runPureEncoder
   , runEncoder
-  , simpleEncode
-  , simpleEncodeNoSpaces
-  , simplePureEncode
-  , simplePureEncodeNoSpaces
+  , simpleEncodeWith
+  , simpleEncodeText
+  , simpleEncodeTextNoSpaces
+  , simplePureEncodeWith
+  , simplePureEncodeText
+  , simplePureEncodeTextNoSpaces
 
     -- * Provided encoders
   , int
@@ -116,6 +118,7 @@ import           Data.Scientific                      (Scientific)
 import           Data.Monoid                          (Monoid, mempty)
 import           Data.Semigroup                       (Semigroup)
 
+import Data.String (IsString)
 import           Data.Map                             (Map)
 import qualified Data.Map                             as Map
 
@@ -136,13 +139,15 @@ import           Waargonaut.Types                     (AsJType (..),
                                                        JAssoc (..), JObject,
                                                        Json, MapLikeObj (..),
                                                        WS, stringToJString,
-                                                       toMapLikeObj, wsRemover, wsBuilder,
+                                                       toMapLikeObj,
                                                        _JNumberInt,
                                                        _JNumberScientific,
                                                        _JStringText)
 
-import           Waargonaut.Types.Json                (waargonautBuilder)
-
+import           Waargonaut.Encode.Builder            (textBuilder,
+                                                       waargonautBuilder)
+import           Waargonaut.Encode.Builder.Whitespace (wsBuilder, wsRemover)
+import           Waargonaut.Encode.Builder.Types (Builder)
 
 -- | Create an 'Encoder'' for 'a' by providing a function from 'a -> f Json'.
 encodeA :: (a -> f Json) -> Encoder f a
@@ -154,38 +159,67 @@ encodePureA :: (a -> Json) -> Encoder' a
 encodePureA f = encodeA (Identity . f)
 
 -- | Encode an @a@ directly to a 'LT.Text' using the provided 'Encoder'.
-simpleEncode
+simpleEncodeWith
+  :: ( Applicative f
+     , Monoid b
+     , IsString t
+     )
+  => Builder t b
+  -> (b -> out)
+  -> (Builder t b -> WS -> b)
+  -> Encoder f a
+  -> a
+  -> f out
+simpleEncodeWith builder buildRunner wsB enc =
+  fmap (buildRunner . waargonautBuilder wsB builder) . runEncoder enc
+
+-- | Encode an @a@ directly to a 'LT.Text' using the provided 'Encoder'.
+simpleEncodeText
   :: Applicative f
   => Encoder f a
   -> a
   -> f LT.Text
-simpleEncode enc =
-  fmap (TB.toLazyText . waargonautBuilder wsBuilder) . runEncoder enc
+simpleEncodeText =
+  simpleEncodeWith textBuilder TB.toLazyText wsBuilder
 
 -- | Encode an @a@ directly to a 'ByteString' using the provided 'Encoder'.
-simpleEncodeNoSpaces
+simpleEncodeTextNoSpaces
   :: Applicative f
   => Encoder f a
   -> a
   -> f LT.Text
-simpleEncodeNoSpaces enc =
-  fmap (TB.toLazyText . waargonautBuilder wsRemover) . runEncoder enc
+simpleEncodeTextNoSpaces =
+  simpleEncodeWith textBuilder TB.toLazyText wsRemover
+
+-- | Encode an @a@ directly to a 'LT.Text' using the provided 'Encoder'.
+simplePureEncodeWith
+  :: ( Monoid b
+     , IsString t
+     )
+  => Builder t b
+  -> (b -> out)
+  -> (Builder t b -> WS -> b)
+  -> Encoder Identity a
+  -> a
+  -> out
+simplePureEncodeWith builder buildRunner wsB enc =
+  runIdentity . simpleEncodeWith builder buildRunner wsB enc
 
 -- | As per 'simpleEncode' but specialised the 'f' to 'Data.Functor.Identity' and remove it.
-simplePureEncode
+simplePureEncodeText
   :: Encoder Identity a
   -> a
   -> LT.Text
-simplePureEncode enc =
-  runIdentity . simpleEncode enc
+simplePureEncodeText enc =
+  runIdentity . simpleEncodeText enc
 
 -- | As per 'simpleEncodeNoSpaces' but specialised the 'f' to 'Data.Functor.Identity' and remove it.
-simplePureEncodeNoSpaces
+simplePureEncodeTextNoSpaces
   :: Encoder Identity a
   -> a
   -> LT.Text
-simplePureEncodeNoSpaces enc =
-  runIdentity . simpleEncodeNoSpaces enc
+simplePureEncodeTextNoSpaces enc =
+  runIdentity . simpleEncodeTextNoSpaces enc
 
 -- | 'Encoder'' for a Waargonaut 'Json' data structure
 json :: Applicative f => Encoder f Json

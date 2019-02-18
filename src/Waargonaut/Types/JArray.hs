@@ -12,9 +12,8 @@ module Waargonaut.Types.JArray
     -- * Types
     JArray (..)
 
-    -- * Parser / Builder
+    -- * Parser
   , parseJArray
-  , jArrayBuilder
   ) where
 
 import           Prelude                   (Eq, Show, Int)
@@ -38,12 +37,9 @@ import           Data.Monoid               (Monoid (..), mempty)
 import           Data.Semigroup            (Semigroup (..))
 import           Data.Traversable          (Traversable)
 
-import           Data.Text.Lazy.Builder   (Builder)
-
 import           Text.Parser.Char          (CharParsing, char)
 
 import           Waargonaut.Types.CommaSep (CommaSeparated,
-                                            commaSeparatedBuilder,
                                             parseCommaSeparated)
 
 -- $setup
@@ -117,12 +113,3 @@ parseJArray
   -> f (JArray ws a)
 parseJArray ws a = JArray <$>
   parseCommaSeparated (char '[') (char ']') ws a
-
--- | Using the given builders, build a 'JArray'.
-jArrayBuilder
-  :: (ws -> Builder)
-  -> ((ws -> Builder) -> a -> Builder)
-  -> JArray ws a
-  -> Builder
-jArrayBuilder ws a (JArray cs) =
-  commaSeparatedBuilder '[' ']' ws (a ws) cs

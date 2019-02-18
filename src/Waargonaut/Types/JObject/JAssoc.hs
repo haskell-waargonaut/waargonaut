@@ -16,9 +16,8 @@ module Waargonaut.Types.JObject.JAssoc
     JAssoc (..)
   , HasJAssoc (..)
 
-    -- * Parse / Build
+    -- * Parse
   , parseJAssoc
-  , jAssocBuilder
 
     -- * Update
   , jAssocAlterF
@@ -38,16 +37,12 @@ import           Data.Foldable            (Foldable)
 import           Data.Functor             (Functor, fmap, (<$>))
 import           Data.Maybe               (Maybe (..), maybe)
 import           Data.Monoid              (Monoid (mappend, mempty))
-import           Data.Semigroup           (Semigroup ((<>)))
 import           Data.Text                (Text)
 import           Data.Traversable         (Traversable)
 
-import           Data.Text.Lazy.Builder   (Builder)
-import qualified Data.Text.Lazy.Builder   as TB
-
 import           Text.Parser.Char         (CharParsing, char)
 
-import           Waargonaut.Types.JString (JString, jStringBuilder,
+import           Waargonaut.Types.JString (JString,
                                            parseJString, _JStringText)
 
 -- | This type represents the key:value pair inside of a JSON object.
@@ -122,12 +117,3 @@ parseJAssoc
   -> f (JAssoc ws a)
 parseJAssoc ws a = JAssoc
   <$> parseJString <*> ws <* char ':' <*> ws <*> a
-
--- | Builder for a single "key:value" pair.
-jAssocBuilder
-  :: (ws -> Builder)
-  -> ((ws -> Builder) -> a -> Builder)
-  -> JAssoc ws a
-  -> Builder
-jAssocBuilder ws aBuilder (JAssoc k ktws vpws v) =
-  jStringBuilder k <> ws ktws <> TB.singleton ':' <> ws vpws <> aBuilder ws v

@@ -18,68 +18,73 @@ module Types.Common
   , prop_generic_tripping
   , parseBS
   , parseText
+  , encodeJsonText
   , encodeText
+  , encodeBS
   , decodeText
   , simpleDecodeWith
 
-
   , testImageDataType
   , testFudge
-  , imageDecodeManual
   , imageDecodeGeneric
   , imageDecodeSuccinct
 
-  -- * Some test types to be messed with
+    -- * Some test types to be messed with
   , Image (..)
   , Fudge (..)
   , HasImage (..)
   , Overlayed (..)
   ) where
 
-import           Generics.SOP                (Generic, HasDatatypeInfo)
-import qualified GHC.Generics                as GHC
+import           Generics.SOP                         (Generic, HasDatatypeInfo)
+import qualified GHC.Generics                         as GHC
 
-import           Control.Lens                (makeClassy)
-import           Control.Monad               ((>=>))
+import           Control.Lens                         (makeClassy)
+import           Control.Monad                        ((>=>))
 
-import           Data.Functor.Identity       (Identity)
-import qualified Data.List                   as List
-import           Data.List.NonEmpty          (NonEmpty)
-import           Data.Maybe                  (fromMaybe)
+import           Data.Functor.Identity                (Identity)
+import qualified Data.List                            as List
+import           Data.List.NonEmpty                   (NonEmpty)
+import           Data.Maybe                           (fromMaybe)
 
-import           Data.Text                   (Text)
-import qualified Data.Text.Lazy              as TextL
-import qualified Data.Text.Lazy.Builder      as TextLB
+import           Data.Text                            (Text)
+import qualified Data.Text.Lazy                       as TextL
+import qualified Data.Text.Lazy.Builder               as TextLB
 
 import           Hedgehog
-import qualified Hedgehog.Gen                as Gen
-import qualified Hedgehog.Range              as Range
+import qualified Hedgehog.Gen                         as Gen
+import qualified Hedgehog.Range                       as Range
 
-import           Data.ByteString             (ByteString)
+import           Data.ByteString                      (ByteString)
 
-import qualified Data.Attoparsec.ByteString  as AB
-import qualified Data.Attoparsec.Text        as AT
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Lazy.Builder as BB
 
-import           Data.Tagged                 (Tagged)
-import qualified Data.Tagged                 as T
+import qualified Data.Attoparsec.ByteString           as AB
+import qualified Data.Attoparsec.Text                 as AT
 
-import           Data.Digit                  (DecDigit, HeXDigit)
-import qualified Data.Digit                  as D
+import           Data.Tagged                          (Tagged)
+import qualified Data.Tagged                          as T
 
-import           Waargonaut                  (waargonautBuilder)
-import qualified Waargonaut.Decode.Traversal as D
+import           Data.Digit                           (DecDigit, HeXDigit)
+import qualified Data.Digit                           as D
 
-import qualified Waargonaut.Decode           as SD
+import qualified Waargonaut.Decode                    as SD
 
-import           Waargonaut.Decode.Error     (DecodeError)
-import qualified Waargonaut.Encode           as E
-import           Waargonaut.Types            (Json)
-import           Waargonaut.Types.Whitespace (Whitespace (..), wsBuilder)
+import           Waargonaut.Decode.Error              (DecodeError)
+import qualified Waargonaut.Encode                    as E
+import           Waargonaut.Encode.Builder            (textBuilder, bsBuilder,
+                                                       waargonautBuilder)
+import           Waargonaut.Encode.Builder.Whitespace (wsBuilder)
+import           Waargonaut.Types                     (Json)
+import           Waargonaut.Types.Whitespace          (Whitespace (..))
 
-import           Waargonaut.Generic          (GWaarg, JsonDecode (..),
-                                              JsonEncode (..), NewtypeName (..),
-                                              Options (..), defaultOpts,
-                                              gDecoder, gEncoder)
+import           Waargonaut.Generic                   (GWaarg, JsonDecode (..),
+                                                       JsonEncode (..),
+                                                       NewtypeName (..),
+                                                       Options (..),
+                                                       defaultOpts, gDecoder,
+                                                       gEncoder)
 
 data Image = Image
   { _imageWidth    :: Int
@@ -105,17 +110,6 @@ imageDecodeSuccinct = SD.withCursor $ SD.down >=> \curs -> do
     <*> SD.fromKey "Title" SD.text io
     <*> SD.fromKey "Animated" SD.bool io
     <*> SD.fromKey "IDs" (SD.list SD.int) io
-
-imageDecodeManual :: Monad f => D.Decoder f Image
-imageDecodeManual = D.withCursor $ \c -> do
-  io <- D.moveToKey "Image" c
-
-  Image
-    <$> D.fromKey "Width" D.int io
-    <*> D.fromKey "Height" D.int io
-    <*> D.fromKey "Title" D.text io
-    <*> D.fromKey "Animated" D.bool io
-    <*> D.fromKey "IDs" (D.list D.int) io
 
 imageDecodeGeneric :: Monad f => SD.Decoder f Image
 imageDecodeGeneric = SD.withCursor $ SD.fromKey "Image" iDec
@@ -247,8 +241,14 @@ parseBS d = SD.pureDecodeFromByteString AB.parseOnly d
 parseText :: SD.Decoder Identity a -> Text -> Either (DecodeError, SD.CursorHistory) a
 parseText d = SD.pureDecodeFromText AT.parseOnly d
 
-encodeText :: Json -> Text
-encodeText = TextL.toStrict . TextLB.toLazyText . waargonautBuilder wsBuilder
+encodeJsonText :: Json -> Text
+encodeJsonText = TextL.toStrict . TextLB.toLazyText . waargonautBuilder wsBuilder textBuilder
+
+encodeText :: E.Encoder Identity a -> a -> TextL.Text
+encodeText e = E.simplePureEncodeTextNoSpaces e
+
+encodeBS :: Json -> ByteString
+encodeBS = BL.toStrict . BB.toLazyByteString. waargonautBuilder wsBuilder bsBuilder
 
 decodeText :: Text -> Either (DecodeError, SD.CursorHistory) Json
 decodeText = SD.pureDecodeFromText AT.parseOnly SD.json
@@ -266,5 +266,5 @@ prop_generic_tripping
   -> a
   -> m ()
 prop_generic_tripping e d a = tripping a
-  (E.simplePureEncodeNoSpaces (T.untag e))
+  (E.simplePureEncodeTextNoSpaces (T.untag e))
   (simpleDecodeWith (T.untag d))

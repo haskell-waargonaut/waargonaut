@@ -15,8 +15,6 @@ module Waargonaut.Types.Whitespace
   , parseWhitespace
   , parseSomeWhitespace
 
-  , wsBuilder
-  , wsRemover
   ) where
 
 import           Control.Applicative     (liftA2)
@@ -25,9 +23,6 @@ import           Control.Lens            (AsEmpty (..), Cons (..), Prism',
                                           mapped, nearly, over, prism, prism',
                                           to, uncons, (^.), _2, _Wrapped)
 import           Control.Lens.Extras     (is)
-
-import           Data.Text.Lazy.Builder  (Builder)
-import qualified Data.Text.Lazy.Builder  as TB
 
 import           Data.Vector             (Vector)
 import qualified Data.Vector             as V
@@ -169,22 +164,3 @@ escapedWhitespaceChar LineFeed       = '\f'
 escapedWhitespaceChar CarriageReturn = '\r'
 escapedWhitespaceChar NewLine        = '\n'
 {-# INLINE escapedWhitespaceChar #-}
-
--- | Create a 'Data.ByteString.Builder' from a 'Whitespace'
-whitespaceBuilder :: Whitespace -> Builder
-whitespaceBuilder Space          = TB.singleton ' '
-whitespaceBuilder HorizontalTab  = TB.singleton '\t'
-whitespaceBuilder LineFeed       = TB.singleton '\f'
-whitespaceBuilder CarriageReturn = TB.singleton '\r'
-whitespaceBuilder NewLine        = TB.singleton '\n'
-{-# INLINE whitespaceBuilder #-}
-
--- | Reconstitute the given whitespace into its original form.
-wsBuilder :: WS -> Builder
-wsBuilder (WS ws) = foldMap whitespaceBuilder ws
-{-# INLINE wsBuilder #-}
-
--- | Remove any whitespace. Minification for free, yay!
-wsRemover :: WS -> Builder
-wsRemover = const mempty
-{-# INLINE wsRemover #-}

@@ -15,7 +15,8 @@
 -- comparison. It is not as fast as the succinct data structure based
 -- 'Waargonaut.Decode.Decoder'.
 --
-module Waargonaut.Decode.Traversal
+module Waargonaut.Decode.Traversal 
+  {-# DEPRECATED "Use 'Waargonaut.Decode'. This module will be removed in a future release." #-} 
   (
     Err (..)
   , CursorHistory (..)
@@ -74,7 +75,6 @@ module Waargonaut.Decode.Traversal
   , maybeOrNull
   , withDefault
   , either
-
   ) where
 
 import           Prelude                       hiding (either, maybe, null)

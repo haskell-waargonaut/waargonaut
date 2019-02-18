@@ -143,7 +143,7 @@ prop_tripping_int_list :: Property
 prop_tripping_int_list = property $ do
   xs <- forAll . Gen.list (Range.linear 0 100) $ Gen.int (Range.linear 0 9999)
   tripping xs
-    (E.simplePureEncodeNoSpaces (E.traversable E.int))
+    (Common.encodeText (E.traversable E.int))
     (Common.simpleDecodeWith (D.list D.int))
 
 prop_tripping_image_record_generic :: Property
@@ -165,12 +165,22 @@ prop_tripping_int_list_generic = property $ do
 
 prop_tripping :: Property
 prop_tripping = withTests 200 . property $
-  forAll J.genJson >>= (\j -> tripping j Common.encodeText Common.decodeText)
+  forAll J.genJson >>= (\j -> tripping j Common.encodeJsonText Common.decodeText)
 
 prop_print_parse_print_id :: Property
 prop_print_parse_print_id = withTests 200 . property $ do
-  printedA <- forAll $ Common.encodeText <$> J.genJson
-  Right printedA === (Common.encodeText <$> Common.decodeText printedA)
+  printedA <- forAll $ Common.encodeJsonText <$> J.genJson
+  Right printedA === (Common.encodeJsonText <$> Common.decodeText printedA)
+
+prop_builders_match :: Property
+prop_builders_match = property $ do
+  j <- forAll J.genJson
+
+  let jt = Common.encodeJsonText j
+      jb = Common.encodeBS j
+
+  jt === Text.decodeUtf8 jb
+  Text.encodeUtf8 jt === jb
 
 prop_maybe_maybe :: Property
 prop_maybe_maybe = withTests 1 . property $ do
@@ -186,7 +196,7 @@ prop_maybe_maybe = withTests 1 . property $ do
   trippin' jjf
   where
     trippin' a = tripping a
-      (E.simplePureEncodeNoSpaces enc)
+      (Common.encodeText enc)
       (Common.simpleDecodeWith dec)
 
     enc = E.maybeOrNull' . E.mapLikeObj' . E.atKey' "boop"
@@ -210,7 +220,8 @@ tripping_properties = testGroup "Properties"
   , testProperty "Image record (generic)"                              prop_tripping_image_record_generic
   , testProperty "Newtype with Options (generic)"                      prop_tripping_newtype_fudge_generic
   , testProperty "Condensing History"                                  prop_history_condense
-  , testProperty "HexDigit4 conversion "            prop_char_heXDigit
+  , testProperty "HexDigit4 conversion"                                prop_char_heXDigit
+  , testProperty "Text & ByteString builders produce matching output"  prop_builders_match
   ]
 
 prop_char_heXDigit :: Property
@@ -233,7 +244,7 @@ parser_properties = testGroup "Parser Round-Trip"
   ]
 
 parsePrint :: Text -> Either (DecodeError, D.CursorHistory) Text
-parsePrint = fmap Common.encodeText . Common.decodeText
+parsePrint = fmap Common.encodeJsonText . Common.decodeText
 
 readTestFile :: FilePath -> IO Text
 readTestFile fp = Text.readFile ("test/json-data" <> "/" <> fp)
@@ -279,7 +290,7 @@ mishandlingOfCharVsUtf8Bytes = testCaseSteps "Mishandling of UTF-8 Bytes vs Hask
   Text.pack valStr @?= valText
 
   step "Encoder via Text"
-  x <- TextL.toStrict <$> E.simpleEncodeNoSpaces E.text valText
+  let x = TextL.toStrict $ Common.encodeText E.text valText
   x @?= encVal
 
   step "Create JSON file"
@@ -345,4 +356,4 @@ main = defaultMain $ testGroup "Waargonaut All Tests"
       -> Property
     p f g e d = property $ do
       inp <- forAll $ f (Range.linear 0 1000) g
-      tripping inp (E.simplePureEncodeNoSpaces e) (Common.simpleDecodeWith d)
+      tripping inp (Common.encodeText e) (Common.simpleDecodeWith d)
