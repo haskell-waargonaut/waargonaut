@@ -122,7 +122,9 @@ instance Bitraversable CommaSeparated where
 
 -- | By ignoring whitespace we're able to write a 'Cons' instance.
 instance Monoid ws => Cons (CommaSeparated ws a) (CommaSeparated ws a) a a where
-  _Cons = prism (\(a,cs) -> consCommaSep ((Comma,mempty), a) cs) (\c -> note c . over (mapped . _1) (^. _2) $ unconsCommaSep c)
+  _Cons = prism
+          (\(a,cs) -> consCommaSep ((Comma,mempty), a) cs)
+          (\c -> note c . over (mapped . _1) (^. _2) $ unconsCommaSep c)
   {-# INLINE _Cons #-}
 
 instance Monoid ws => Snoc (CommaSeparated ws a) (CommaSeparated ws a) a a where

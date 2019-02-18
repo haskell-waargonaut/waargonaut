@@ -24,7 +24,7 @@ module Waargonaut.Types.CommaSep.Elem
 import           Prelude                 (Eq, Show (showsPrec), showString,
                                           shows, (&&), (==))
 
-import           Control.Applicative     (Applicative (..), pure, (<*>))
+import           Control.Applicative     (Applicative (..), pure, (<*>), liftA2)
 import           Control.Category        (id, (.))
 
 import           Control.Lens            (Iso, Iso', Lens', from, iso, (^.))

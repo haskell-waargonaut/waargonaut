@@ -25,7 +25,7 @@ import           Types.Common            (parseBS)
 import qualified Laws
 
 runD :: Decoder Identity a -> Either (DecodeError, D.CursorHistory) a
-runD d = D.runPureDecode d parseBS (D.mkCursor "true")
+runD d = parseBS d "true"
 
 newtype ShowDecoder a = SD (Decoder Identity a)
   deriving (Functor, Monad, Applicative)

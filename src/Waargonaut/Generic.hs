@@ -58,6 +58,7 @@ import           Generics.SOP
 import           Control.Lens                  (findOf, folded, isn't, _Left)
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (lift, throwError)
+import           Control.Monad.Reader          (runReaderT)
 import           Control.Monad.State           (modify)
 
 import           Data.Functor.Identity         (runIdentity)
@@ -66,6 +67,8 @@ import qualified Data.Char                     as Char
 import           Data.Maybe                    (fromMaybe)
 
 import           Data.List.NonEmpty            (NonEmpty)
+
+import           Data.ByteString               (ByteString)
 
 import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
@@ -88,7 +91,9 @@ import qualified Waargonaut.Decode             as D
 
 import           Waargonaut.Decode.Error       (DecodeError (..))
 import           Waargonaut.Decode.Internal    (CursorHistory' (..),
-                                                DecodeResultT (..))
+                                                DecodeResultT (..),
+                                                runDecoderResultT)
+import           Waargonaut.Decode.Types       (unDecodeResult)
 
 -- $setup
 -- >>> :set -XOverloadedStrings
@@ -97,7 +102,7 @@ import           Waargonaut.Decode.Internal    (CursorHistory' (..),
 -- Although creating your 'Decoder's and 'Encoder's explicitly is the preferred way of utilising
 -- Waargonaut. The 'Generic' mechanism within Haskell provides immense opportunity to reduce or
 -- eliminate the need to write code. Given the mechanical nature of JSON this a benefit that cannot
--- be ignored. 
+-- be ignored.
 --
 -- There are two typeclasses provided, 'JsonEncode' and 'JsonDecode'. Each with a single function
 -- that will generate a 'Encoder' or 'Decoder' for that type. Normally, typeclasses such as these
@@ -187,7 +192,7 @@ import           Waargonaut.Decode.Internal    (CursorHistory' (..),
 -- particularly useful; 'untag', and 'proxy'.
 --
 -- The 'untag' function removes the tag from the inner type:
--- 
+--
 -- @
 -- untag :: -- forall k (s :: k) b. Tagged s b -> b
 -- @
@@ -583,7 +588,7 @@ gDecoderConstructor
      )
   => Options
   -> Proxy (All (JsonDecode t))
-  -> D.ParseFn
+  -> (ByteString -> Either DecodeError Json)
   -> D.JCurs
   -> NP JsonInfo xss
   -> DecodeResultT Count DecodeError f (SOP I xss)
@@ -598,11 +603,15 @@ gDecoderConstructor opts pJAll parseFn cursor ninfo =
 
     failure (e,h) = modify (const h) >> throwError e
 
+    runDR = runDecoderResultT
+      . flip runReaderT parseFn
+      . unDecodeResult
+
     -- Pretty sure there is a better way to manage this, as my intuition about
     -- generic-sop says that I will only have one successful result for any
     -- given type. But I'm not 100% sure that this is actually the case.
     foldForRight :: [D.DecodeResult f (SOP I xss)] -> DecodeResultT Count DecodeError f (SOP I xss)
-    foldForRight xs = (lift . sequence $ D.runDecodeResult parseFn <$> xs)
+    foldForRight xs = (lift . sequence $ runDR <$> xs)
       >>= either failure pure . fromMaybe err . findOf folded (isn't _Left)
 
     injs :: NP (Injection (NP I) xss) xss

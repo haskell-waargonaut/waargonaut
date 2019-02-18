@@ -71,7 +71,7 @@ unicodeHandlingRegression :: Property
 unicodeHandlingRegression = withTests 1 . property $ do
   let
     -- Prepare a decoder function
-    dec d = D.runPureDecode d parseBS . D.mkCursor
+    dec = parseBS
 
     -- Decoder for JSON -> Text
     decText = dec D.text
@@ -123,7 +123,7 @@ unicodeHandlingRegression = withTests 1 . property $ do
 nonEmptyDecoder :: Assertion
 nonEmptyDecoder = do
   let
-    dec = D.runPureDecode (D.nonempty D.int) parseBS . D.mkCursor
+    dec = parseBS (D.nonempty D.int)
 
     ok = "[1]"
     notOkay = "[]"
@@ -144,7 +144,7 @@ nonEmptyDecoder = do
 listDecoder :: Assertion
 listDecoder = do
   let
-    dec = D.runPureDecode (D.list D.int) parseBS . D.mkCursor
+    dec = parseBS (D.list D.int)
 
     ok = "[1,2,3]"
     okE = "[]"
@@ -164,7 +164,7 @@ listDecoder = do
 objectAsKeyValuesDecoder :: Assertion
 objectAsKeyValuesDecoder = do
   let
-    dec = D.runPureDecode (D.objectAsKeyValues D.text D.int) parseBS . D.mkCursor
+    dec = parseBS (D.objectAsKeyValues D.text D.int)
 
     ok = "{\"1\":1,\"2\":2,\"3\":3}"
     okE = "{}"
@@ -190,7 +190,7 @@ decodeTestMissingObjKey = do
 
     d = D.withCursor $ D.down >=> D.fromKey "bar" D.int
 
-  r <- D.runDecode d parseBS (D.mkCursor j)
+  let r = parseBS d j
 
   Either.either
     (\(e, _) -> assertBool "Incorrect Error - Expected KeyDecodeFailed" (e == D.KeyNotFound "bar"))
@@ -204,7 +204,7 @@ decodeTestBadObjKey = do
 
     d = D.withCursor $ D.down >=> D.fromKey "foo" D.int
 
-  r <- D.runDecode d parseBS (D.mkCursor j)
+  let r = parseBS d j
 
   Either.either
     (\(e, _) -> assertBool "Incorrect Error - Expected KeyDecodeFailed" (e == D.KeyDecodeFailed) )
@@ -212,7 +212,7 @@ decodeTestBadObjKey = do
     r
 
 decodeTest1Json :: Assertion
-decodeTest1Json = D.runPureDecode imageDecodeSuccinct parseBS . D.mkCursor
+decodeTest1Json = parseBS imageDecodeSuccinct
   <$> BS.readFile "test/json-data/test1.json"
   >>= Either.either failWithHistory (assertEqual "Image Decode Failed" testImageDataType)
   where
@@ -223,14 +223,14 @@ decodeTest1Json = D.runPureDecode imageDecodeSuccinct parseBS . D.mkCursor
 
 decodeTest2Json :: Assertion
 decodeTest2Json = assertBool "[Int] Decode Success" . Either.isRight
-  $ D.runPureDecode listDecode parseBS (D.mkCursor "[23,44]")
+  $ parseBS listDecode "[23,44]"
   where
     listDecode :: Monad f => D.Decoder f [Int]
     listDecode = untag mkDecoder
 
 decodeTest3Json :: Assertion
 decodeTest3Json = assertBool "(Char,String,[Int]) Decode Success" . Either.isRight
-  $ D.runPureDecode decoder parseBS (D.mkCursor "[\"a\",\"fred\",1,2,3,4]")
+  $ parseBS decoder "[\"a\",\"fred\",1,2,3,4]"
   where
     decoder :: Monad f => D.Decoder f (Char,String,[Int])
     decoder = D.withCursor $ D.down >=> \fstElem -> liftA3 (,,)
@@ -258,47 +258,57 @@ decodeTestEnum = do
   chk "\"c\"" C
   where
     chk i o =
-      D.runPureDecode decodeMyEnum parseBS (D.mkCursor i) @?= (Either.Right o)
+      parseBS decodeMyEnum i @?= (Either.Right o)
 
 decodeTestEnumError :: Assertion
-decodeTestEnumError = D.runDecode decodeMyEnum parseBS (D.mkCursor "\"WUT\"")
-  >>= Either.either
+decodeTestEnumError =
+  let
+    i = parseBS decodeMyEnum "\"WUT\""
+  in
+    Either.either
     (\(e, _) -> assertBool "Incorrect Error!" (e == D.ConversionFailure "MyEnum"))
     (const (assertFailure "Should not succeed"))
+    i
 
 decodeEitherAlt :: Monad f => D.Decoder f (Either.Either Text Int)
 decodeEitherAlt = D.either D.text D.int
 
 decodeEitherRightFirst :: Assertion
 decodeEitherRightFirst = do
-  let d = D.runPureDecode (D.either D.scientific D.int) parseBS . D.mkCursor
+  let d = parseBS (D.either D.scientific D.int)
 
   d "44e333" @?= Either.Right (Either.Left 44e333)
   d "33" @?= Either.Right (Either.Right 33)
 
 decodeAlt :: Assertion
 decodeAlt = do
-  t <- D.runDecode decodeEitherAlt parseBS (D.mkCursor "\"FRED\"")
-  i <- D.runDecode decodeEitherAlt parseBS (D.mkCursor "33")
+  let
+    t = parseBS decodeEitherAlt "\"FRED\""
+    i = parseBS decodeEitherAlt "33"
 
   t @?= Either.Right (Either.Left "FRED")
   i @?= Either.Right (Either.Right 33)
 
 decodeAltError :: Assertion
-decodeAltError = D.runDecode decodeEitherAlt parseBS (D.mkCursor "{\"foo\":33}")
-  >>= Either.either
+decodeAltError =
+  let
+    i = parseBS decodeEitherAlt "{\"foo\":33}"
+  in
+    Either.either
                  (\(_,h) -> assertBool "BranchFail error not found in history" $
                    case Seq.viewr (unCursorHistory' h) of
                      _ Seq.:> (BranchFail _, _) -> True
                      _                          -> False
                  )
                  (\_ -> assertFailure "Alt Error Test should fail")
+                 i
 
 absentKeyDecoder :: Assertion
 absentKeyDecoder = do
-  a <- D.runDecode (D.atKeyOptional "key" D.text) parseBS (D.mkCursor "{\"key\":\"present\"}")
-  b <- D.runDecode (D.atKeyOptional "missing" D.text) parseBS (D.mkCursor "{\"key\":\"present\"}")
-  c <- D.runDecode (D.atKeyOptional "key" D.int) parseBS (D.mkCursor "{\"key\":\"present\"}")
+  let
+    a = parseBS (D.atKeyOptional "key" D.text) "{\"key\":\"present\"}"
+    b = parseBS (D.atKeyOptional "missing" D.text) "{\"key\":\"present\"}"
+    c = parseBS (D.atKeyOptional "key" D.int) "{\"key\":\"present\"}"
 
   a @?= Either.Right (Just "present")
   b @?= Either.Right Nothing

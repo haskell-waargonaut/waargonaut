@@ -1,9 +1,9 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
 {-# LANGUAGE DeriveTraversable      #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
 -- | Types and functions for handling \\u0000 values in JSON.
@@ -15,34 +15,31 @@ module Waargonaut.Types.JChar.HexDigit4
 
     -- * Parse / Build
   , parseHexDigit4
-  -- , buildHexDigit4Escaped
-  -- , buildHexDigit4Unescaped
 
     -- * Conversion
   , hexDigit4ToChar
   , charToHexDigit4
   ) where
 
-import           Prelude             (Eq, Int, Num (..), Ord (..), Show,
-                                      quotRem, (&&), (||), otherwise)
+import           Prelude             (Eq, Ord (..), Show, otherwise, (||))
 
 import           Control.Applicative ((<*>))
 import           Control.Category    (id, (.))
-import           Control.Lens        (Lens', preview, review)
+import           Control.Lens        (Lens')
 import           Control.Monad       ((=<<))
 
-import Control.Error.Util (hush)
+import           Control.Error.Util  (hush)
 
-import Data.List.NonEmpty (NonEmpty ((:|)))
+import           Data.List.NonEmpty  (NonEmpty ((:|)))
 
-import Data.Function (($))
-import           Data.Foldable       (Foldable, foldl)
-import           Data.Functor        (Functor, (<$>), fmap)
-import           Data.Traversable    (Traversable, traverse)
+import           Data.Foldable       (Foldable)
+import           Data.Function       (($))
+import           Data.Functor        (Functor, fmap, (<$>))
+import           Data.Traversable    (Traversable)
 
 import           Data.Char           (Char, chr, ord)
+import           Data.Either         (Either (..))
 import           Data.Maybe          (Maybe (..))
-import Data.Either (Either (..), either)
 import           Text.Parser.Char    (CharParsing)
 
 import           Data.Digit          (HeXDigit, HeXaDeCiMaL)

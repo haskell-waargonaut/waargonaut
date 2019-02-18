@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 module Types.Common
@@ -17,6 +18,10 @@ module Types.Common
   , prop_generic_tripping
   , parseBS
   , parseText
+  , encodeText
+  , decodeText
+  , simpleDecodeWith
+
 
   , testImageDataType
   , testFudge
@@ -41,11 +46,10 @@ import           Data.Functor.Identity       (Identity)
 import qualified Data.List                   as List
 import           Data.List.NonEmpty          (NonEmpty)
 import           Data.Maybe                  (fromMaybe)
+
 import           Data.Text                   (Text)
-
-import qualified Data.Text.Encoding          as Text
-
 import qualified Data.Text.Lazy              as TextL
+import qualified Data.Text.Lazy.Builder      as TextLB
 
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
@@ -62,7 +66,7 @@ import qualified Data.Tagged                 as T
 import           Data.Digit                  (DecDigit, HeXDigit)
 import qualified Data.Digit                  as D
 
-import           Waargonaut                  (parseWaargonaut)
+import           Waargonaut                  (waargonautBuilder)
 import qualified Waargonaut.Decode.Traversal as D
 
 import qualified Waargonaut.Decode           as SD
@@ -70,7 +74,7 @@ import qualified Waargonaut.Decode           as SD
 import           Waargonaut.Decode.Error     (DecodeError)
 import qualified Waargonaut.Encode           as E
 import           Waargonaut.Types            (Json)
-import           Waargonaut.Types.Whitespace (Whitespace (..))
+import           Waargonaut.Types.Whitespace (Whitespace (..), wsBuilder)
 
 import           Waargonaut.Generic          (GWaarg, JsonDecode (..),
                                               JsonEncode (..), NewtypeName (..),
@@ -170,9 +174,6 @@ data Overlayed = Overlayed
 genDecimalDigit :: Gen DecDigit
 genDecimalDigit = Gen.element decimalDigit
 
--- genHexadecimalDigitLower :: Gen HexDigit
--- genHexadecimalDigitLower = Gen.element hexadecimalDigitLower
-
 genHeXaDeCiMaLDigit :: Gen HeXDigit
 genHeXaDeCiMaLDigit = Gen.element hExAdEcImAlDigit
 
@@ -240,11 +241,20 @@ genWhitespace = Gen.element
 genText :: Gen Text
 genText = Gen.text ( Range.linear 0 100 ) Gen.unicodeAll
 
-parseBS :: ByteString -> Either DecodeError Json
-parseBS = SD.parseWith AB.parseOnly parseWaargonaut
+parseBS :: SD.Decoder Identity a -> ByteString -> Either (DecodeError, SD.CursorHistory) a
+parseBS d = SD.pureDecodeFromByteString AB.parseOnly d
 
-parseText :: Text -> Either DecodeError Json
-parseText = SD.parseWith AT.parseOnly parseWaargonaut
+parseText :: SD.Decoder Identity a -> Text -> Either (DecodeError, SD.CursorHistory) a
+parseText d = SD.pureDecodeFromText AT.parseOnly d
+
+encodeText :: Json -> Text
+encodeText = TextL.toStrict . TextLB.toLazyText . waargonautBuilder wsBuilder
+
+decodeText :: Text -> Either (DecodeError, SD.CursorHistory) Json
+decodeText = SD.pureDecodeFromText AT.parseOnly SD.json
+
+simpleDecodeWith :: SD.Decoder Identity a -> TextL.Text -> Either (DecodeError, SD.CursorHistory) a
+simpleDecodeWith d = SD.pureDecodeFromText AT.parseOnly d . TextL.toStrict
 
 prop_generic_tripping
   :: ( MonadTest m
@@ -257,4 +267,4 @@ prop_generic_tripping
   -> m ()
 prop_generic_tripping e d a = tripping a
   (E.simplePureEncodeNoSpaces (T.untag e))
-  (SD.runPureDecode (T.untag d) parseBS . SD.mkCursor . Text.encodeUtf8 . TextL.toStrict)
+  (simpleDecodeWith (T.untag d))

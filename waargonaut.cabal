@@ -99,6 +99,8 @@ library
                      , Waargonaut.Decode.ZipperMove
                      , Waargonaut.Decode.Error
                      , Waargonaut.Decode.Types
+                     , Waargonaut.Decode.Runners
+
                      , Waargonaut.Encode.Types
 
                      , Waargonaut.Decode
