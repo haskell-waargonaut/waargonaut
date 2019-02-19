@@ -1,6 +1,6 @@
 packages:
-  .
-  waargbench
+  .,
+  waargbench/
 
 optimization: 2
 

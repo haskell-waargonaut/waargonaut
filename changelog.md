@@ -1,5 +1,42 @@
 # Revision history for waargonaut
 
+## 0.6.0.0  -- 2019-02-19
+
+#### Fixes
+
+* Handling of HeXDigit4 values was not correct. The bug was partly due to the
+  choice of optic, instead of producing a (type/failure) error when working with
+  mixed-case hex values, it seems to be zero'ing them out.
+* Added regression tests
+
+#### Rework
+
+* Redesigned ParseFn to handle:
+  * Data.String.String
+  * Data.Text.Text
+  * Data.ByteString.ByteString
+* Updated documentation for ParseFn to match changes
+* Updated documentation for default parsing functions
+* Generalised the Builder process to handle Text and ByteString
+  * Created a record type to hold the required functions for builders
+  * Created submodules to house the generalised builders (see Waargonaut.Encode.Builder and friends)
+  * Added test to ensure both builders produce identical output
+* Updated documentation for Encode process to match changes
+
+#### Cleanup
+
+* Factored out components into more submodules:
+  * UnescapedJChar
+  * EscapedJChar
+  * HexDigit4
+  * Elem
+  * Elems
+  * JAssoc
+  * Decode.Runners
+* Updated documentation if required for module changes.
+* Deleted commented out code
+* Changed all file textual encoding/decoding tests to Test.Tasty.Golden.
+
 ## 0.5.2.1  -- 2019-01-08
 
 * Upgraded the nix overrides to use the overlay technique.
