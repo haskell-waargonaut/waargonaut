@@ -1,5 +1,7 @@
 module Waargonaut.Encode.Builder.JString (jStringBuilder) where
 
+import           Data.Monoid                     ((<>))
+
 import           Waargonaut.Types.JString        (JString, JString' (..))
 
 import           Waargonaut.Encode.Builder.JChar (jCharBuilder)
