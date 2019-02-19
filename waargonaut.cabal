@@ -42,16 +42,26 @@ build-type:          Custom
 -- README.
 extra-source-files:  changelog.md
                    , README.md
+
+                   -- Misc json files
                    , test/json-data/numbers.json
-                   , test/json-data/test1.json
-                   , test/json-data/test2.json
-                   , test/json-data/test3.json
-                   , test/json-data/test4.json
-                   , test/json-data/test5.json
-                   , test/json-data/test6.json
-                   , test/json-data/test7.json
-                   , test/json-data/unicode_2705.json
-                   , test/json-data/backslash128.json
+                   , test/json-data/image_obj.json
+
+                   -- Known bad json files
+                   , test/json-data/bad-json/no_comma_arr.json
+                   , test/json-data/bad-json/no_comma_obj.json
+
+                   -- Golden files
+                   , test/json-data/goldens/backslash128.json.golden
+                   , test/json-data/goldens/empty_arr_empty_ws.json.golden
+                   , test/json-data/goldens/image_obj.json.golden
+                   , test/json-data/goldens/location_array.json.golden
+                   , test/json-data/goldens/nested_arrs.json.golden
+                   , test/json-data/goldens/null_arr_trailing_comma_ws.json.golden
+                   , test/json-data/goldens/numbers.json.golden
+                   , test/json-data/goldens/twitter100.json.golden
+                   , test/json-data/goldens/twitter_with_hex_vals.json.golden
+                   , test/json-data/goldens/unicode_2705.json.golden
 
 homepage:            https://github.com/qfpl/waargonaut
 bug-reports:         https://github.com/qfpl/waargonaut/issues
@@ -194,6 +204,8 @@ test-suite waarg-tests
                      , Types.Json
                      , Types.Whitespace
 
+                     , Properties
+                     , Golden
                      , Laws
                      , Utils
                      , Encoder
@@ -230,6 +242,8 @@ test-suite waarg-tests
                      , containers             >= 0.5.6  && < 0.7
                      , natural                >= 0.3    && < 0.4
                      , contravariant          >= 1.4    && < 1.6
+                     , filepath               >= 1.4    && < 1.5
+                     , tasty-golden           >= 2.3    && < 2.4
 
                      , waargonaut
 

@@ -50,9 +50,9 @@ import           Types.Common               (imageDecodeSuccinct, parseBS,
 
 decoderTests :: TestTree
 decoderTests = testGroup "Decoding"
-  [ testCase "Image (test1.json)" decodeTest1Json
-  , testCase "[Int]" decodeTest2Json
-  , testCase "(Char,String,[Int])" decodeTest3Json
+  [ testCase "Image Record" decodeImageObjJson
+  , testCase "[Int]" decodeIntListJson
+  , testCase "(Char,String,[Int])" decodeTripleJson
   , testCase "Fail with Bad Key" decodeTestBadObjKey
   , testCase "Fail with Missing Key" decodeTestMissingObjKey
   , testCase "Enum" decodeTestEnum
@@ -211,25 +211,25 @@ decodeTestBadObjKey = do
     (\_ -> assertFailure "Expected Error!")
     r
 
-decodeTest1Json :: Assertion
-decodeTest1Json = parseBS imageDecodeSuccinct
-  <$> BS.readFile "test/json-data/test1.json"
+decodeImageObjJson :: Assertion
+decodeImageObjJson = parseBS imageDecodeSuccinct
+  <$> BS.readFile "test/json-data/image_obj.json"
   >>= Either.either failWithHistory (assertEqual "Image Decode Failed" testImageDataType)
   where
     failWithHistory (err, hist) = do
       print err
       print (ppCursorHistory hist)
-      assertFailure "Decode Failed :("
+      assertFailure "Decode Failed"
 
-decodeTest2Json :: Assertion
-decodeTest2Json = assertBool "[Int] Decode Success" . Either.isRight
+decodeIntListJson :: Assertion
+decodeIntListJson = assertBool "[Int] Decode Success" . Either.isRight
   $ parseBS listDecode "[23,44]"
   where
     listDecode :: Monad f => D.Decoder f [Int]
     listDecode = untag mkDecoder
 
-decodeTest3Json :: Assertion
-decodeTest3Json = assertBool "(Char,String,[Int]) Decode Success" . Either.isRight
+decodeTripleJson :: Assertion
+decodeTripleJson = assertBool "(Char,String,[Int]) Decode Success" . Either.isRight
   $ parseBS decoder "[\"a\",\"fred\",1,2,3,4]"
   where
     decoder :: Monad f => D.Decoder f (Char,String,[Int])

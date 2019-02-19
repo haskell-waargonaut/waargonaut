@@ -4,7 +4,7 @@
 , hedgehog-fn, hoist-error, hw-balancedparens, hw-bits, hw-json
 , hw-prim, hw-rankselect, lens, mmorph, mtl, nats, natural, parsers
 , scientific, semigroupoids, semigroups, stdenv, tagged, tasty
-, tasty-expected-failure, tasty-hedgehog, tasty-hunit
+, tasty-expected-failure, tasty-golden, tasty-hedgehog, tasty-hunit
 , template-haskell, text, transformers, vector, witherable
 , wl-pprint-annotated, zippers
 }:
@@ -24,8 +24,8 @@ mkDerivation {
     attoparsec base bytestring containers contravariant digit directory
     distributive doctest filepath generics-sop hedgehog hedgehog-fn
     lens mtl natural scientific semigroupoids semigroups tagged tasty
-    tasty-expected-failure tasty-hedgehog tasty-hunit template-haskell
-    text vector zippers
+    tasty-expected-failure tasty-golden tasty-hedgehog tasty-hunit
+    template-haskell text vector zippers
   ];
   homepage = "https://github.com/qfpl/waargonaut";
   description = "JSON wrangling";

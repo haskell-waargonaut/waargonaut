@@ -39,14 +39,14 @@ rf f = BS.readFile $ "../test/json-data/" <> f
 
 getParseFiles :: IO [ByteString]
 getParseFiles = sequence
-  [ (rf "jp100.json")
+  [ (rf "twitter_with_hex_vals.json")
   , (rf "twitter100.json")
   , (rf "numbers.json")
   ]
 
 getDecodeFiles :: IO (ByteString, ByteString)
 getDecodeFiles = liftA2 (,)
-  (rf "test1.json")
+  (rf "image_obj.json")
   (rf "numbers.json")
 
 main :: IO ()
@@ -64,15 +64,15 @@ decode = G.env getDecodeFiles $ \ ~(image, numbers) -> G.bgroup "Decode"
   ]
 
 parse :: G.Benchmark
-parse = G.env getParseFiles $ \ ~(jp100 :twitter100:numbers:_) -> G.bgroup "Parse - Attoparsec"
-  [ G.bench "jp100"                    $ G.nf parseOkay jp100
-  , G.bench "twitter100"               $ G.nf parseOkay twitter100
-  , G.bench "numbers"                  $ G.nf parseOkay numbers
+parse = G.env getParseFiles $ \ ~(twitterWithHexVals:twitter100:numbers:_) -> G.bgroup "Parse - Attoparsec"
+  [ G.bench "twitter_with_hex_vals" $ G.nf parseOkay twitterWithHexVals
+  , G.bench "twitter100"            $ G.nf parseOkay twitter100
+  , G.bench "numbers"               $ G.nf parseOkay numbers
   ]
 
 parseSuccinct :: G.Benchmark
-parseSuccinct = G.env getParseFiles $ \ ~(jp100:twitter100:numbers:_) -> G.bgroup "Succinct Index"
-  [ G.bench "jp100"                    $ G.nf indexOkay jp100
-  , G.bench "twitter100"               $ G.nf indexOkay twitter100
-  , G.bench "numbers"                  $ G.nf indexOkay numbers
+parseSuccinct = G.env getParseFiles $ \ ~(twitterWithHexVals:twitter100:numbers:_) -> G.bgroup "Succinct Index"
+  [ G.bench "twitter_with_hex_vals" $ G.nf indexOkay twitterWithHexVals
+  , G.bench "twitter100"            $ G.nf indexOkay twitter100
+  , G.bench "numbers"               $ G.nf indexOkay numbers
   ]
