@@ -26,6 +26,7 @@ import qualified Data.Text.IO                     as Text
 
 import qualified Data.Text.Lazy                   as TextL
 
+import qualified Data.Digit as Dig
 import qualified Data.ByteString                  as BS
 import qualified Data.Sequence                    as S
 
@@ -221,21 +222,46 @@ tripping_properties = testGroup "Properties"
   , testProperty "Newtype with Options (generic)"                      prop_tripping_newtype_fudge_generic
   , testProperty "Condensing History"                                  prop_history_condense
   , testProperty "HexDigit4 conversion"                                prop_char_heXDigit
+  , testProperty "HexDigit4 upper-case hex chars regression"           prop_char_heXDigit_UpperCases
   , testProperty "Text & ByteString builders produce matching output"  prop_builders_match
   ]
+
+charInAcceptableRange :: Char -> Bool
+charInAcceptableRange c' = (ord c') >= 0x0 && (ord c') <= 0xffff
 
 prop_char_heXDigit :: Property
 prop_char_heXDigit = property $ do
   c <- forAll Gen.unicode
 
-  let (anno, expect) = if inRange c
+  let (anno, expect) = if charInAcceptableRange c
         then ("Char in valid range", Just c)
         else ("Char out of valid range", Nothing)
 
   annotate anno
   fmap Hex4.hexDigit4ToChar (Hex4.charToHexDigit4 c) === expect
+
+prop_char_heXDigit_UpperCases :: Property
+prop_char_heXDigit_UpperCases = property $ do
+  c <- forAll $ Gen.filter charInAcceptableRange Gen.unicode
+
+  let hex4 = Hex4.charToHexDigit4 c
+
+  annotate "Generated Char should be in acceptable range!"
+  hd <- maybe failure (pure . fmap ucHeX) hex4
+
+  annotate "All upper-case hexdigits shouldn't affect conversion"
+  Hex4.hexDigit4ToChar hd === c
+
+  annotate "Conversion property should be maintained"
+  fmap Hex4.hexDigit4ToChar hex4 === Just c
   where
-    inRange c' = (ord c') >= 0x0 && (ord c') <= 0xffff
+    ucHeX Dig.HeXDigita = Dig.HeXDigitA
+    ucHeX Dig.HeXDigitb = Dig.HeXDigitB
+    ucHeX Dig.HeXDigitc = Dig.HeXDigitC
+    ucHeX Dig.HeXDigitd = Dig.HeXDigitD
+    ucHeX Dig.HeXDigite = Dig.HeXDigitE
+    ucHeX Dig.HeXDigitf = Dig.HeXDigitF
+    ucHeX d             = d
 
 parser_properties :: TestTree
 parser_properties = testGroup "Parser Round-Trip"
