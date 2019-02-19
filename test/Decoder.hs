@@ -35,7 +35,7 @@ import qualified Data.Text                  as T
 
 import qualified Natural                    as N
 
-import           Waargonaut                 (_Text)
+import           Waargonaut                 (_String)
 
 import           Waargonaut.Generic         (mkDecoder)
 
@@ -110,8 +110,8 @@ unicodeHandlingRegression = withTests 1 . property $ do
   -- If we decode to 'Json' and then use the prism, do we still get the required
   -- string. There should be no reason this is different to decoding to text.
   -- Key words being "should be".
-  (fmap (preview _Text) fileInputJson) === fmap pure expectedText
-  (fmap (preview _Text) manualInputJson) === fmap pure expectedText
+  (fmap (preview _String) fileInputJson) === fmap pure expectedText
+  (fmap (preview _String) manualInputJson) === fmap pure expectedText
 
   -- For comparison, take the expected good/bad 'String' values and pack them to 'Text'.
   Either.Right (T.pack strGood) === fileInputDecoded

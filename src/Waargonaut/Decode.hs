@@ -64,6 +64,7 @@ module Waargonaut.Decode
   , rank
   , prismD
   , prismDOrFail
+  , prismDOrFail'
   , json
   , int
   , scientific

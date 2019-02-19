@@ -5,8 +5,8 @@
 , hw-prim, hw-rankselect, lens, mmorph, mtl, nats, natural, parsers
 , scientific, semigroupoids, semigroups, stdenv, tagged, tasty
 , tasty-expected-failure, tasty-golden, tasty-hedgehog, tasty-hunit
-, template-haskell, text, transformers, vector, witherable
-, wl-pprint-annotated, zippers
+, template-haskell, text, transformers, unordered-containers
+, vector, witherable, wl-pprint-annotated, zippers
 }:
 mkDerivation {
   pname = "waargonaut";
@@ -18,14 +18,15 @@ mkDerivation {
     distributive errors generics-sop hoist-error hw-balancedparens
     hw-bits hw-json hw-prim hw-rankselect lens mmorph mtl nats natural
     parsers scientific semigroupoids semigroups tagged text
-    transformers vector witherable wl-pprint-annotated zippers
+    transformers unordered-containers vector witherable
+    wl-pprint-annotated zippers
   ];
   testHaskellDepends = [
     attoparsec base bytestring containers contravariant digit directory
     distributive doctest filepath generics-sop hedgehog hedgehog-fn
     lens mtl natural scientific semigroupoids semigroups tagged tasty
     tasty-expected-failure tasty-golden tasty-hedgehog tasty-hunit
-    template-haskell text vector zippers
+    template-haskell text unordered-containers vector zippers
   ];
   homepage = "https://github.com/qfpl/waargonaut";
   description = "JSON wrangling";
