@@ -36,55 +36,48 @@ module Types.Common
   , Overlayed (..)
   ) where
 
-import           Generics.SOP                         (Generic, HasDatatypeInfo)
-import qualified GHC.Generics                         as GHC
+import           Generics.SOP                (Generic, HasDatatypeInfo)
+import qualified GHC.Generics                as GHC
 
-import           Control.Lens                         (makeClassy)
-import           Control.Monad                        ((>=>))
+import           Control.Lens                (makeClassy)
+import           Control.Monad               ((>=>))
 
-import           Data.Functor.Identity                (Identity)
-import qualified Data.List                            as List
-import           Data.List.NonEmpty                   (NonEmpty)
-import           Data.Maybe                           (fromMaybe)
+import           Data.Functor.Identity       (Identity)
+import qualified Data.List                   as List
+import           Data.List.NonEmpty          (NonEmpty)
+import           Data.Maybe                  (fromMaybe)
 
-import           Data.Text                            (Text)
-import qualified Data.Text.Lazy                       as TextL
-import qualified Data.Text.Lazy.Builder               as TextLB
+import           Data.Text                   (Text)
+import qualified Data.Text.Lazy              as TextL
 
 import           Hedgehog
-import qualified Hedgehog.Gen                         as Gen
-import qualified Hedgehog.Range                       as Range
+import qualified Hedgehog.Gen                as Gen
+import qualified Hedgehog.Range              as Range
 
-import           Data.ByteString                      (ByteString)
+import           Data.ByteString             (ByteString)
 
-import qualified Data.ByteString.Lazy                 as BL
-import qualified Data.ByteString.Lazy.Builder         as BB
+import qualified Data.ByteString.Lazy        as BL
 
-import qualified Data.Attoparsec.ByteString           as AB
-import qualified Data.Attoparsec.Text                 as AT
+import qualified Data.Attoparsec.ByteString  as AB
+import qualified Data.Attoparsec.Text        as AT
 
-import           Data.Tagged                          (Tagged)
-import qualified Data.Tagged                          as T
+import           Data.Tagged                 (Tagged)
+import qualified Data.Tagged                 as T
 
-import           Data.Digit                           (DecDigit, HeXDigit)
-import qualified Data.Digit                           as D
+import           Data.Digit                  (DecDigit, HeXDigit)
+import qualified Data.Digit                  as D
 
-import qualified Waargonaut.Decode                    as SD
+import qualified Waargonaut.Decode           as SD
 
-import           Waargonaut.Decode.Error              (DecodeError)
-import qualified Waargonaut.Encode                    as E
-import           Waargonaut.Encode.Builder            (bsBuilder, textBuilder,
-                                                       waargonautBuilder)
-import           Waargonaut.Encode.Builder.Whitespace (wsBuilder)
-import           Waargonaut.Types                     (Json)
-import           Waargonaut.Types.Whitespace          (Whitespace (..))
+import           Waargonaut.Decode.Error     (DecodeError)
+import qualified Waargonaut.Encode           as E
+import           Waargonaut.Types            (Json)
+import           Waargonaut.Types.Whitespace (Whitespace (..))
 
-import           Waargonaut.Generic                   (GWaarg, JsonDecode (..),
-                                                       JsonEncode (..),
-                                                       NewtypeName (..),
-                                                       Options (..),
-                                                       defaultOpts, gDecoder,
-                                                       gEncoder)
+import           Waargonaut.Generic          (GWaarg, JsonDecode (..),
+                                              JsonEncode (..), NewtypeName (..),
+                                              Options (..), defaultOpts,
+                                              gDecoder, gEncoder)
 
 data Image = Image
   { _imageWidth    :: Int
@@ -242,13 +235,13 @@ parseText :: SD.Decoder Identity a -> Text -> Either (DecodeError, SD.CursorHist
 parseText d = SD.pureDecodeFromText AT.parseOnly d
 
 encodeJsonText :: Json -> Text
-encodeJsonText = TextL.toStrict . TextLB.toLazyText . waargonautBuilder wsBuilder textBuilder
+encodeJsonText = TextL.toStrict . E.simplePureEncodeText E.json
 
 encodeText :: E.Encoder Identity a -> a -> TextL.Text
-encodeText e = E.simplePureEncodeTextNoSpaces e
+encodeText e = E.simplePureEncodeText e
 
 encodeBS :: Json -> ByteString
-encodeBS = BL.toStrict . BB.toLazyByteString. waargonautBuilder wsBuilder bsBuilder
+encodeBS = BL.toStrict . E.simplePureEncodeByteString E.json
 
 decodeText :: Text -> Either (DecodeError, SD.CursorHistory) Json
 decodeText = SD.pureDecodeFromText AT.parseOnly SD.json

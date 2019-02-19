@@ -25,11 +25,15 @@ module Waargonaut.Encode
   , runPureEncoder
   , runEncoder
   , simpleEncodeWith
+  , simplePureEncodeWith
   , simpleEncodeText
   , simpleEncodeTextNoSpaces
-  , simplePureEncodeWith
+  , simpleEncodeByteString
+  , simpleEncodeByteStringNoSpaces
   , simplePureEncodeText
   , simplePureEncodeTextNoSpaces
+  , simplePureEncodeByteString
+  , simplePureEncodeByteStringNoSpaces
 
     -- * Provided encoders
   , int
@@ -49,7 +53,6 @@ module Waargonaut.Encode
   , json
   , prismE
   , asJson
-  , pureAsJson
 
     -- * Object encoder helpers
   , mapLikeObj
@@ -87,6 +90,7 @@ module Waargonaut.Encode
   , mapToObj'
   , keyValuesAsObj'
   , json'
+  , asJson'
   , generaliseEncoder
   ) where
 
@@ -120,9 +124,12 @@ import           Data.Scientific                      (Scientific)
 import           Data.Monoid                          (Monoid, mempty)
 import           Data.Semigroup                       (Semigroup)
 
-import Data.String (IsString)
 import           Data.Map                             (Map)
 import qualified Data.Map                             as Map
+import           Data.String                          (IsString)
+
+import qualified Data.ByteString.Lazy                 as BL
+import qualified Data.ByteString.Lazy.Builder         as BB
 
 import           Data.Text                            (Text)
 import qualified Data.Text.Lazy                       as LT
@@ -146,10 +153,10 @@ import           Waargonaut.Types                     (AsJType (..),
                                                        _JNumberScientific,
                                                        _JStringText)
 
-import           Waargonaut.Encode.Builder            (textBuilder,
+import           Waargonaut.Encode.Builder            (textBuilder, bsBuilder,
                                                        waargonautBuilder)
+import           Waargonaut.Encode.Builder.Types      (Builder)
 import           Waargonaut.Encode.Builder.Whitespace (wsBuilder, wsRemover)
-import           Waargonaut.Encode.Builder.Types (Builder)
 
 -- | Create an 'Encoder'' for 'a' by providing a function from 'a -> f Json'.
 encodeA :: (a -> f Json) -> Encoder f a
@@ -160,7 +167,8 @@ encodeA = jsonEncoder
 encodePureA :: (a -> Json) -> Encoder' a
 encodePureA f = encodeA (Identity . f)
 
--- | Encode an @a@ directly to a 'LT.Text' using the provided 'Encoder'.
+-- | Encode an @a@ directly to some output text type using the provided
+-- 'Waargonaut.Encode.Builder.Types.Builder' and 'Encoder'.
 simpleEncodeWith
   :: ( Applicative f
      , Monoid b
@@ -184,7 +192,7 @@ simpleEncodeText
 simpleEncodeText =
   simpleEncodeWith textBuilder TB.toLazyText wsBuilder
 
--- | Encode an @a@ directly to a 'ByteString' using the provided 'Encoder'.
+-- | Encode an @a@ directly to a 'LT.Text' using the provided 'Encoder'.
 simpleEncodeTextNoSpaces
   :: Applicative f
   => Encoder f a
@@ -192,6 +200,24 @@ simpleEncodeTextNoSpaces
   -> f LT.Text
 simpleEncodeTextNoSpaces =
   simpleEncodeWith textBuilder TB.toLazyText wsRemover
+
+-- | Encode an @a@ directly to a 'BL.ByteString' using the provided 'Encoder'.
+simpleEncodeByteString
+  :: Applicative f
+  => Encoder f a
+  -> a
+  -> f BL.ByteString
+simpleEncodeByteString =
+  simpleEncodeWith bsBuilder BB.toLazyByteString wsBuilder
+
+-- | Encode an @a@ directly to a 'BL.ByteString' using the provided 'Encoder'.
+simpleEncodeByteStringNoSpaces
+  :: Applicative f
+  => Encoder f a
+  -> a
+  -> f BL.ByteString
+simpleEncodeByteStringNoSpaces =
+  simpleEncodeWith bsBuilder BB.toLazyByteString wsRemover
 
 -- | Encode an @a@ directly to a 'LT.Text' using the provided 'Encoder'.
 simplePureEncodeWith
@@ -207,7 +233,7 @@ simplePureEncodeWith
 simplePureEncodeWith builder buildRunner wsB enc =
   runIdentity . simpleEncodeWith builder buildRunner wsB enc
 
--- | As per 'simpleEncode' but specialised the 'f' to 'Data.Functor.Identity' and remove it.
+-- | As per 'simpleEncodeText' but specialised the 'f' to 'Data.Functor.Identity'.
 simplePureEncodeText
   :: Encoder Identity a
   -> a
@@ -215,7 +241,7 @@ simplePureEncodeText
 simplePureEncodeText enc =
   runIdentity . simpleEncodeText enc
 
--- | As per 'simpleEncodeNoSpaces' but specialised the 'f' to 'Data.Functor.Identity' and remove it.
+-- | As per 'simpleEncodeTextNoSpaces' but specialised the 'f' to 'Data.Functor.Identity'.
 simplePureEncodeTextNoSpaces
   :: Encoder Identity a
   -> a
@@ -223,17 +249,36 @@ simplePureEncodeTextNoSpaces
 simplePureEncodeTextNoSpaces enc =
   runIdentity . simpleEncodeTextNoSpaces enc
 
+-- | As per 'simpleEncodeByteString' but specialised the 'f' to 'Data.Functor.Identity'.
+simplePureEncodeByteString
+  :: Encoder Identity a
+  -> a
+  -> BL.ByteString
+simplePureEncodeByteString enc =
+  runIdentity . simpleEncodeByteString enc
+
+-- | As per 'simpleEncodeByteStringNoSpaces' but specialised the 'f' to 'Data.Functor.Identity'.
+simplePureEncodeByteStringNoSpaces
+  :: Encoder Identity a
+  -> a
+  -> BL.ByteString
+simplePureEncodeByteStringNoSpaces enc =
+  runIdentity . simpleEncodeByteStringNoSpaces enc
+
 -- | Transform the given input using the 'Encoder' to its 'Json' data structure representation.
 asJson :: Applicative f => Encoder f a -> a -> f Json
 asJson e = runEncoder e
+{-# INLINE asJson #-}
 
 -- | As per 'asJson', but with the 'Encoder' specialised to 'Identity'
-pureAsJson :: Encoder Identity a -> a -> Json
-pureAsJson e = runIdentity . runEncoder e
+asJson' :: Encoder Identity a -> a -> Json
+asJson' e = runIdentity . runEncoder e
+{-# INLINE asJson' #-}
 
 -- | 'Encoder'' for a Waargonaut 'Json' data structure
 json :: Applicative f => Encoder f Json
 json = encodeA pure
+{-# INLINE json #-}
 
 -- Internal function for creating an 'Encoder' from an 'Control.Lens.AReview'.
 encToJsonNoSpaces
@@ -471,7 +516,7 @@ atKey'
   -> t
   -> t
 atKey' k enc v =
-  at k ?~ runIdentity (runEncoder enc v)
+  at k ?~ asJson' enc v
 
 -- | Encode an 'Int' at the given 'Text' key.
 intAt
@@ -660,7 +705,7 @@ onObj
   -> JObject WS Json
   -> f (JObject WS Json)
 onObj k b encB o = (\j -> o & _Wrapped L.%~ L.cons j)
-  . JAssoc (_JStringText # k) mempty mempty <$> runEncoder encB b
+  . JAssoc (_JStringText # k) mempty mempty <$> asJson encB b
 
 -- | Encode key value pairs as a JSON object, allowing duplicate keys.
 keyValuesAsObj
