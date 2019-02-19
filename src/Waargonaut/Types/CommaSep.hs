@@ -94,6 +94,7 @@ import           Waargonaut.Types.CommaSep.Elems (Elems (..), HasElems (..),
 -- >>> import Data.Either (Either (..), isLeft)
 -- >>> import Waargonaut.Decode.Error (DecodeError)
 -- >>> import Data.Digit (HeXDigit)
+-- >>> import Data.Char (Char)
 -- >>> import Text.Parser.Char (alphaNum, char)
 -- >>> let charWS = ((,) <$> alphaNum <*> parseWhitespace) :: CharParsing f => f (Char, WS)
 ----
