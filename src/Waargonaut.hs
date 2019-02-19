@@ -27,57 +27,61 @@ module Waargonaut
   , waargonautBuilder
 
     -- * Prisms
+  , _ByteStringJson
+  , _TextJson
   , _Number
-  , _Text
+  , _String
   , _Bool
   , _ArrayOf
+  , _ObjLazyHashMapOf
   , _Null
 
   ) where
 
-import           Prelude                              (Bool, Show)
+import           Prelude                         (Bool, Show)
 
-import           Control.Applicative                  (Applicative)
-import           Control.Category                     ((.))
-import           Control.Error.Util                   (note)
-import           Control.Lens                         (Prism', folded, preview,
-                                                       prism, review, ( # ),
-                                                       (^..), (^?), _1,
-                                                       _Wrapped)
-import           Control.Monad                        (Monad)
-import           Data.Function                        (const, ($))
-import           Data.Functor                         ((<$), (<$>))
-import           Data.Scientific                      (Scientific)
+import           Control.Applicative             (liftA2)
+import           Control.Category                ((.))
+import           Control.Error.Util              (note)
+import           Control.Lens                    (Prism', folded, preview,
+                                                  prism, review, (^..), (^?),
+                                                  _1, _2, _Wrapped)
+import           Control.Monad                   (Monad)
+import           Data.Foldable                   (foldl)
+import           Data.Function                   (const, ($))
+import           Data.Functor                    (fmap, (<$))
+import           Data.Scientific                 (Scientific)
 
-import           Data.Bifunctor                       (first)
-import           Data.Either                          (Either (..))
-import           Data.Maybe                           (maybe)
-import           Data.Monoid                          (mempty)
+import           Data.Bifunctor                  (first)
+import           Data.Either                     (Either (..))
+import           Data.Maybe                      (Maybe (..), maybe)
+import           Data.Monoid                     (mempty)
+import           Data.Traversable                (traverse)
 
-import           Text.Parser.Char                     (CharParsing)
+import           Text.Parser.Char                (CharParsing)
 
-import           Data.Text                            (Text)
-import qualified Data.Text                            as T
-import qualified Data.Text.Lazy                       as TL
+import           Data.Text                       (Text)
+import qualified Data.Text.Lazy                  as TL
 
-import           Data.ByteString                      (ByteString)
-import qualified Data.ByteString.Lazy                 as BL
-import qualified Data.ByteString.Lazy.Builder         as BB
+import           Data.ByteString                 (ByteString)
+import qualified Data.ByteString.Lazy            as BL
 
-import qualified Waargonaut.Types.CommaSep            as CS
-import           Waargonaut.Types.JString             (_JStringText)
+import           Data.HashMap.Lazy               (HashMap)
+import qualified Data.HashMap.Lazy               as HM
 
-import           Waargonaut.Types.JNumber             (_JNumberScientific)
-import           Waargonaut.Types.Json                (AsJType (..), JType (..),
-                                                       Json (..),
-                                                       parseWaargonaut)
+import qualified Waargonaut.Types.JObject.JAssoc as JA
 
-import           Waargonaut.Encode.Builder            (bsBuilder,
-                                                       waargonautBuilder)
-import           Waargonaut.Encode.Builder.Whitespace (wsBuilder)
+import qualified Waargonaut.Types.CommaSep       as CS
+import           Waargonaut.Types.JString        (_JStringText)
 
-import qualified Waargonaut.Decode                    as D
-import qualified Waargonaut.Encode                    as E
+import           Waargonaut.Types.JNumber        (_JNumberScientific)
+import           Waargonaut.Types.Json           (AsJType (..), JType (..),
+                                                  Json (..), parseWaargonaut)
+
+import           Waargonaut.Encode.Builder       (waargonautBuilder)
+
+import qualified Waargonaut.Decode               as D
+import qualified Waargonaut.Encode               as E
 
 _ByteStringJson
   :: ( CharParsing g
@@ -87,7 +91,7 @@ _ByteStringJson
   => (forall a. g a -> ByteString -> Either e a)
   -> Prism' ByteString Json
 _ByteStringJson pf = prism
-  (BL.toStrict . E.simplePureEncodeWith bsBuilder BB.toLazyByteString wsBuilder E.json)
+  (BL.toStrict . E.simplePureEncodeByteString E.json)
   (\b -> first (const b) $ D.pureDecodeFromByteString pf D.json b)
 
 -- | Specialised to 'BS.ByteString'
@@ -109,28 +113,46 @@ _Number = prism
   (\j -> note j $ j ^? _JNum . _1 . _JNumberScientific)
 
 -- | Not a lawful 'Prism'' between some 'Json' and a 'Text' value
-_Text :: Applicative f => (T.Text -> f T.Text) -> Json -> f Json
-_Text = prism (review _JStr . (,mempty) . review _JStringText) (\j -> note j $ j ^? _JStr . _1 . _JStringText)
+_String :: Prism' Json Text
+-- _String = prism (review _JStr . (,mempty) . review _JStringText) (\j -> note j $ j ^? _JStr . _1 . _JStringText)
+_String = prism (E.asJson' E.text) (\j -> note j $ j ^? _JStr . _1 . _JStringText)
 
 -- | 'Prism'' between some 'Json' and a '()' value
 _Null :: Prism' Json ()
-_Null = prism (const (_JNull # mempty)) (\n -> note n $ () <$ n ^? _JNull)
+_Null = prism (E.asJson' E.null) (\n -> note n $ () <$ n ^? _JNull)
 
 -- | 'Prism'' between some 'Json' and a 'Bool' value
 _Bool :: Prism' Json Bool
-_Bool = prism (\b -> _JBool # (b, mempty)) (\j -> note j $ j ^? _JBool . _1)
+_Bool = prism (E.asJson' E.bool) (\j -> note j $ j ^? _JBool . _1)
 
 -- | 'Prism'' between some 'Json' and an array of something given the provided 'Prism''
+-- _ArrayOf :: Prism' Json x -> Prism' Json [x]
 _ArrayOf :: Prism' Json x -> Prism' Json [x]
 _ArrayOf elemT = prism fromList' toList'
   where
-    fromList' xs = _JArr #
-      ( _Wrapped # CS.fromList ((elemT #) <$> xs)
-      , mempty
-      )
+    fromList' = E.asJson' (E.list E.json) . fmap (review elemT)
 
     toList' r = maybe (Left r) (Right . (^.. folded . elemT))
       $ preview (_JArr . _1 . _Wrapped) r
+
+_ObjLazyHashMapOf :: Prism' Json x -> Prism' Json (HashMap Text x)
+_ObjLazyHashMapOf _Value = prism toJ fromJ
+  where
+    toJ = E.asJson' (E.keyValueTupleFoldable E.json) . HM.toList
+      . fmap (review _Value)
+
+    _ObjBits = _JObj . _1 . _Wrapped . CS._CommaSeparated . _2
+
+    addToMap m (k,v) = HM.insert k v m
+
+    toVals el = liftA2 (,)
+      (preview (JA.jsonAssocKey . _JStringText) el)
+      (preview (JA.jsonAssocVal . _Value) el)
+
+    fromJ j = case preview _ObjBits j of
+      Nothing         -> Left j
+      Just Nothing    -> Right HM.empty
+      Just (Just els) -> maybe (Left j) (Right . foldl addToMap HM.empty) $ traverse toVals els
 
 -- $basicdecode
 --
