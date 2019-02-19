@@ -1,5 +1,5 @@
 packages:
-  .,
+  .
   waargbench
 
 optimization: 2
