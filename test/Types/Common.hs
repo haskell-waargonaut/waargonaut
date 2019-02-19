@@ -57,8 +57,8 @@ import qualified Hedgehog.Range                       as Range
 
 import           Data.ByteString                      (ByteString)
 
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Lazy.Builder as BB
+import qualified Data.ByteString.Lazy                 as BL
+import qualified Data.ByteString.Lazy.Builder         as BB
 
 import qualified Data.Attoparsec.ByteString           as AB
 import qualified Data.Attoparsec.Text                 as AT
@@ -73,7 +73,7 @@ import qualified Waargonaut.Decode                    as SD
 
 import           Waargonaut.Decode.Error              (DecodeError)
 import qualified Waargonaut.Encode                    as E
-import           Waargonaut.Encode.Builder            (textBuilder, bsBuilder,
+import           Waargonaut.Encode.Builder            (bsBuilder, textBuilder,
                                                        waargonautBuilder)
 import           Waargonaut.Encode.Builder.Whitespace (wsBuilder)
 import           Waargonaut.Types                     (Json)
