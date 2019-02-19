@@ -364,15 +364,21 @@ _ArrayOf elemT = prism fromList' toList'
 -- To then turn these values into JSON output:
 --
 -- @
--- simpleEncode         :: Applicative f => Encoder f a -> a -> f ByteString
--- simpleEncodeNoSpaces :: Applicative f => Encoder f a -> a -> f ByteString
+-- simpleEncodeText         :: Applicative f => Encoder f a -> a -> f Text
+-- simpleEncodeTextNoSpaces :: Applicative f => Encoder f a -> a -> f Text
+--
+-- simpleEncodeByteString         :: Applicative f => Encoder f a -> a -> f ByteString
+-- simpleEncodeByteStringNoSpaces :: Applicative f => Encoder f a -> a -> f ByteString
 -- @
 --
 -- Or
 --
 -- @
--- simplePureEncode         :: Encoder' a -> a -> ByteString
--- simplePureEncodeNoSpaces :: Encoder' a -> a -> ByteString
+-- simplePureEncodeText         :: Encoder' a -> a -> Text
+-- simplePureEncodeTextNoSpaces :: Encoder' a -> a -> Text
+--
+-- simplePureEncodeByteString         :: Encoder' a -> a -> ByteString
+-- simplePureEncodeByteStringNoSpaces :: Encoder' a -> a -> ByteString
 -- @
 --
 -- The latter functions specialise the 'f' to be 'Data.Functor.Identity'.
@@ -381,7 +387,7 @@ _ArrayOf elemT = prism fromList' toList'
 -- you wish to use and run it against a value of a matching type:
 --
 -- @
--- simplePureEncodeNoSpaces personEncoder (Person \"Krag\" 33 \"Red House 4, Three Neck Lane, Greentown.\" [86,3,32,42,73])
+-- simplePureEncodeTextNoSpaces personEncoder (Person \"Krag\" 33 \"Red House 4, Three Neck Lane, Greentown.\" [86,3,32,42,73])
 -- =
 -- "{\"name\":\"Krag\",\"age\":88,\"address\":\"Red House 4, Three Neck Lane, Greentown.\",\"numbers\":[86,3,32,42,73]}"
 -- @
