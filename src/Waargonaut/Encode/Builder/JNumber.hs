@@ -14,16 +14,12 @@ import           Waargonaut.Encode.Builder.Types (Builder (..))
 
 -- $setup
 -- >>> :set -XOverloadedStrings
--- >>> import Control.Monad (return)
--- >>> import Prelude (read)
--- >>> import Data.Either(Either (..), isLeft)
 -- >>> import Data.List.NonEmpty (NonEmpty ((:|)))
 -- >>> import Data.Digit (DecDigit(..))
 -- >>> import qualified Data.Digit as D
--- >>> import Waargonaut.Decode.Error (DecodeError)
--- >>> import Data.ByteString.Lazy (toStrict)
 -- >>> import Data.Text.Lazy.Builder (toLazyText)
--- >>> import Utils
+-- >>> import Waargonaut.Encode.Builder (textBuilder)
+-- >>> import Waargonaut.Types.JNumber (JInt' (JIntInt))
 --
 
 getExpSymbol
@@ -65,13 +61,13 @@ expBuilder bldr (Exp e sign digs) =
 
 -- | Printing of JNumbers
 --
--- >>> toLazyText $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = D.DecDigit1 :| [D.DecDigit0]})})
+-- >>> toLazyText $ jNumberBuilder textBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = D.DecDigit1 :| [D.DecDigit0]})})
 -- "3.45e+10"
 --
--- >>> toLazyText $ jNumberBuilder (JNumber {_minus = True, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.DecDigit0 :| [D.x2]})})
+-- >>> toLazyText $ jNumberBuilder textBuilder (JNumber {_minus = True, _numberint = JIntInt D.DecDigit3 [], _frac = Just (Frac (D.DecDigit4 :| [D.DecDigit5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.DecDigit0 :| [D.x2]})})
 -- "-3.45e-02"
 --
--- >>> toLazyText $ jNumberBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit0 [D.DecDigit0], _frac = Nothing, _expn = Nothing})
+-- >>> toLazyText $ jNumberBuilder textBuilder (JNumber {_minus = False, _numberint = JIntInt D.DecDigit0 [D.DecDigit0], _frac = Nothing, _expn = Nothing})
 -- "00"
 --
 jNumberBuilder

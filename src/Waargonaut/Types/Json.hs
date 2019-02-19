@@ -83,10 +83,10 @@ import           Waargonaut.Types.Whitespace (WS (..), parseWhitespace)
 -- >>> import Waargonaut.Types.JChar.Unescaped (Unescaped (..))
 -- >>> import Data.Digit (HeXDigit)
 -- >>> import qualified Waargonaut.Encode as E
--- >>> let intList = E.runPureEncoder (E.list E.int) [1,2,3]
+-- >>> let intList = E.pureAsJson (E.list E.int) [1,2,3]
 -- >>> data Foo = Foo { fooA :: Int, fooB :: Text } deriving Show
 -- >>> let encodeFoo = E.mapLikeObj $ \(Foo i t) -> E.atKey' "a" E.int i . E.atKey' "b" E.text t
--- >>> let obj = E.runPureEncoder encodeFoo (Foo 33 "Fred")
+-- >>> let obj = E.pureAsJson encodeFoo (Foo 33 "Fred")
 ----
 
 -- | Individual JSON Types and their trailing whitespace.
@@ -212,9 +212,9 @@ jtypeTraversal = bitraverse pure
 -- |
 -- A 'Control.Lens.Traversal'' over the 'a' at the given 'Text' key on a JSON object.
 --
--- >>> E.simplePureEncodeNoSpaces E.json (obj & oat "c" ?~ E.runPureEncoder E.int 33)
+-- >>> E.simplePureEncodeTextNoSpaces E.json (obj & oat "c" ?~ E.pureAsJson E.int 33)
 -- "{\"c\":33,\"a\":33,\"b\":\"Fred\"}"
--- >>> E.simplePureEncodeNoSpaces E.json (obj & oat "d" ?~ E.runPureEncoder E.text "sally")
+-- >>> E.simplePureEncodeTextNoSpaces E.json (obj & oat "d" ?~ E.pureAsJson E.text "sally")
 -- "{\"d\":\"sally\",\"a\":33,\"b\":\"Fred\"}"
 --
 oat :: (AsJType r ws a, Semigroup ws, Monoid ws) => Text -> Traversal' r (Maybe a)
@@ -223,9 +223,9 @@ oat k = _JObj . _1 . _MapLikeObj . at k
 -- |
 -- A 'Control.Lens.Traversal'' over the 'a' at the given 'Int' position in a JSON object.
 --
--- >>> E.simplePureEncodeNoSpaces E.json (obj & oix 0 .~ E.runPureEncoder E.int 1)
+-- >>> E.simplePureEncodeTextNoSpaces E.json (obj & oix 0 .~ E.pureAsJson E.int 1)
 -- "{\"a\":1,\"b\":\"Fred\"}"
--- >>> E.simplePureEncodeNoSpaces E.json (obj & oix 1 .~ E.runPureEncoder E.text "sally")
+-- >>> E.simplePureEncodeTextNoSpaces E.json (obj & oix 1 .~ E.pureAsJson E.text "sally")
 -- "{\"a\":33,\"b\":\"sally\"}"
 oix :: (Semigroup ws, Monoid ws, AsJType r ws a) => Int -> Traversal' r a
 oix i = _JObj . _1 . ix i
@@ -233,9 +233,9 @@ oix i = _JObj . _1 . ix i
 -- |
 -- A 'Control.Lens.Traversal'' over the 'a' at the given 'Int' position in a JSON array.
 --
--- >>> E.simplePureEncodeNoSpaces E.json ((E.runPureEncoder (E.list E.int) [1,2,3]) & aix 0 .~ E.runPureEncoder E.int 99)
+-- >>> E.simplePureEncodeTextNoSpaces E.json ((E.pureAsJson (E.list E.int) [1,2,3]) & aix 0 .~ E.pureAsJson E.int 99)
 -- "[99,2,3]"
--- >>> E.simplePureEncodeNoSpaces E.json ((E.runPureEncoder (E.list E.int) [1,2,3]) & aix 2 .~ E.runPureEncoder E.int 44)
+-- >>> E.simplePureEncodeTextNoSpaces E.json ((E.pureAsJson (E.list E.int) [1,2,3]) & aix 2 .~ E.pureAsJson E.int 44)
 -- "[1,2,44]"
 aix :: (AsJType r ws a, Semigroup ws, Monoid ws) => Int -> Traversal' r a
 aix i = _JArr . _1 . ix i

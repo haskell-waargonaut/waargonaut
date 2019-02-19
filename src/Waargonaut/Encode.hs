@@ -48,6 +48,8 @@ module Waargonaut.Encode
   , mapToObj
   , json
   , prismE
+  , asJson
+  , pureAsJson
 
     -- * Object encoder helpers
   , mapLikeObj
@@ -220,6 +222,14 @@ simplePureEncodeTextNoSpaces
   -> LT.Text
 simplePureEncodeTextNoSpaces enc =
   runIdentity . simpleEncodeTextNoSpaces enc
+
+-- | Transform the given input using the 'Encoder' to its 'Json' data structure representation.
+asJson :: Applicative f => Encoder f a -> a -> f Json
+asJson e = runEncoder e
+
+-- | As per 'asJson', but with the 'Encoder' specialised to 'Identity'
+pureAsJson :: Encoder Identity a -> a -> Json
+pureAsJson e = runIdentity . runEncoder e
 
 -- | 'Encoder'' for a Waargonaut 'Json' data structure
 json :: Applicative f => Encoder f Json
