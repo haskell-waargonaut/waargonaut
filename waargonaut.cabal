@@ -46,6 +46,7 @@ extra-source-files:  changelog.md
                    -- Misc json files
                    , test/json-data/numbers.json
                    , test/json-data/image_obj.json
+                   , test/json-data/twitter_with_hex_vals.json
 
                    -- Known bad json files
                    , test/json-data/bad-json/no_comma_arr.json
