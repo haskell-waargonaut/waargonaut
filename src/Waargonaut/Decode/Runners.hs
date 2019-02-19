@@ -3,7 +3,7 @@ module Waargonaut.Decode.Runners
   (
     -- * General over @f@
     decodeWithInput
-  , decodeFromStringLossy
+  , decodeFromString
   , decodeFromText
   , decodeFromByteString
 
@@ -11,7 +11,7 @@ module Waargonaut.Decode.Runners
   , pureDecodeWithInput
   , pureDecodeFromText
   , pureDecodeFromByteString
-  , pureDecodeFromStringLossy
+  , pureDecodeFromString
 
     -- * Helpers
   , overrideParser
@@ -38,7 +38,6 @@ import qualified Data.Text.Encoding         as Text
 import           Text.Parser.Char           (CharParsing)
 
 import           Data.ByteString            (ByteString)
-import qualified Data.ByteString.Char8      as BS8
 
 import           Waargonaut.Decode.Error    (DecodeError (..))
 import           Waargonaut.Types
@@ -47,30 +46,6 @@ import qualified Waargonaut.Decode.Internal as DI
 
 import           Waargonaut.Decode.Types    (CursorHistory, DecodeResult (..),
                                              Decoder (..), mkCursor)
-
--- | Run a 'Decoder' for the final result to see if you have your 'a' or an error.
--- runDecode
---   :: Monad f
---   => Decoder f a
---   -> ParseFn
---   -> JCurs
---   -> f (Either (DecodeError, CursorHistory) a)
--- runDecode dr p =
---   DI.runDecoderResultT . runDecoder dr p
-
--- |
--- Using the 'ParseFn', complete a 'DecodeResult' to find out if we have the type we're after. This
--- is mostly used internally to help build 'Decoder' structures. Exported as it may prove useful
--- when abstracting over the 'Decoder' types or other such shenanigans.
--- runDecodeResult
---   :: Monad f
---   => ParseFn
---   -> DecodeResult f a
---   -> f (Either (DecodeError, CursorHistory) a)
--- runDecodeResult p =
---   DI.runDecoderResultT
---   . flip runReaderT p
---   . unDecodeResult
 
 -- | General decoding function that takes a given parsing function and some
 -- functions to handle the transition from the input of the 'JCurs' to the
@@ -108,17 +83,12 @@ decodeWithInput parserFn toI fromI decode = DI.runDecoderResultT
   . fromI
 
 -- | As per the 'decodeWithInput' function, but with the input type specialised
--- to 'String'. Please note that this function is lossy with respect to any
--- 'Char' that is _not_ in the 0-255 range:
+-- to 'String'.
 --
--- * Unicode Basic Latin
--- * Latin-1 Supplement
--- * C0+C1 Controls.
+-- This function goes via 'Data.Text.Text' to ensure the UTF-8 is handled as
+-- best as we can.
 --
--- This is due to the use of 'Data.ByteString.Char8' functions to manage the
--- conversion.
---
-decodeFromStringLossy
+decodeFromString
   :: ( CharParsing f
      , Monad f
      , Monad g
@@ -128,8 +98,9 @@ decodeFromStringLossy
   -> Decoder g x
   -> String
   -> g (Either (DecodeError, CursorHistory) x)
-decodeFromStringLossy parseFn =
-  decodeWithInput parseFn BS8.unpack BS8.pack
+decodeFromString parseFn = decodeWithInput parseFn
+  (Text.unpack . Text.decodeUtf8)
+  (Text.encodeUtf8 . Text.pack)
 
 -- | As per 'decodeWithInput' function but specialised to the 'ByteString' input type.
 decodeFromByteString
@@ -226,10 +197,7 @@ pureDecodeFromByteString =
 
 -- | As per 'pureDecodeWithInput' but specialised to 'Data.String.String'.
 --
--- This function is affected in the same way as 'decodeFromString' with respect
--- to only working with characters that appear in the 0-255 range.
---
-pureDecodeFromStringLossy
+pureDecodeFromString
   :: ( Monad f
      , CharParsing f
      , Show e
@@ -238,8 +206,8 @@ pureDecodeFromStringLossy
   -> Decoder Identity x
   -> String
   -> Either (DecodeError, CursorHistory) x
-pureDecodeFromStringLossy =
-  pureDecodeWithInput decodeFromStringLossy
+pureDecodeFromString =
+  pureDecodeWithInput decodeFromString
 
 -- | Helper function to handle wrapping up a parse failure using the given
 -- parsing function. Intended to be used with the 'runDecode' or 'simpleDecode'

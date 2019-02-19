@@ -61,8 +61,6 @@ import           Control.Monad.Except          (lift, throwError)
 import           Control.Monad.Reader          (runReaderT)
 import           Control.Monad.State           (modify)
 
-import           Data.Functor.Identity         (runIdentity)
-
 import qualified Data.Char                     as Char
 import           Data.Maybe                    (fromMaybe)
 
@@ -426,7 +424,7 @@ tagVal
 tagVal  NoTag  v =
   K v
 tagVal (Tag t) v =
-  K $ runIdentity . E.runEncoder (inObj E.json' t) <$> v
+  K $ E.asJson' (inObj E.json' t) <$> v
 
 unTagVal
   :: Monad f
@@ -526,26 +524,26 @@ gEncoder'
   -> NP I xs
   -> K (f Json) xs
 gEncoder' _ _ _ (JsonZero n) Nil           =
-  K (E.runEncoder (T.untag mkEncoder) (Text.pack n))
+  K (E.asJson (T.untag mkEncoder) (Text.pack n))
 
 gEncoder' _ pT _ (JsonOne tag) (I a :* Nil) =
-  tagVal tag $ E.runEncoder (T.proxy mkEncoder pT) a
+  tagVal tag $ E.asJson (T.proxy mkEncoder pT) a
 
 gEncoder' p pT _ (JsonMul tag) cs           =
-  tagVal tag . E.runEncoder (E.list E.json) . hcollapse $ hcliftA p ik cs
+  tagVal tag . E.asJson (E.list E.json) . hcollapse $ hcliftA p ik cs
   where
     ik :: JsonEncode t x => I x -> K Json x
-    ik = K . runIdentity . E.runEncoder (T.proxy mkEncoder pT) . unI
+    ik = K . E.asJson' (T.proxy mkEncoder pT) . unI
 
 gEncoder' p pT opts (JsonRec tag fields) cs    =
   tagVal tag . enc . hcollapse $ hcliftA2 p tup fields cs
   where
     tup :: JsonEncode t x => K String x -> I x -> K (Text, Json) x
     tup f a = K ( modFieldName opts (unK f)
-                , runIdentity $ E.runEncoder (T.proxy mkEncoder pT) (unI a)
+                , E.asJson' (T.proxy mkEncoder pT) (unI a)
                 )
 
-    enc = pure . E.runPureEncoder (E.keyValueTupleFoldable E.json)
+    enc = pure . E.asJson' (E.keyValueTupleFoldable E.json)
 
 -- |
 -- Create a 'Tagged' 'Decoder' for type @ a @, tagged by @ t @, using the given 'Options'.
