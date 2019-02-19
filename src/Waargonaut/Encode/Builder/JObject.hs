@@ -1,10 +1,12 @@
 module Waargonaut.Encode.Builder.JObject (jObjectBuilder) where
 
-import           Waargonaut.Types.JObject          (JAssoc (..), JObject (..))
+import           Data.Monoid                        ((<>))
 
-import Waargonaut.Encode.Builder.CommaSep (commaSeparatedBuilder)
-import           Waargonaut.Encode.Builder.JString (jStringBuilder)
-import           Waargonaut.Encode.Builder.Types   (Builder (..))
+import           Waargonaut.Types.JObject           (JAssoc (..), JObject (..))
+
+import           Waargonaut.Encode.Builder.CommaSep (commaSeparatedBuilder)
+import           Waargonaut.Encode.Builder.JString  (jStringBuilder)
+import           Waargonaut.Encode.Builder.Types    (Builder (..))
 
 -- | Builder for a single "key:value" pair.
 jAssocBuilder

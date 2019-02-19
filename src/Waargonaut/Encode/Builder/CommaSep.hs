@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 module Waargonaut.Encode.Builder.CommaSep (commaSeparatedBuilder) where
 
+import           Data.Monoid                     ((<>))
 import           Waargonaut.Types.CommaSep       (Comma, CommaSeparated (..),
                                                   Elem (..), Elems (..))
 

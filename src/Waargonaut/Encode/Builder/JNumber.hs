@@ -2,10 +2,11 @@ module Waargonaut.Encode.Builder.JNumber
   ( jNumberBuilder
   ) where
 
-import           Control.Lens                    (( # ))
+import           Control.Lens                    (review)
 
 import qualified Data.Digit                      as D
 import           Data.List.NonEmpty              (NonEmpty)
+import           Data.Monoid                     ((<>))
 
 import           Waargonaut.Types.JNumber        (E (..), Exp (..), Frac (..),
                                                   JNumber (..), jIntToDigits)
@@ -48,7 +49,7 @@ digitsBuilder
   -> NonEmpty D.DecDigit
   -> b
 digitsBuilder bldr =
-  foldMap (fromInt bldr . (D.integralDecimal #))
+  foldMap (fromInt bldr . review D.integralDecimal)
 
 -- | Builder for the exponent portion.
 expBuilder
