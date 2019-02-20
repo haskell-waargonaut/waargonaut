@@ -78,16 +78,16 @@ main :: IO ()
 main = do
   goldens <- Golden.goldenTests
   defaultMain $ testGroup "Waargonaut All Tests"
-    [ Properties.propertyTests
-    , regressionTests
-    , Json.jsonTests
-    , Json.jsonPrisms
+    [ regressionTests
     , mishandlingOfCharVsUtf8Bytes
+
+    , Properties.propertyTests
+    , Json.jsonPrisms
+    , Decoder.Laws.decoderLaws
+    , Encoder.Laws.encoderLaws
 
     , Decoder.decoderTests
     , Encoder.encoderTests
 
-    , Decoder.Laws.decoderLaws
-    , Encoder.Laws.encoderLaws
     , goldens
     ]

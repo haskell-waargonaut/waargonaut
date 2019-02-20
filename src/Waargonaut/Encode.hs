@@ -298,6 +298,7 @@ prismE
   -> Encoder f b
 prismE p e =
   L.review p >$< e
+{-# INLINE prismE #-}
 
 -- | Encode an 'Int'
 int :: Applicative f => Encoder f Int
