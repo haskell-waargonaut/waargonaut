@@ -35,7 +35,7 @@ import qualified Data.Text                  as T
 
 import qualified Natural                    as N
 
-import           Waargonaut                 (_String)
+import           Waargonaut.Lens            (_String)
 
 import           Waargonaut.Generic         (mkDecoder)
 
