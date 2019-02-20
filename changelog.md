@@ -22,6 +22,7 @@
   * Created submodules to house the generalised builders (see Waargonaut.Encode.Builder and friends)
   * Added test to ensure both builders produce identical output
 * Updated documentation for Encode process to match changes
+* Added deprecation notice to `Waargonaut.Decode.Traversal`
 
 #### Cleanup
 
@@ -36,6 +37,11 @@
 * Updated documentation if required for module changes.
 * Deleted commented out code
 * Changed all file textual encoding/decoding tests to Test.Tasty.Golden.
+
+#### New hotness
+
+* Added a few prisms to allow for similar behaviour to the lens-aeson package.
+* Added property tests for these new prisms to check they comply with the prism law.
 
 ## 0.5.2.1  -- 2019-01-08
 

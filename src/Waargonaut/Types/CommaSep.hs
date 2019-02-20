@@ -29,6 +29,7 @@ module Waargonaut.Types.CommaSep
   , _CommaSeparated
   , toList
   , fromList
+  , fromCommaSep
 
     -- * Cons / Uncons
   , consCommaSep
@@ -42,10 +43,10 @@ import           Control.Applicative             (Applicative (..), pure, (*>),
                                                   (<*), (<*>))
 import           Control.Category                ((.))
 
-import           Control.Lens                    (AsEmpty (..), Cons (..),
+import           Control.Lens                    (AsEmpty (..), Cons (..), Traversal',
                                                   Index, Iso, IxValue,
                                                   Ixed (..), Snoc (..), cons,
-                                                  from, iso, mapped, nearly,
+                                                  from, iso, mapped, nearly, preview,
                                                   over, prism, snoc, to,
                                                   traverse, unsnoc, (%%~), (%~),
                                                   (.~), (^.), (^..), (^?), _1,
@@ -197,12 +198,30 @@ instance Ixed (CommaSeparated ws a) where
 -- | Convert a list of 'a' to a 'CommaSeparated' list, with no whitespace.
 fromList :: (Monoid ws, Semigroup ws) => [a] -> CommaSeparated ws a
 fromList = foldr cons mempty
+{-# INLINE fromList #-}
 
 -- | Convert a 'CommaSeparated' of 'a' to @[a]@, discarding whitespace.
 toList :: CommaSeparated ws a -> [a]
 toList = maybe [] g . (^. _CommaSeparated . _2) where
   g e = snoc (e ^.. elemsElems . traverse . elemVal) (e ^. elemsLast . elemVal)
 {-# INLINE toList #-}
+
+fromCommaSep
+  :: Traversal' j (CommaSeparated ws x)
+  -> v
+  -> (Elems ws a -> v)
+  -> (x -> Maybe a)
+  -> j
+  -> Either j v
+fromCommaSep _HasCS empty builder decoder j =
+  case preview (_HasCS . _CommaSeparated . _2) j of
+    Nothing         -> Left j   -- Json input is not the write structure
+    Just Nothing    -> Right empty -- Json input is the right structure but empty so return empty
+    Just (Just els) -> maybe
+      (Left j)                 -- We've had a conversion failure
+      (Right . builder)        -- Try to lazily fold our values into the return type
+      $ traverse decoder els   -- Try to decode the values
+{-# INLINE fromCommaSep #-}
 
 -- | Parse a 'CommaSeparated' data structure.
 --

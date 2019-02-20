@@ -251,6 +251,6 @@ test-suite waarg-tests
 
                      , waargonaut
 
-  ghc-options:         -Wall
+  ghc-options:         -Wall -O2
 
   default-language:    Haskell2010

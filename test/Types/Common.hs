@@ -13,6 +13,7 @@ module Types.Common
   , genHeXaDeCiMaLDigitNoZero
   , genNonEmptyDecimalDigit
   , genText
+  , genScientific
   , genWhitespace
 
   , prop_generic_tripping
@@ -53,6 +54,9 @@ import qualified Data.Text.Lazy              as TextL
 import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
 import qualified Hedgehog.Range              as Range
+
+import           Data.Scientific            (Scientific)
+import qualified Data.Scientific            as Sci
 
 import           Data.ByteString             (ByteString)
 
@@ -227,6 +231,10 @@ genWhitespace = Gen.element
 
 genText :: Gen Text
 genText = Gen.text ( Range.linear 0 100 ) Gen.unicodeAll
+
+genScientific :: MonadGen m => Maybe Int -> m Scientific
+genScientific lim = either fst fst . Sci.fromRationalRepetend lim
+  <$> Gen.realFrac_ (Range.linearFrac 0.0001 1000.0)
 
 parseBS :: SD.Decoder Identity a -> ByteString -> Either (DecodeError, SD.CursorHistory) a
 parseBS d = SD.pureDecodeFromByteString AB.parseOnly d

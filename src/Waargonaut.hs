@@ -3,6 +3,9 @@
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TupleSections         #-}
+{-# LANGUAGE TypeFamilies          #-}
+
+{-# LANGUAGE ScopedTypeVariables   #-}
 -- | Welcome to Waargonaut, we hope you enjoy your stay.
 --
 -- The handling of JSON is managed using the 'Waargonaut.Decode.Decoder' and
@@ -27,13 +30,12 @@ module Waargonaut
   , waargonautBuilder
 
     -- * Prisms
-  , _ByteStringJson
   , _TextJson
   , _Number
   , _String
   , _Bool
   , _ArrayOf
-  , _ObjLazyHashMapOf
+  , _ObjHashMapOf
   , _Null
 
   ) where
@@ -43,31 +45,28 @@ import           Prelude                         (Bool, Show)
 import           Control.Applicative             (liftA2)
 import           Control.Category                ((.))
 import           Control.Error.Util              (note)
-import           Control.Lens                    (Prism', folded, preview,
-                                                  prism, review, (^..), (^?),
-                                                  _1, _2, _Wrapped)
+import           Control.Lens                    (Prism', cons, preview, prism,
+                                                  review, (^?), _1, _Wrapped)
 import           Control.Monad                   (Monad)
-import           Data.Foldable                   (foldl)
+import           Data.Foldable                   (foldr)
 import           Data.Function                   (const, ($))
 import           Data.Functor                    (fmap, (<$))
 import           Data.Scientific                 (Scientific)
+import           Data.Tuple                      (uncurry)
 
 import           Data.Bifunctor                  (first)
 import           Data.Either                     (Either (..))
-import           Data.Maybe                      (Maybe (..), maybe)
-import           Data.Monoid                     (mempty)
-import           Data.Traversable                (traverse)
 
 import           Text.Parser.Char                (CharParsing)
 
 import           Data.Text                       (Text)
 import qualified Data.Text.Lazy                  as TL
 
-import           Data.ByteString                 (ByteString)
-import qualified Data.ByteString.Lazy            as BL
+import           Data.Vector                     (Vector)
+import qualified Data.Vector                     as V
 
-import           Data.HashMap.Lazy               (HashMap)
-import qualified Data.HashMap.Lazy               as HM
+import           Data.HashMap.Strict             (HashMap)
+import qualified Data.HashMap.Strict             as HM
 
 import qualified Waargonaut.Types.JObject.JAssoc as JA
 
@@ -83,18 +82,7 @@ import           Waargonaut.Encode.Builder       (waargonautBuilder)
 import qualified Waargonaut.Decode               as D
 import qualified Waargonaut.Encode               as E
 
-_ByteStringJson
-  :: ( CharParsing g
-     , Monad g
-     , Show e
-     )
-  => (forall a. g a -> ByteString -> Either e a)
-  -> Prism' ByteString Json
-_ByteStringJson pf = prism
-  (BL.toStrict . E.simplePureEncodeByteString E.json)
-  (\b -> first (const b) $ D.pureDecodeFromByteString pf D.json b)
-
--- | Specialised to 'BS.ByteString'
+-- | Specialised to 'Text'
 _TextJson
   :: ( CharParsing g
      , Monad g
@@ -105,54 +93,54 @@ _TextJson
 _TextJson pf = prism
   (TL.toStrict . E.simplePureEncodeText E.json)
   (\b -> first (const b) $ D.pureDecodeFromText pf D.json b)
+{-# INLINE _TextJson #-}
 
 -- | 'Prism'' between some 'Json' and a 'Scientific' value
 _Number  :: Prism' Json Scientific
-_Number = prism
-  (review _JNum . (,mempty) . review _JNumberScientific)
-  (\j -> note j $ j ^? _JNum . _1 . _JNumberScientific)
+_Number = prism (E.asJson' E.scientific) (\j -> note j $ j ^? _JNum . _1 . _JNumberScientific)
+{-# INLINE _Number #-}
 
 -- | Not a lawful 'Prism'' between some 'Json' and a 'Text' value
 _String :: Prism' Json Text
--- _String = prism (review _JStr . (,mempty) . review _JStringText) (\j -> note j $ j ^? _JStr . _1 . _JStringText)
 _String = prism (E.asJson' E.text) (\j -> note j $ j ^? _JStr . _1 . _JStringText)
+{-# INLINE _String #-}
 
 -- | 'Prism'' between some 'Json' and a '()' value
 _Null :: Prism' Json ()
-_Null = prism (E.asJson' E.null) (\n -> note n $ () <$ n ^? _JNull)
+_Null = prism (E.asJson' E.null) (\j -> note j $ () <$ j ^? _JNull)
+{-# INLINE _Null #-}
 
 -- | 'Prism'' between some 'Json' and a 'Bool' value
 _Bool :: Prism' Json Bool
 _Bool = prism (E.asJson' E.bool) (\j -> note j $ j ^? _JBool . _1)
+{-# INLINE _Bool#-}
 
 -- | 'Prism'' between some 'Json' and an array of something given the provided 'Prism''
--- _ArrayOf :: Prism' Json x -> Prism' Json [x]
-_ArrayOf :: Prism' Json x -> Prism' Json [x]
-_ArrayOf elemT = prism fromList' toList'
+_ArrayOf :: Prism' Json x -> Prism' Json (Vector x)
+_ArrayOf _Value = prism fromJ toJ
   where
-    fromList' = E.asJson' (E.list E.json) . fmap (review elemT)
+    fromJ = E.asJson' (E.traversable E.json) . fmap (review _Value)
+    {-# INLINE fromJ #-}
+    toJ = CS.fromCommaSep (_JArr . _1 . _Wrapped) V.empty (foldr cons V.empty) (preview _Value)
+    {-# INLINE toJ #-}
+{-# INLINE _ArrayOf #-}
 
-    toList' r = maybe (Left r) (Right . (^.. folded . elemT))
-      $ preview (_JArr . _1 . _Wrapped) r
-
-_ObjLazyHashMapOf :: Prism' Json x -> Prism' Json (HashMap Text x)
-_ObjLazyHashMapOf _Value = prism toJ fromJ
+_ObjHashMapOf :: Prism' Json x -> Prism' Json (HashMap Text x)
+_ObjHashMapOf _Value = prism toJ fromJ
   where
-    toJ = E.asJson' (E.keyValueTupleFoldable E.json) . HM.toList
-      . fmap (review _Value)
-
-    _ObjBits = _JObj . _1 . _Wrapped . CS._CommaSeparated . _2
-
-    addToMap m (k,v) = HM.insert k v m
+    toJ = E.asJson' (E.keyValueTupleFoldable (E.prismE _Value E.json)) . HM.toList
+    {-# INLINE toJ #-}
 
     toVals el = liftA2 (,)
       (preview (JA.jsonAssocKey . _JStringText) el)
       (preview (JA.jsonAssocVal . _Value) el)
+    {-# INLINE toVals #-}
 
-    fromJ j = case preview _ObjBits j of
-      Nothing         -> Left j
-      Just Nothing    -> Right HM.empty
-      Just (Just els) -> maybe (Left j) (Right . foldl addToMap HM.empty) $ traverse toVals els
+    fromJ = CS.fromCommaSep (_JObj . _1 . _Wrapped) HM.empty
+      (foldr (uncurry HM.insert) HM.empty)
+      toVals
+    {-# INLINE fromJ #-}
+{-# INLINE _ObjHashMapOf #-}
 
 -- $basicdecode
 --
