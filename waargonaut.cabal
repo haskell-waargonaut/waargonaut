@@ -134,6 +134,8 @@ library
                      , Waargonaut.Test
                      , Waargonaut.Prettier
 
+                     , Waargonaut.Lens
+
                      , Waargonaut
 
   ghc-options:         -Wall

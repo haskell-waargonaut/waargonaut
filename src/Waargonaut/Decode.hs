@@ -124,8 +124,8 @@ import           Control.Monad.Error.Hoist                 ((<!?>), (<?>))
 
 import           Data.Either                               (Either (..))
 import qualified Data.Either                               as Either (either)
-import           Data.Foldable                             (Foldable, foldl,
-                                                            foldr)
+import           Data.Foldable                             (Foldable, elem,
+                                                            foldl, foldr)
 import           Data.Function                             (const, flip, ($),
                                                             (&))
 import           Data.Functor                              (fmap, (<$), (<$>))
@@ -161,7 +161,7 @@ import           Waargonaut.Decode.Error                   (AsDecodeError (..),
                                                             DecodeError (..),
                                                             Err (..))
 import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
-import           Waargonaut.Types
+import           Waargonaut.Types                          (Json)
 
 import qualified Waargonaut.Decode.Internal                as DI
 
@@ -568,7 +568,7 @@ withType
   -> JCurs
   -> DecodeResult f a
 withType t d c =
-  if Just t == jsonTypeAt (unJCurs c) then d c
+  if elem t $ jsonTypeAt (unJCurs c) then d c
   else throwing _TypeMismatch t
 
 -- | Higher order function for combining a folding function with repeated cursor
