@@ -26,12 +26,11 @@ import qualified Data.Attoparsec.Text as AT
 
 import           Waargonaut.Types
 
-import           Waargonaut           (_ArrayOf, _Bool, _Number, _ObjHashMapOf,
+import           Waargonaut.Lens      (_ArrayOf, _Bool, _Number, _ObjHashMapOf,
                                        _String, _TextJson)
 
 import           Types.Common         (genScientific, genText)
 import           Types.Json           (genJson)
-
 
 prismLaw :: (Eq a, Show a) => Gen a -> Prism' b a -> Property
 prismLaw genA prismA = property $ forAll genA >>= \a ->
