@@ -2,28 +2,29 @@
 {-# LANGUAGE TupleSections     #-}
 module Main (main) where
 
-import           GHC.Word           (Word8)
+import           GHC.Word              (Word8)
 
-import           Data.Either        (isLeft)
+import           Data.Either           (isLeft)
 
-import           Data.Semigroup     ((<>))
+import           Data.Semigroup        ((<>))
 
-import           Data.Text          (Text)
-import qualified Data.Text          as Text
-import qualified Data.Text.Encoding as Text
-import qualified Data.Text.IO       as Text
+import           Data.Text             (Text)
+import qualified Data.Text             as Text
+import qualified Data.Text.Encoding    as Text
+import qualified Data.Text.IO          as Text
 
-import qualified Data.Text.Lazy     as TextL
+import qualified Data.Text.Lazy        as TextL
 
-import qualified Data.ByteString    as BS
+import qualified Data.ByteString       as BS
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
 
-import qualified Waargonaut.Decode  as D
-import qualified Waargonaut.Encode  as E
+import qualified Waargonaut.Attoparsec as WA
+import qualified Waargonaut.Decode     as D
+import qualified Waargonaut.Encode     as E
 
-import qualified Types.Common       as Common
+import qualified Types.Common          as Common
 
 import qualified Decoder
 import qualified Decoder.Laws
@@ -58,7 +59,7 @@ mishandlingOfCharVsUtf8Bytes = testCaseSteps "Mishandling of UTF-8 Bytes vs Hask
   Text.encodeUtf8 x @?= BS.pack valBytes
 
   step "Decode file input"
-  decodedFile <- Common.parseText D.text <$> Text.readFile testFilePath
+  decodedFile <- WA.decodeAttoparsecText D.text =<< Text.readFile testFilePath
   decodedFile @?= Right valText
 
 regressionTests :: TestTree
@@ -66,7 +67,7 @@ regressionTests = testGroup "Expected Failure" $
   toTestFail <$> fs
   where
     toTestFail (dsc, f) = testCase dsc $ do
-      r <- Common.decodeText <$> Text.readFile ("test/json-data/bad-json/" <> f)
+      r <- WA.decodeAttoparsecText D.json =<< Text.readFile ("test/json-data/bad-json/" <> f)
       assertBool (f <> " should fail to parse!") (isLeft r)
 
     fs =

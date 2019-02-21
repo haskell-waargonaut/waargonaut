@@ -14,11 +14,11 @@ mkDerivation {
   src = ./.;
   setupHaskellDepends = [ base Cabal cabal-doctest ];
   libraryHaskellDepends = [
-    base bifunctors bytestring containers contravariant digit
-    distributive errors generics-sop hoist-error hw-balancedparens
-    hw-bits hw-json hw-prim hw-rankselect lens mmorph mtl nats natural
-    parsers scientific semigroupoids semigroups tagged text
-    transformers unordered-containers vector witherable
+    attoparsec base bifunctors bytestring containers contravariant
+    digit distributive errors generics-sop hoist-error
+    hw-balancedparens hw-bits hw-json hw-prim hw-rankselect lens mmorph
+    mtl nats natural parsers scientific semigroupoids semigroups tagged
+    text transformers unordered-containers vector witherable
     wl-pprint-annotated zippers
   ];
   testHaskellDepends = [

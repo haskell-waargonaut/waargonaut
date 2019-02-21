@@ -45,7 +45,9 @@ import           Waargonaut.Decode.Internal (ZipperMove (BranchFail),
 import qualified Waargonaut.Decode          as D
 import qualified Waargonaut.Decode.Error    as D
 
-import           Types.Common               (imageDecodeSuccinct, parseBS,
+import qualified Waargonaut.Attoparsec as WA
+
+import           Types.Common               (imageDecodeSuccinct,
                                              testImageDataType)
 
 decoderTests :: TestTree
@@ -71,7 +73,7 @@ unicodeHandlingRegression :: Property
 unicodeHandlingRegression = withTests 1 . property $ do
   let
     -- Prepare a decoder function
-    dec = parseBS
+    dec = WA.pureDecodeAttoparsecByteString
 
     -- Decoder for JSON -> Text
     decText = dec D.text
@@ -123,7 +125,7 @@ unicodeHandlingRegression = withTests 1 . property $ do
 nonEmptyDecoder :: Assertion
 nonEmptyDecoder = do
   let
-    dec = parseBS (D.nonempty D.int)
+    dec = WA.pureDecodeAttoparsecByteString (D.nonempty D.int)
 
     ok = "[1]"
     notOkay = "[]"
@@ -144,7 +146,7 @@ nonEmptyDecoder = do
 listDecoder :: Assertion
 listDecoder = do
   let
-    dec = parseBS (D.list D.int)
+    dec = WA.pureDecodeAttoparsecByteString (D.list D.int)
 
     ok = "[1,2,3]"
     okE = "[]"
@@ -164,7 +166,7 @@ listDecoder = do
 objectAsKeyValuesDecoder :: Assertion
 objectAsKeyValuesDecoder = do
   let
-    dec = parseBS (D.objectAsKeyValues D.text D.int)
+    dec = WA.pureDecodeAttoparsecByteString (D.objectAsKeyValues D.text D.int)
 
     ok = "{\"1\":1,\"2\":2,\"3\":3}"
     okE = "{}"
@@ -190,7 +192,7 @@ decodeTestMissingObjKey = do
 
     d = D.withCursor $ D.down >=> D.fromKey "bar" D.int
 
-  let r = parseBS d j
+  let r = WA.pureDecodeAttoparsecByteString d j
 
   Either.either
     (\(e, _) -> assertBool "Incorrect Error - Expected KeyDecodeFailed" (e == D.KeyNotFound "bar"))
@@ -204,7 +206,7 @@ decodeTestBadObjKey = do
 
     d = D.withCursor $ D.down >=> D.fromKey "foo" D.int
 
-  let r = parseBS d j
+  let r = WA.pureDecodeAttoparsecByteString d j
 
   Either.either
     (\(e, _) -> assertBool "Incorrect Error - Expected KeyDecodeFailed" (e == D.KeyDecodeFailed) )
@@ -212,7 +214,7 @@ decodeTestBadObjKey = do
     r
 
 decodeImageObjJson :: Assertion
-decodeImageObjJson = parseBS imageDecodeSuccinct
+decodeImageObjJson = WA.pureDecodeAttoparsecByteString imageDecodeSuccinct
   <$> BS.readFile "test/json-data/image_obj.json"
   >>= Either.either failWithHistory (assertEqual "Image Decode Failed" testImageDataType)
   where
@@ -223,14 +225,14 @@ decodeImageObjJson = parseBS imageDecodeSuccinct
 
 decodeIntListJson :: Assertion
 decodeIntListJson = assertBool "[Int] Decode Success" . Either.isRight
-  $ parseBS listDecode "[23,44]"
+  $ WA.pureDecodeAttoparsecByteString listDecode "[23,44]"
   where
     listDecode :: Monad f => D.Decoder f [Int]
     listDecode = untag mkDecoder
 
 decodeTripleJson :: Assertion
 decodeTripleJson = assertBool "(Char,String,[Int]) Decode Success" . Either.isRight
-  $ parseBS decoder "[\"a\",\"fred\",1,2,3,4]"
+  $ WA.pureDecodeAttoparsecByteString decoder "[\"a\",\"fred\",1,2,3,4]"
   where
     decoder :: Monad f => D.Decoder f (Char,String,[Int])
     decoder = D.withCursor $ D.down >=> \fstElem -> liftA3 (,,)
@@ -258,12 +260,12 @@ decodeTestEnum = do
   chk "\"c\"" C
   where
     chk i o =
-      parseBS decodeMyEnum i @?= (Either.Right o)
+      WA.pureDecodeAttoparsecByteString decodeMyEnum i @?= (Either.Right o)
 
 decodeTestEnumError :: Assertion
 decodeTestEnumError =
   let
-    i = parseBS decodeMyEnum "\"WUT\""
+    i = WA.pureDecodeAttoparsecByteString decodeMyEnum "\"WUT\""
   in
     Either.either
     (\(e, _) -> assertBool "Incorrect Error!" (e == D.ConversionFailure "MyEnum"))
@@ -275,7 +277,7 @@ decodeEitherAlt = D.either D.text D.int
 
 decodeEitherRightFirst :: Assertion
 decodeEitherRightFirst = do
-  let d = parseBS (D.either D.scientific D.int)
+  let d = WA.pureDecodeAttoparsecByteString (D.either D.scientific D.int)
 
   d "44e333" @?= Either.Right (Either.Left 44e333)
   d "33" @?= Either.Right (Either.Right 33)
@@ -283,8 +285,8 @@ decodeEitherRightFirst = do
 decodeAlt :: Assertion
 decodeAlt = do
   let
-    t = parseBS decodeEitherAlt "\"FRED\""
-    i = parseBS decodeEitherAlt "33"
+    t = WA.pureDecodeAttoparsecByteString decodeEitherAlt "\"FRED\""
+    i = WA.pureDecodeAttoparsecByteString decodeEitherAlt "33"
 
   t @?= Either.Right (Either.Left "FRED")
   i @?= Either.Right (Either.Right 33)
@@ -292,7 +294,7 @@ decodeAlt = do
 decodeAltError :: Assertion
 decodeAltError =
   let
-    i = parseBS decodeEitherAlt "{\"foo\":33}"
+    i = WA.pureDecodeAttoparsecByteString decodeEitherAlt "{\"foo\":33}"
   in
     Either.either
                  (\(_,h) -> assertBool "BranchFail error not found in history" $
@@ -306,9 +308,9 @@ decodeAltError =
 absentKeyDecoder :: Assertion
 absentKeyDecoder = do
   let
-    a = parseBS (D.atKeyOptional "key" D.text) "{\"key\":\"present\"}"
-    b = parseBS (D.atKeyOptional "missing" D.text) "{\"key\":\"present\"}"
-    c = parseBS (D.atKeyOptional "key" D.int) "{\"key\":\"present\"}"
+    a = WA.pureDecodeAttoparsecByteString (D.atKeyOptional "key" D.text) "{\"key\":\"present\"}"
+    b = WA.pureDecodeAttoparsecByteString (D.atKeyOptional "missing" D.text) "{\"key\":\"present\"}"
+    c = WA.pureDecodeAttoparsecByteString (D.atKeyOptional "key" D.int) "{\"key\":\"present\"}"
 
   a @?= Either.Right (Just "present")
   b @?= Either.Right Nothing

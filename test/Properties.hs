@@ -23,6 +23,9 @@ import qualified Data.Digit                       as Dig
 import qualified Data.Scientific                  as Sci
 import qualified Data.Sequence                    as S
 import qualified Data.Text.Encoding               as Text
+import qualified Data.Text.Lazy                   as TL
+
+import qualified Waargonaut.Attoparsec            as WA
 
 import qualified Waargonaut.Decode                as D
 import           Waargonaut.Decode.Internal       (CursorHistory' (..),
@@ -96,7 +99,7 @@ trippingEncodingTest :: ( Eq a
   -> Property
 trippingEncodingTest f g e d = property $ do
   inp <- forAll $ f (Range.linear 0 1000) g
-  tripping inp (Common.encodeText e) (Common.simpleDecodeWith d)
+  tripping inp (Common.encodeText e) (WA.pureDecodeAttoparsecText d . TL.toStrict)
 
 charInAcceptableRange :: Char -> Bool
 charInAcceptableRange c' = (ord c') >= 0x0 && (ord c') <= 0xffff
@@ -214,7 +217,7 @@ prop_tripping_int_list = property $ do
   xs <- forAll . Gen.list (Range.linear 0 100) $ Gen.int (Range.linear 0 9999)
   tripping xs
     (Common.encodeText (E.traversable E.int))
-    (Common.simpleDecodeWith (D.list D.int))
+    (WA.pureDecodeAttoparsecText (D.list D.int) . TL.toStrict)
 
 prop_tripping_image_record_generic :: Property
 prop_tripping_image_record_generic = withTests 1 . property $
@@ -235,12 +238,12 @@ prop_tripping_int_list_generic = property $ do
 
 prop_tripping :: Property
 prop_tripping = withTests 200 . property $
-  forAll J.genJson >>= (\j -> tripping j Common.encodeJsonText Common.decodeText)
+  forAll J.genJson >>= (\j -> tripping j Common.encodeJsonText (WA.pureDecodeAttoparsecText D.json))
 
 prop_print_parse_print_id :: Property
 prop_print_parse_print_id = withTests 200 . property $ do
   printedA <- forAll $ Common.encodeJsonText <$> J.genJson
-  Right printedA === (Common.encodeJsonText <$> Common.decodeText printedA)
+  Right printedA === (Common.encodeJsonText <$> (WA.pureDecodeAttoparsecText D.json) printedA)
 
 prop_builders_match :: Property
 prop_builders_match = property $ do
@@ -267,7 +270,7 @@ prop_maybe_maybe = withTests 1 . property $ do
   where
     trippin' a = tripping a
       (Common.encodeText enc)
-      (Common.simpleDecodeWith dec)
+      (WA.pureDecodeAttoparsecText dec . TL.toStrict)
 
     enc = E.maybeOrNull' . E.mapLikeObj' . E.atKey' "boop"
       $ E.maybeOrNull' (E.mapLikeObj' (E.atKey' "beep" E.bool'))
