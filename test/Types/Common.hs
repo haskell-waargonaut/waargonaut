@@ -17,13 +17,9 @@ module Types.Common
   , genWhitespace
 
   , prop_generic_tripping
-  , parseBS
-  , parseText
   , encodeJsonText
   , encodeText
   , encodeBS
-  , decodeText
-  , simpleDecodeWith
 
   , testImageDataType
   , testFudge
@@ -55,15 +51,12 @@ import           Hedgehog
 import qualified Hedgehog.Gen                as Gen
 import qualified Hedgehog.Range              as Range
 
-import           Data.Scientific            (Scientific)
-import qualified Data.Scientific            as Sci
+import           Data.Scientific             (Scientific)
+import qualified Data.Scientific             as Sci
 
 import           Data.ByteString             (ByteString)
 
 import qualified Data.ByteString.Lazy        as BL
-
-import qualified Data.Attoparsec.ByteString  as AB
-import qualified Data.Attoparsec.Text        as AT
 
 import           Data.Tagged                 (Tagged)
 import qualified Data.Tagged                 as T
@@ -73,10 +66,11 @@ import qualified Data.Digit                  as D
 
 import qualified Waargonaut.Decode           as SD
 
-import           Waargonaut.Decode.Error     (DecodeError)
 import qualified Waargonaut.Encode           as E
 import           Waargonaut.Types            (Json)
 import           Waargonaut.Types.Whitespace (Whitespace (..))
+
+import qualified Waargonaut.Attoparsec       as WA
 
 import           Waargonaut.Generic          (GWaarg, JsonDecode (..),
                                               JsonEncode (..), NewtypeName (..),
@@ -236,12 +230,6 @@ genScientific :: MonadGen m => Maybe Int -> m Scientific
 genScientific lim = either fst fst . Sci.fromRationalRepetend lim
   <$> Gen.realFrac_ (Range.linearFrac 0.0001 1000.0)
 
-parseBS :: SD.Decoder Identity a -> ByteString -> Either (DecodeError, SD.CursorHistory) a
-parseBS d = SD.pureDecodeFromByteString AB.parseOnly d
-
-parseText :: SD.Decoder Identity a -> Text -> Either (DecodeError, SD.CursorHistory) a
-parseText d = SD.pureDecodeFromText AT.parseOnly d
-
 encodeJsonText :: Json -> Text
 encodeJsonText = TextL.toStrict . E.simplePureEncodeText E.json
 
@@ -250,12 +238,6 @@ encodeText e = E.simplePureEncodeText e
 
 encodeBS :: Json -> ByteString
 encodeBS = BL.toStrict . E.simplePureEncodeByteString E.json
-
-decodeText :: Text -> Either (DecodeError, SD.CursorHistory) Json
-decodeText = SD.pureDecodeFromText AT.parseOnly SD.json
-
-simpleDecodeWith :: SD.Decoder Identity a -> TextL.Text -> Either (DecodeError, SD.CursorHistory) a
-simpleDecodeWith d = SD.pureDecodeFromText AT.parseOnly d . TextL.toStrict
 
 prop_generic_tripping
   :: ( MonadTest m
@@ -268,4 +250,4 @@ prop_generic_tripping
   -> m ()
 prop_generic_tripping e d a = tripping a
   (E.simplePureEncodeTextNoSpaces (T.untag e))
-  (simpleDecodeWith (T.untag d))
+  (WA.pureDecodeAttoparsecText (T.untag d) . TextL.toStrict)

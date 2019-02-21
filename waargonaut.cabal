@@ -134,6 +134,7 @@ library
                      , Waargonaut.Test
                      , Waargonaut.Prettier
 
+                     , Waargonaut.Attoparsec
                      , Waargonaut.Lens
 
                      , Waargonaut
@@ -173,6 +174,7 @@ library
                      , semigroupoids        >= 5.2.2   && < 5.4
                      , natural              >= 0.3     && < 0.4
                      , unordered-containers >= 0.2.9   && < 0.3
+                     , attoparsec           >= 0.13    && < 0.15
 
   -- Directories containing source files.
   hs-source-dirs:      src

@@ -16,16 +16,15 @@ import           Test.Tasty.Hedgehog     (testProperty)
 import           Hedgehog
 import qualified Hedgehog.Gen            as Gen
 
+import qualified Waargonaut.Attoparsec   as WA
 import qualified Waargonaut.Decode       as D
 import           Waargonaut.Decode.Error (DecodeError (ConversionFailure))
 import           Waargonaut.Decode.Types (Decoder)
 
-import           Types.Common            (parseBS)
-
 import qualified Laws
 
 runD :: Decoder Identity a -> Either (DecodeError, D.CursorHistory) a
-runD d = parseBS d "true"
+runD d = WA.pureDecodeAttoparsecText d "true"
 
 newtype ShowDecoder a = SD (Decoder Identity a)
   deriving (Functor, Monad, Applicative)

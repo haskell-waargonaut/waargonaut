@@ -200,6 +200,7 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 -- pureDecodeFromByteString AB.parseOnly personDecode inp
 -- @
 --
+-- Waargonaut provides some default implementations using the <https://hackage.haskell.org/package/attoparsec attoparsec> package in the 'Waargonaut.Attoparsec' module. These functions have exactly the same behaviour as the functions above, without the need to provide the parsing function.
 
 -- $basicencode
 --
