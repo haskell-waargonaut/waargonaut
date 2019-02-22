@@ -104,7 +104,7 @@ type Encoder' a = EncoderFns Json Identity a
 type ObjEncoder' a = EncoderFns (JObject WS Json) Identity a
 
 -- | Run any encoder to the 'Json' representation, allowing for some
--- 'Applicative' context @f@.
+-- 'Functor' context @f@.
 runEncoder :: Functor f => EncoderFns i f a -> a -> f Json
 runEncoder e = fmap (finaliseEncoding e) . initialEncoding e
 {-# INLINE runEncoder #-}
