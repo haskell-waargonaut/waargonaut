@@ -636,7 +636,7 @@ foldCursor nom f s elemD curs = DecodeResult . ReaderT $ \p ->
 -- takesKeyDecoder k = ContainsItsKey k \<$\> D.atKey \"someValue\" D.text
 --
 -- collectionDecoder :: Monad f => Decoder f [ContainsItsKey]
--- collectionDecoder = D.atKey \"Collection\" $ D.passKeysToValues D.text takesKeyDecoder
+-- collectionDecoder = D.atKey \"Collection\" $ D.passKeysToValues [] D.text takesKeyDecoder
 -- @
 --
 passKeysToValues
