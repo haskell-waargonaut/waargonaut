@@ -1,5 +1,10 @@
 # Revision history for waargonaut
 
+## 0.6.1.0  -- 2019-02-27
+
+* Add `passKeysToValues` decoder for decoding JSON objects where the key should
+  be part of the value.
+
 ## 0.6.0.0  -- 2019-02-19
 
 #### Fixes

@@ -10,7 +10,7 @@ name:                waargonaut
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.6.0.0
+version:             0.6.1.0
 
 -- A short (one-line) description of the package.
 synopsis:            JSON wrangling
@@ -48,6 +48,7 @@ extra-source-files:  changelog.md
                    , test/json-data/image_obj.json
                    , test/json-data/twitter_with_hex_vals.json
                    , test/json-data/unicode_2705.json
+                   , test/json-data/keys_in_obj.json
 
                    -- Known bad json files
                    , test/json-data/bad-json/no_comma_arr.json
