@@ -87,6 +87,7 @@ module Waargonaut.Decode
   , maybeOrNull
   , either
   , oneOf
+  , passKeysToValues
 
   ) where
 
@@ -599,6 +600,59 @@ foldCursor nom f s elemD curs = DecodeResult . ReaderT $ \p ->
     (flip runReaderT p . unDecodeResult . f)
     (DI.Decoder' $ runDecoder elemD p)
     curs
+
+-- | A specialised decoder for moving over a JSON object where the keys are
+-- values that you would like to have as part of the value at the different
+-- keys.
+--
+-- An example of such an input is:
+--
+-- @
+-- { "Collection" : {
+--   "BobsInput_ce43dff22": {
+--     "someValue": "Some data"
+--   },
+--   "FredsInput_a4b32def": {
+--     "someValue": "Some different data"
+--   }
+-- }
+-- @
+--
+-- Where those key values like "XInput_YYYY" are to be included in the object.
+--
+-- Given a type like this:
+--
+-- @
+-- data ContainsItsKey = ContainsItsKey
+--   { _containsItsKey_KeyValue :: Text
+--   , _containsItsKey_SomeValue :: Text
+--   }
+-- @
+-- 
+-- To decode the above you would use this function like so:
+-- 
+-- @
+-- takesKeyDecoder :: Monad f => Text -> Decoder f ContainsItsKey
+-- takesKeyDecoder k = ContainsItsKey k <$> D.atKey "someValue" D.text
+--
+-- collectionDecoder :: Monad f => Decoder f [ContainsItsKey]
+-- collectionDecoder = D.atKey "Collection" $ D.passKeysToValues D.text takesKeyDecoder
+-- @
+--
+passKeysToValues
+  :: ( Snoc c c v v
+     , Monad f
+     )
+  => c 
+  -> Decoder f k
+  -> (k -> Decoder f v)
+  -> Decoder f c
+passKeysToValues empty dK kDV = withCursor $ down >=> foldCursor snoc
+  (moveRightN (successor' (successor' zero'))) empty
+  (withCursor $ \c' -> do
+    k <- focus dK c'
+    moveRight1 c' >>= focus (kDV k)
+  )
 
 -- | Helper function for "pattern matching" on a decoded value to some Haskell
 -- value. The 'Text' argument is used in the error message should this decoder

@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Decoder
@@ -32,6 +31,7 @@ import qualified Data.Sequence              as Seq
 import           Data.Tagged                (untag)
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
+import qualified Data.Text.IO               as TIO
 
 import qualified Natural                    as N
 
@@ -67,7 +67,27 @@ decoderTests = testGroup "Decoding"
   , testCase "Absent Key Decoder" absentKeyDecoder
   , testCase "Either decoding order - Right first" decodeEitherRightFirst
   , testProperty "Unicode codepoint handling regression" unicodeHandlingRegression
+  , testCase "Pass decoded key to the object value decoder" testKeysPassedToValueDecoder
   ]
+
+data ContainsItsKey = ContainsItsKey
+  { _containsItsKeyKey :: Text
+  , _containsItsKeyOtherVal :: Text
+  }
+  deriving (Eq,Show)
+
+testKeysPassedToValueDecoder :: Assertion
+testKeysPassedToValueDecoder =
+  TIO.readFile "test/json-data/keys-in-obj.json"
+  >>= WA.decodeAttoparsecText dec
+  >>= (@?= Either.Right expected)
+  where
+    expected = [
+        ContainsItsKey "ID0" "Some data"
+      , ContainsItsKey "ID1" "Some different data"
+      ]
+    dec = D.atKey "Collection" (D.passKeysToValues [] D.text takesKeyDecoder)
+    takesKeyDecoder k = ContainsItsKey k <$> D.atKey "SomeCommonKeys" D.text
 
 unicodeHandlingRegression :: Property
 unicodeHandlingRegression = withTests 1 . property $ do

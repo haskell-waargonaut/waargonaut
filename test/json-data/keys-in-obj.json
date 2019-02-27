@@ -1,0 +1,8 @@
+{ "Collection" : {
+  "ID0": {
+    "SomeCommonKeys": "Some data"
+  },
+  "ID1": {
+    "SomeCommonKeys": "Some different data"
+  }
+}
