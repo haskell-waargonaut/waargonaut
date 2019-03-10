@@ -108,7 +108,7 @@ script:
 
   # cabal check
   - (cd waargonaut-* && ${CABAL} check)
-  - (cd waargbench-* && ${CABAL} check)
+  # - (cd waargbench-* && ${CABAL} check)
 
   # haddock
   - ${CABAL} new-haddock -w ${HC} ${TEST} ${BENCH} all
