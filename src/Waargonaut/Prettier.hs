@@ -11,6 +11,9 @@ module Waargonaut.Prettier
     -- * Functions
   , prettyJson
   , simpleEncodePretty
+
+    -- * Rexports
+  , module Natural
   ) where
 
 import           Prelude                              (Eq, Show, (+), (-))
@@ -77,6 +80,12 @@ newtype IndentStep = IndentStep Natural
 -- | Encode an @a@ directly to a 'ByteString' using the provided 'Encoder', the
 -- output will have newlines and indentation added based on the 'InlineOption' and
 -- 'NumSpaces'.
+--
+-- @
+-- let two = successor' $ successor' zero'
+-- simpleEncodePretty ArrayOnly (IndentStep two) (NumSpaces two) myEncoder myVal
+-- @
+--
 simpleEncodePretty
   :: Applicative f
   => InlineOption
@@ -132,7 +141,8 @@ prettyCommaSep csWrapper nested inline step w =
 -- increasing that indentation by two spaces for each nested object or array.
 --
 -- @
--- prettyJson ArrayOnly 2 2 j
+-- let two = successor' $ successor' zero'
+-- prettyJson ArrayOnly (IndentStep two) (NumSpaces two) j
 -- @
 --
 prettyJson :: InlineOption -> IndentStep -> NumSpaces -> Json -> Json

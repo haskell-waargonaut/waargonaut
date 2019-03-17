@@ -349,6 +349,8 @@ class JsonEncode t a where
   mkEncoder =
     gEncoder defaultOpts
 
+
+
 instance JsonEncode t a                   => JsonEncode t (Maybe a)    where mkEncoder = E.maybeOrNull <$> mkEncoder
 instance (JsonEncode t a, JsonEncode t b) => JsonEncode t (Either a b) where mkEncoder = E.either <$> mkEncoder <*> mkEncoder
 instance (JsonEncode t a)                 => JsonEncode t [a]          where mkEncoder = E.list <$> mkEncoder
@@ -357,6 +359,7 @@ instance JsonEncode t Text                                             where mkE
 instance JsonEncode t Int                                              where mkEncoder = Tagged E.int
 instance JsonEncode t Scientific                                       where mkEncoder = Tagged E.scientific
 instance JsonEncode t Bool                                             where mkEncoder = Tagged E.bool
+instance JsonEncode t Json                                             where mkEncoder = Tagged E.json
 
 -- |
 -- Decoding Typeclass for Waargonaut
@@ -392,6 +395,7 @@ instance JsonDecode t Text                                             where mkD
 instance JsonDecode t Int                                              where mkDecoder = Tagged D.int
 instance JsonDecode t Scientific                                       where mkDecoder = Tagged D.scientific
 instance JsonDecode t Bool                                             where mkDecoder = Tagged D.bool
+instance JsonDecode t Json                                             where mkDecoder = Tagged D.json
 
 type JTag = String
 
