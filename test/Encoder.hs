@@ -10,7 +10,7 @@ module Encoder
 import           Control.Lens          ((<&>), (?~))
 
 import           Test.Tasty            (TestName, TestTree, testGroup)
-import           Test.Tasty.HUnit      (testCase, (@?=))
+import           Test.Tasty.HUnit      (Assertion, testCase, (@?=))
 
 import           Data.Proxy            (Proxy (..))
 
@@ -24,6 +24,22 @@ import           Types.Common          (Image (..), Overlayed (..), testFudge,
 
 import           Waargonaut.Generic    (GWaarg, mkEncoder, proxy)
 import           Waargonaut.Types.Json (oat)
+
+testOptionalKeyValue :: Assertion
+testOptionalKeyValue = do
+  let
+    encoder = E.mapLikeObj $ \(a,b) ->
+      E.atKey' "A" E.text a .
+      E.atOptKey' "B" E.int b
+
+    hasKey = ("bob", Just 33)
+    withKey = "{\"A\":\"bob\",\"B\":33}"
+
+    noKey = ("bob", Nothing)
+    withoutKey = "{\"A\":\"bob\"}"
+
+  E.simplePureEncodeTextNoSpaces encoder hasKey @?= withKey
+  E.simplePureEncodeTextNoSpaces encoder noKey @?= withoutKey
 
 testImageEncodedNoSpaces :: Text
 testImageEncodedNoSpaces = "{\"Width\":800,\"Height\":600,\"Title\":\"View from 15th Floor\",\"Animated\":false,\"IDs\":[116,943,234,38793]}"
@@ -67,6 +83,7 @@ encoderTests = testGroup "Encoder"
   , tCase "Image (Generic)" enc testImageDataType testImageEncodedNoSpaces
   , tCase "newtype - with constructor name" enc testFudge testFudgeEncodedWithConsName
   , tCase "Overlayed" encodeOverlay testOverlayed testOverlayedOut
+  , testCase "Optional Key:Value" testOptionalKeyValue
   ]
   where
     enc = proxy mkEncoder (Proxy :: Proxy GWaarg)

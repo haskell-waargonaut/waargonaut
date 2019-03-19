@@ -349,8 +349,6 @@ class JsonEncode t a where
   mkEncoder =
     gEncoder defaultOpts
 
-
-
 instance JsonEncode t a                   => JsonEncode t (Maybe a)    where mkEncoder = E.maybeOrNull <$> mkEncoder
 instance (JsonEncode t a, JsonEncode t b) => JsonEncode t (Either a b) where mkEncoder = E.either <$> mkEncoder <*> mkEncoder
 instance (JsonEncode t a)                 => JsonEncode t [a]          where mkEncoder = E.list <$> mkEncoder

@@ -57,6 +57,7 @@ module Waargonaut.Encode
     -- * Object encoder helpers
   , mapLikeObj
   , atKey
+  , atOptKey
   , intAt
   , textAt
   , boolAt
@@ -86,6 +87,7 @@ module Waargonaut.Encode
   , nonempty'
   , list'
   , atKey'
+  , atOptKey'
   , mapLikeObj'
   , mapToObj'
   , keyValuesAsObj'
@@ -267,7 +269,7 @@ simplePureEncodeByteStringNoSpaces enc =
 
 -- | Transform the given input using the 'Encoder' to its 'Json' data structure representation.
 asJson :: Applicative f => Encoder f a -> a -> f Json
-asJson e = runEncoder e
+asJson = runEncoder
 {-# INLINE asJson #-}
 
 -- | As per 'asJson', but with the 'Encoder' specialised to 'Identity'
@@ -506,6 +508,19 @@ atKey
 atKey k enc v t =
   (\v' -> t & at k ?~ v') <$> runEncoder enc v
 
+atOptKey
+  :: ( At t
+     , IxValue t ~ Json
+     , Applicative f
+     )
+  => Index t
+  -> Encoder f a
+  -> Maybe a
+  -> t
+  -> f t
+atOptKey k enc =
+  Maybe.maybe pure (atKey k enc)
+
 -- | Encode an 'a' at the given index on the JSON object.
 atKey'
   :: ( At t
@@ -518,6 +533,33 @@ atKey'
   -> t
 atKey' k enc v =
   at k ?~ asJson' enc v
+{-# INLINE atKey' #-}
+
+-- | Optionally encode a @key : value@ pair on an object.
+--
+-- @
+-- encoder = E.mapLikeObj \$ \\a ->
+--   atKey' "A" E.text (_getterA a)
+--   atOptKey' "B" E.int (_maybeB a)
+--
+-- simplePureEncodeByteString encoder (Foo "bob" (Just 33)) = "{\"A\":\"bob\",\"B\":33}"
+--
+-- simplePureEncodeByteString encoder (Foo "bob" Nothing) = "{\"A\":\"bob\"}"
+--
+-- @
+--
+atOptKey'
+  :: ( At t
+     , IxValue t ~ Json
+     )
+  => Index t
+  -> Encoder' a
+  -> Maybe a
+  -> t
+  -> t
+atOptKey' k enc =
+  Maybe.maybe id (atKey' k enc)
+{-# INLINE atOptKey' #-}
 
 -- | Encode an 'Int' at the given 'Text' key.
 intAt
