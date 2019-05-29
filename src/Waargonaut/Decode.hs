@@ -91,91 +91,100 @@ module Waargonaut.Decode
 
   ) where
 
-import           GHC.Word                                  (Word64)
+import           GHC.Word                                       (Word64)
 
-import           Control.Lens                              (Cons, Lens', Prism',
-                                                            Snoc, cons, lens,
-                                                            matching, modifying,
-                                                            preview, snoc,
-                                                            traverseOf, view,
-                                                            ( # ), (.~), (^.),
-                                                            _Wrapped)
-import           Control.Monad.Error.Lens                  (throwing)
+import           Control.Lens                                   (Cons, Lens',
+                                                                 Prism', Snoc,
+                                                                 cons, lens,
+                                                                 matching,
+                                                                 modifying,
+                                                                 preview, snoc,
+                                                                 traverseOf,
+                                                                 view, ( # ),
+                                                                 (.~), (^.),
+                                                                 _Wrapped)
+import           Control.Monad.Error.Lens                       (throwing)
 
-import           Prelude                                   (Bool, Bounded, Char,
-                                                            Eq, Int, Integral,
-                                                            String,
-                                                            fromIntegral, (-),
-                                                            (==))
+import           Prelude                                        (Bool, Bounded,
+                                                                 Char, Eq, Int,
+                                                                 Integral,
+                                                                 String, (-),
+                                                                 (==))
 
-import           Control.Applicative                       (Applicative (..))
-import           Control.Category                          ((.))
-import           Control.Monad                             (Monad (..), (=<<),
-                                                            (>=>))
-import           Control.Monad.Morph                       (embed, generalize)
+import           Control.Applicative                            (Applicative (..))
+import           Control.Category                               ((.))
+import           Control.Monad                                  (Monad (..),
+                                                                 (=<<), (>=>))
+import           Control.Monad.Morph                            (embed,
+                                                                 generalize)
 
-import           Control.Monad.Except                      (catchError, lift,
-                                                            liftEither)
-import           Control.Monad.Reader                      (ReaderT (..), ask,
-                                                            runReaderT)
-import           Control.Monad.State                       (MonadState)
+import           Control.Monad.Except                           (catchError,
+                                                                 lift,
+                                                                 liftEither)
+import           Control.Monad.Reader                           (ReaderT (..),
+                                                                 ask,
+                                                                 runReaderT)
+import           Control.Monad.State                            (MonadState)
 
-import           Control.Error.Util                        (note)
-import           Control.Monad.Error.Hoist                 ((<!?>), (<?>))
+import           Control.Error.Util                             (note)
+import           Control.Monad.Error.Hoist                      ((<!?>), (<?>))
 
-import           Data.Either                               (Either (..))
-import qualified Data.Either                               as Either (either)
-import           Data.Foldable                             (Foldable, elem,
-                                                            foldl, foldr)
-import           Data.Function                             (const, flip, ($),
-                                                            (&))
-import           Data.Functor                              (fmap, (<$), (<$>))
-import           Data.Functor.Alt                          ((<!>))
-import           Data.Functor.Identity                     (Identity)
-import           Data.Monoid                               (mempty)
-import           Data.Scientific                           (Scientific)
+import           Data.Either                                    (Either (..))
+import qualified Data.Either                                    as Either (either)
+import           Data.Foldable                                  (Foldable, elem,
+                                                                 foldl, foldr)
+import           Data.Function                                  (const, flip,
+                                                                 ($), (&))
+import           Data.Functor                                   (fmap, (<$),
+                                                                 (<$>))
+import           Data.Functor.Alt                               ((<!>))
+import           Data.Functor.Identity                          (Identity)
+import           Data.Monoid                                    (mempty)
+import           Data.Scientific                                (Scientific)
 
-import           Data.List.NonEmpty                        (NonEmpty ((:|)))
-import           Data.Maybe                                (Maybe (..),
-                                                            fromMaybe, maybe)
-import           Natural                                   (Natural, replicate,
-                                                            successor', zero')
+import           Data.List.NonEmpty                             (NonEmpty ((:|)))
+import           Data.Maybe                                     (Maybe (..),
+                                                                 fromMaybe,
+                                                                 maybe)
+import           Natural                                        (Natural,
+                                                                 replicate,
+                                                                 successor',
+                                                                 zero')
 
-import           Data.Text                                 (Text)
+import           Data.Text                                      (Text)
 
-import           Data.ByteString                           (ByteString)
-import qualified Data.ByteString.Char8                     as BS8
-import qualified Data.ByteString.Lazy                      as BL
+import           Data.ByteString                                (ByteString)
+import qualified Data.ByteString.Lazy                           as BL
 
-import           HaskellWorks.Data.Positioning             (Count)
-import qualified HaskellWorks.Data.Positioning             as Pos
+import           HaskellWorks.Data.Positioning                  (Count)
+import qualified HaskellWorks.Data.Positioning                  as Pos
 
-import qualified HaskellWorks.Data.BalancedParens.FindOpen as BP
+import qualified HaskellWorks.Data.BalancedParens.FindOpen      as BP
 
-import           HaskellWorks.Data.Bits                    ((.?.))
-import           HaskellWorks.Data.TreeCursor              (TreeCursor (..))
+import           HaskellWorks.Data.Bits                         ((.?.))
+import           HaskellWorks.Data.TreeCursor                   (TreeCursor (..))
 
-import           HaskellWorks.Data.Json.Cursor             (JsonCursor (..))
-import qualified HaskellWorks.Data.Json.Cursor             as JC
+import           HaskellWorks.Data.Json.Backend.Standard.Cursor (JsonCursor (..))
+import qualified HaskellWorks.Data.Json.Backend.Standard.Cursor as JC
 
-import           Waargonaut.Decode.Error                   (AsDecodeError (..),
-                                                            DecodeError (..),
-                                                            Err (..))
-import           Waargonaut.Decode.ZipperMove              (ZipperMove (..))
-import           Waargonaut.Types                          (Json)
+import           Waargonaut.Decode.Error                        (AsDecodeError (..),
+                                                                 DecodeError (..),
+                                                                 Err (..))
+import           Waargonaut.Decode.ZipperMove                   (ZipperMove (..))
+import           Waargonaut.Types                               (Json)
 
-import qualified Waargonaut.Decode.Internal                as DI
+import qualified Waargonaut.Decode.Internal                     as DI
 
 import           Waargonaut.Decode.Runners
 
-import           Waargonaut.Decode.Types                   (CursorHistory,
-                                                            DecodeResult (..),
-                                                            Decoder (..),
-                                                            JCurs (..),
-                                                            JsonType (..),
-                                                            SuccinctCursor,
-                                                            jsonTypeAt,
-                                                            mkCursor)
+import           Waargonaut.Decode.Types                        (CursorHistory, DecodeResult (..),
+                                                                 Decoder (..),
+                                                                 JCurs (..),
+                                                                 JsonType (..),
+                                                                 SuccinctCursor,
+                                                                 jsonTypeAt,
+                                                                 mkCursor,
+                                                                 snippet)
 
 -- | Function to define a 'Decoder' for a specific data type.
 --
@@ -383,14 +392,11 @@ jsonAtCursor
   -> DecodeResult f a
 jsonAtCursor p jc = do
   let
-    c         = jc ^. _Wrapped
-    rnk       = c ^. cursorRankL
-
-    leading   = fromIntegral $ Pos.toCount (JC.jsonCursorPos c)
-    cursorTxt = BS8.drop leading (JC.cursorText c)
+    c   = jc ^. _Wrapped
+    rnk = c ^. cursorRankL
 
   if JC.balancedParens c .?. Pos.lastPositionOf rnk
-    then liftEither (p cursorTxt)
+    then liftEither (p $ snippet c)
     else throwing _InputOutOfBounds rnk
 
 -- Internal function to record the current rank of the cursor into the zipper history
@@ -628,9 +634,9 @@ foldCursor nom f s elemD curs = DecodeResult . ReaderT $ \p ->
 --   , _containsItsKey_SomeValue :: Text
 --   }
 -- @
--- 
+--
 -- To decode the above you would use this function like so:
--- 
+--
 -- @
 -- takesKeyDecoder :: Monad f => Text -> Decoder f ContainsItsKey
 -- takesKeyDecoder k = ContainsItsKey k \<$\> D.atKey \"someValue\" D.text
@@ -643,7 +649,7 @@ passKeysToValues
   :: ( Snoc c c v v
      , Monad f
      )
-  => c 
+  => c
   -> Decoder f k
   -> (k -> Decoder f v)
   -> Decoder f c

@@ -16,42 +16,50 @@ module Waargonaut.Decode.Types
   , JCurs (..)
   , mkCursor
   , jsonTypeAt
+  , snippet
   , JsonType(..)
   ) where
 
-import           Control.Lens                          (Rewrapped, Wrapped (..),
-                                                        iso)
-import           Control.Monad.Except                  (MonadError (..))
-import           Control.Monad.Morph                   (MFunctor (..),
-                                                        MMonad (..))
-import           Control.Monad.Reader                  (MonadReader,
-                                                        ReaderT (..))
-import           Control.Monad.State                   (MonadState)
-import           Control.Monad.Trans.Class             (MonadTrans (lift))
+import           Control.Lens                                   (Rewrapped,
+                                                                 Wrapped (..),
+                                                                 iso)
+import           Control.Monad.Except                           (MonadError (..))
+import           Control.Monad.Morph                            (MFunctor (..),
+                                                                 MMonad (..))
+import           Control.Monad.Reader                           (MonadReader,
+                                                                 ReaderT (..))
+import           Control.Monad.State                            (MonadState)
+import           Control.Monad.Trans.Class                      (MonadTrans (lift))
 
-import           Data.Functor.Alt                      (Alt (..))
-import qualified Data.Text                             as Text
+import           Data.Functor.Alt                               (Alt (..))
+import qualified Data.Text                                      as Text
 
-import           GHC.Word                              (Word64)
+import           GHC.Word                                       (Word64)
 
-import           Data.ByteString                       (ByteString)
-import           Data.Vector.Storable                  (Vector)
+import           Data.ByteString                                (ByteString)
+import qualified Data.ByteString                                as BS
+import           Data.Vector.Storable                           (Vector)
 
-import           HaskellWorks.Data.BalancedParens      (SimpleBalancedParens)
-import           HaskellWorks.Data.FromByteString      (fromByteString)
-import           HaskellWorks.Data.Json.Cursor         (JsonCursor (..))
-import           HaskellWorks.Data.Json.Type           (JsonType (..),
-                                                        JsonTypeAt (..))
-import           HaskellWorks.Data.Positioning         (Count)
-import           HaskellWorks.Data.RankSelect.Poppy512 (Poppy512)
+import qualified HaskellWorks.Data.BalancedParens.FindClose     as BP
+import qualified HaskellWorks.Data.BalancedParens.Simple        as BP
+import           HaskellWorks.Data.RankSelect.Base.Select1      (select1)
 
-import           Waargonaut.Decode.Internal            (CursorHistory',
-                                                        DecodeError (..),
-                                                        DecodeResultT (..),
-                                                        ZipperMove (BranchFail),
-                                                        recordZipperMove)
+import           HaskellWorks.Data.BalancedParens               (SimpleBalancedParens)
+import           HaskellWorks.Data.Json.Backend.Standard.Cursor (JsonCursor (..),
+                                                                 jsonCursorPos)
+import           HaskellWorks.Data.Json.Backend.Standard.Fast   (makeCursor)
+import           HaskellWorks.Data.Json.Type                    (JsonType (..),
+                                                                 JsonTypeAt (..))
+import           HaskellWorks.Data.Positioning                  (Count)
+import qualified HaskellWorks.Data.Positioning                  as Pos
+import           HaskellWorks.Data.RankSelect.Poppy512          (Poppy512)
 
-import           Waargonaut.Types                      (Json)
+import           Waargonaut.Decode.Internal                     (CursorHistory', DecodeError (..),
+                                                                 DecodeResultT (..),
+                                                                 ZipperMove (BranchFail),
+                                                                 recordZipperMove)
+
+import           Waargonaut.Types                               (Json)
 
 -- | We define the index of our 'CursorHistory'' to be the 'HaskellWorks.Data.Positioning.Count'.
 type CursorHistory =
@@ -109,10 +117,23 @@ instance Wrapped JCurs where
   type Unwrapped JCurs = SuccinctCursor
   _Wrapped' = iso unJCurs JCurs
 
+snippetPos :: JsonCursor ByteString Poppy512 (BP.SimpleBalancedParens (Vector Word64)) -> (Count, Count)
+snippetPos c@(JsonCursor _ ib bp r) =
+  ( Pos.toCount $ jsonCursorPos c
+  , maybe maxBound (select1 ib) $ BP.findClose bp r
+  )
+
+snippet :: JsonCursor ByteString Poppy512 (BP.SimpleBalancedParens (Vector Word64)) -> ByteString
+snippet k = 
+  let 
+    (a, z) = snippetPos k 
+  in
+    BS.take (fromIntegral (z - a)) (BS.drop (fromIntegral a) $ cursorText k)
+
 -- | Take a 'ByteString' input and build an index of the JSON structure inside
 --
 mkCursor :: ByteString -> JCurs
-mkCursor = JCurs . fromByteString
+mkCursor = JCurs . makeCursor
 
 -- | Provide some of the type parameters that the underlying 'DecodeResultT'
 -- requires. This contains the state and error management as we walk around our
