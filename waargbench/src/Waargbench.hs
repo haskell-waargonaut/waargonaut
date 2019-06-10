@@ -14,7 +14,7 @@ import           Data.Monoid                                  ((<>))
 import           Data.Attoparsec.ByteString                   (parseOnly)
 
 import qualified Criterion.Main                               as G
-import qualified HaskellWorks.Data.Json.Internal.Cursor.Token as HW
+import qualified HaskellWorks.Data.Json.Internal.Backend.Standard.Cursor.Token as HW
 
 import qualified Waargonaut                                   as W
 
