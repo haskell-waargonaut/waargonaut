@@ -16,7 +16,6 @@ module Waargonaut.Decode.Types
   , JCurs (..)
   , mkCursor
   , jsonTypeAt
-  , snippet
   , JsonType(..)
   ) where
 
@@ -37,21 +36,14 @@ import qualified Data.Text                                      as Text
 import           GHC.Word                                       (Word64)
 
 import           Data.ByteString                                (ByteString)
-import qualified Data.ByteString                                as BS
 import           Data.Vector.Storable                           (Vector)
 
-import qualified HaskellWorks.Data.BalancedParens.FindClose     as BP
-import qualified HaskellWorks.Data.BalancedParens.Simple        as BP
-import           HaskellWorks.Data.RankSelect.Base.Select1      (select1)
-
 import           HaskellWorks.Data.BalancedParens               (SimpleBalancedParens)
-import           HaskellWorks.Data.Json.Backend.Standard.Cursor (JsonCursor (..),
-                                                                 jsonCursorPos)
+import           HaskellWorks.Data.Json.Backend.Standard.Cursor (JsonCursor (..))
 import           HaskellWorks.Data.Json.Backend.Standard.Fast   (makeCursor)
 import           HaskellWorks.Data.Json.Type                    (JsonType (..),
                                                                  JsonTypeAt (..))
 import           HaskellWorks.Data.Positioning                  (Count)
-import qualified HaskellWorks.Data.Positioning                  as Pos
 import           HaskellWorks.Data.RankSelect.Poppy512          (Poppy512)
 
 import           Waargonaut.Decode.Internal                     (CursorHistory', DecodeError (..),
@@ -116,19 +108,6 @@ instance JCurs ~ t => Rewrapped JCurs t
 instance Wrapped JCurs where
   type Unwrapped JCurs = SuccinctCursor
   _Wrapped' = iso unJCurs JCurs
-
-snippetPos :: JsonCursor ByteString Poppy512 (BP.SimpleBalancedParens (Vector Word64)) -> (Count, Count)
-snippetPos c@(JsonCursor _ ib bp r) =
-  ( Pos.toCount $ jsonCursorPos c
-  , maybe maxBound (select1 ib) $ BP.findClose bp r
-  )
-
-snippet :: JsonCursor ByteString Poppy512 (BP.SimpleBalancedParens (Vector Word64)) -> ByteString
-snippet k = 
-  let 
-    (a, z) = snippetPos k 
-  in
-    BS.take (fromIntegral (z - a)) (BS.drop (fromIntegral a) $ cursorText k)
 
 -- | Take a 'ByteString' input and build an index of the JSON structure inside
 --

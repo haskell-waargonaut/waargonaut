@@ -2,15 +2,8 @@
 , compiler ? "default"
 }:
 let
-  upLens = self: super: {
-    haskellPackages = super.haskellPackages.override (old: {
-      overrides = hself: hsuper: {
-        lens = hself.callHackage "lens" "4.17.1" {};
-      };
-    });
-  };
-
   pkgs = import nixpkgs {
+    config.allowBroken = true;
     overlays = [ (import ./waargonaut-deps.nix) ];
   };
 
@@ -20,4 +13,4 @@ let
 
   drv = haskellPackages.callPackage ./waargonaut.nix {};
 in
-  drv
+  pkgs.haskell.lib.shellAware drv

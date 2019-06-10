@@ -109,7 +109,7 @@ import           Prelude                                        (Bool, Bounded,
                                                                  Char, Eq, Int,
                                                                  Integral,
                                                                  String, (-),
-                                                                 (==))
+                                                                 (==), fromIntegral)
 
 import           Control.Applicative                            (Applicative (..))
 import           Control.Category                               ((.))
@@ -154,6 +154,7 @@ import           Natural                                        (Natural,
 import           Data.Text                                      (Text)
 
 import           Data.ByteString                                (ByteString)
+import qualified Data.ByteString                                as BS
 import qualified Data.ByteString.Lazy                           as BL
 
 import           HaskellWorks.Data.Positioning                  (Count)
@@ -183,8 +184,7 @@ import           Waargonaut.Decode.Types                        (CursorHistory, 
                                                                  JsonType (..),
                                                                  SuccinctCursor,
                                                                  jsonTypeAt,
-                                                                 mkCursor,
-                                                                 snippet)
+                                                                 mkCursor)
 
 -- | Function to define a 'Decoder' for a specific data type.
 --
@@ -395,8 +395,11 @@ jsonAtCursor p jc = do
     c   = jc ^. _Wrapped
     rnk = c ^. cursorRankL
 
+    leading = Pos.toCount $ JC.jsonCursorPos c
+    txt = BS.drop (fromIntegral leading) $ JC.cursorText c
+
   if JC.balancedParens c .?. Pos.lastPositionOf rnk
-    then liftEither (p $ snippet c)
+    then liftEither (p txt)
     else throwing _InputOutOfBounds rnk
 
 -- Internal function to record the current rank of the cursor into the zipper history

@@ -257,6 +257,13 @@ test-suite waarg-tests
                      , tasty-golden           >= 2.3    && < 2.4
                      , unordered-containers   >= 0.2.9  && < 0.3
 
+                     , hw-balancedparens    >= 0.2     && < 0.3
+                     , hw-rankselect        >= 0.13    && < 0.14
+                     , hw-rankselect-base 
+                     , hw-bits              >= 0.7     && < 0.8
+                     , hw-json              >= 1.0.0.2 && < 1.2
+                     , hw-prim              >= 0.6     && < 0.7
+
                      , waargonaut
 
   ghc-options:         -Wall
