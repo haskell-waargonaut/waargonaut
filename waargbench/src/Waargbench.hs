@@ -1,29 +1,29 @@
 {-# LANGUAGE RankNTypes #-}
 module Main (main) where
 
-import           Control.Applicative                          (liftA2)
+import           Control.Applicative                                           (liftA2)
 
-import           Data.Functor.Identity                        (Identity)
+import           Data.Functor.Identity                                         (Identity)
 
-import           Data.ByteString                              (ByteString)
-import qualified Data.ByteString                              as BS
-import           Data.Either                                  (isRight)
-import           Data.Maybe                                   (isJust)
-import           Data.Monoid                                  ((<>))
+import           Data.ByteString                                               (ByteString)
+import qualified Data.ByteString                                               as BS
+import           Data.Either                                                   (isRight)
+import           Data.Maybe                                                    (isJust)
+import           Data.Monoid                                                   ((<>))
 
-import           Data.Attoparsec.ByteString                   (parseOnly)
+import           Data.Attoparsec.ByteString                                    (parseOnly)
 
-import qualified Criterion.Main                               as G
+import qualified Criterion.Main                                                as G
 import qualified HaskellWorks.Data.Json.Internal.Backend.Standard.Cursor.Token as HW
 
-import qualified Waargonaut                                   as W
+import qualified Waargonaut                                                    as W
 
-import           Waargonaut.Decode                            (Decoder)
-import qualified Waargonaut.Decode                            as D
+import           Waargonaut.Decode                                             (Decoder)
+import qualified Waargonaut.Decode                                             as D
 
-import           Common                                       (decodeScientific,
-                                                               imageDecode,
-                                                               imageDecodeGeneric)
+import           Common                                                        (decodeScientific,
+                                                                                imageDecode,
+                                                                                imageDecodeGeneric)
 
 parseOkay :: ByteString -> Bool
 parseOkay = isRight . parseOnly W.parseWaargonaut
