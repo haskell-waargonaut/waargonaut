@@ -3,6 +3,7 @@
 }:
 let
   pkgs = import nixpkgs {
+    config.allowBroken = true;
     overlays = [ (import ./waargonaut-deps.nix) ];
   };
 
@@ -12,4 +13,4 @@ let
 
   drv = haskellPackages.callPackage ./waargonaut.nix {};
 in
-  drv
+  pkgs.haskell.lib.shellAware drv
