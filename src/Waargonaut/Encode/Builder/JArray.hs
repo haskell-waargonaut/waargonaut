@@ -1,3 +1,7 @@
+-- |
+--
+-- Builder function for 'JArray'
+--
 module Waargonaut.Encode.Builder.JArray (jArrayBuilder) where
 
 import           Waargonaut.Types.JArray            (JArray (..))

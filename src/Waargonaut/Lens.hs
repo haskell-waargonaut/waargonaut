@@ -4,6 +4,10 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
+-- |
+--
+-- Some high level prisms for interacting with something that could be JSON.
+--
 module Waargonaut.Lens
   (
     -- * Prisms

@@ -5,6 +5,11 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
+-- |
+--
+-- Data structures and functions for managing a single element in a
+-- 'Waargonaut.Types.CommaSep.CommaSeparated' structure.
+--
 module Waargonaut.Types.CommaSep.Elem
   (
     -- * Types
@@ -78,8 +83,8 @@ parseCommaTrailingMaybe
 parseCommaTrailingMaybe =
   C.optional . liftA2 (,) parseComma
 
--- | Data type to represent a single element in a 'CommaSeparated' list. Carries
--- information about it's own trailing whitespace. Denoted by the 'f'.
+-- | Data type to represent a single element in a 'Waargonaut.Types.CommaSep.CommaSeparated' list. Carries
+-- information about it's own trailing whitespace. Denoted by the @f@.
 data Elem f ws a = Elem
   { _elemVal      :: a
   , _elemTrailing :: f (Comma, ws)
@@ -127,6 +132,7 @@ instance (Eq1 f, Eq ws, Eq a) => Eq (Elem f ws a) where
 floopId :: Monoid ws => Iso' (Identity (Comma,ws)) (Maybe (Comma,ws))
 floopId = iso (Just . runIdentity) (pure . fromMaybe (Comma, mempty))
 
+-- | 'Control.Lens.Iso' between an 'Elem' that is not on the trailing element and one that is.
 _ElemTrailingIso
   :: ( Monoid ws
      , Monoid ws'

@@ -6,7 +6,10 @@
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
--- | JSON Array representation and functions.
+-- |
+--
+-- JSON Array representation and functions.
+--
 module Waargonaut.Types.JArray
   (
     -- * Types

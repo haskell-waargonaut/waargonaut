@@ -6,7 +6,10 @@
 {-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
--- | Types and functions for handling \\u0000 values in JSON.
+-- |
+--
+-- Types and functions for handling \\u0000 values in JSON.
+--
 module Waargonaut.Types.JChar.HexDigit4
   (
     -- * Types
@@ -91,7 +94,7 @@ hexDigit4ToChar :: HexDigit4 HeXDigit -> Char
 hexDigit4ToChar (HexDigit4 a b c d) = chr (D._HeXDigitsIntegral (Right $ a :| [b,c,d]))
 
 -- | Try to convert a Haskell 'Char' to a JSON acceptable character. NOTE: This
--- cannot preserve the upper or lower casing of any original 'Json' data structure
+-- cannot preserve the upper or lower casing of any original 'Waargonaut.Types.Json.Json' data structure
 -- inputs that may have been used to create this 'Char'. Also the JSON RFC
 -- specifies a "limited" range of @U+0000@ to @U+FFFF@ as permissible as a six
 -- character sequence: @\u0000@.

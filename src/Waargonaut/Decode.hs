@@ -185,8 +185,181 @@ import           Waargonaut.Decode.Types                        (CursorHistory, 
                                                                  SuccinctCursor,
                                                                  jsonTypeAt,
                                                                  mkCursor)
+-- $basicdecode
+--
+-- We will work through a basic example, using the following type:
+--
+-- @
+-- data Person = Person
+--   { _personName                    :: Text
+--   , _personAge                     :: Int
+--   , _personAddress                 :: Text
+--   , _personFavouriteLotteryNumbers :: [Int]
+--   }
+--   deriving (Eq, Show)
+-- @
+--
+-- Expect the following JSON as input:
+--
+-- @
+-- { \"name\":    \"Krag\"
+-- , \"age\":     88
+-- , \"address\": \"Red House 4, Three Neck Lane, Greentown.\"
+-- , \"numbers\": [86,3,32,42,73]
+-- }
+-- @
+--
+-- We'll need to import the 'Decode' module. You may of course use whatever import scheme you like,
+-- I prefer this method:
+--
+-- @
+-- import Waargonaut.Decode (Decoder)
+-- import qualified Waargonaut.Decode as D
+-- @
+--
+-- The 'Waargonaut.Decode.Decoder' is based upon a data structure called a "zipper". This allows us
+-- to move around the JSON structure using arbitrary movements. Such as
+-- 'Waargonaut.Decode.moveRight1' to move from a key on an object to the value at that key. Or
+-- 'Waargonaut.Decode.down' to move into the first element of an array or object. Waargonaut
+-- provides a suite of these functions to move around and dissect the JSON input.
+--
+-- This zipper is combined with a "StateT" transformer that maintains a history of your movements.
+-- So if the JSON input is not as your 'Waargonaut.Decode.Decoder' expects you are given a complete
+-- path to where things went awry.
+--
+-- Decoding a JSON value is done by moving the cursor to specific points of interest, then focusing
+-- on that point with a 'Waargonaut.Decode.Decoder' of the desired value.
+--
+-- NB: The "Monad" constraint is provided as a flexibility for more interesting and nefarious uses
+-- of 'Waargonaut.Decode.Decoder'.
+--
+-- Here is the 'Waargonaut.Decode.Decoder' for our "Person" data type. It will help to turn on the
+-- 'OverloadedStrings' language pragma as these functions expect 'Data.Text.Text' input.
+--
+-- @
+-- personDecoder :: Monad f => Decoder f Person
+-- personDecoder = D.withCursor $ \\c -> do
+--   o     <- D.down c
+--   name  <- D.fromKey "name" D.text o
+--   age   <- D.fromKey "age" D.int o
+--   addr  <- D.fromKey "address" D.text o
+--   lotto <- D.fromKey "numbers" (D.list D.int) o
+--   pure $ Person name age addr lotto
+-- @
+--
+-- The 'Waargonaut.Decode.withCursor' function provides our cursor: "c". We then move
+-- 'Waargonaut.Decode.down' into the JSON object. The reasons for this are:
+--
+-- * The initial cursor position is always at the very beginning of the input. On freshly indexed
+--   JSON input, using our example, the cursor will be at:
+--
+-- @
+-- \<cursor\>{ \"name\": \"Krag\"
+--         , \"age\": 88
+--         ...
+-- @
+--
+-- * Because of the above reason, our decoder makes an assumption about the placement of the cursor
+--   on the JSON input. This sort of assumption is reasonable for reasons we will go over later.
+--
+-- The cursor output from 'Waargonaut.Decode.down' will located here:
+--
+-- @
+-- { \<cursor\>\"name\": \"Krag\"
+--   , \"age\": 88
+--   ...
+-- @
+--
+-- Then we use one of the helper functions, 'Waargonaut.Decode.fromKey' to find the "key - value"
+-- pair that we're interested in and decode it for us:
+--
+-- @
+-- fromKey :: Monad f => Text -> Decoder f b -> JCurs -> DecodeResult f b
+-- @
+--
+-- We could also write this 'Waargonaut.Decode.Decoder' as:
+--
+-- @
+-- personDecoder2 :: Monad f => Decoder f Person
+-- personDecoder2 = Person
+--   \<$> D.atKey "name" D.text
+--   \<*> D.atKey "age" D.int
+--   \<*> D.atKey "address" D.text
+--   \<*> D.atKey "numbers" (D.list D.int)
+-- @
+--
+-- Using the 'Waargonaut.Decode.atKey' function which tries to handle those basic movements for us
+-- and has those assumptions included. Very useful for when the JSON input closely mirrors your data
+-- structure.
+--
+-- @
+-- atKey :: Monad f => Text -> Decoder f a -> Decoder f a
+-- @
+--
+-- The next part is being able to apply our 'Waargonaut.Decode.Decoder' to some input. Assuming we
+-- have some input. We want to pass it through our @personDecoder@ for a result. Waargonaut uses
+-- the <https://hackage.haskell.org/package/parsers parsers> package to define its parser. This
+-- allows you to choose your own favourite parsing library to do the heavy lifting. Provided it
+-- implements the right typeclasses from the @parsers@ package.
+--
+-- To apply a 'Waargonaut.Decode.Decoder' to some input you will need one of the
+-- decoder running functions from 'Waargonaut.Decode'. There are a few different
+-- functions provided for some of the common input text-like types.:
+--
+-- @
+-- decodeFromByteString
+--   :: ( CharParsing f
+--      , Monad f
+--      , Monad g
+--      , Show e
+--      )
+--   => (forall a. f a -> ByteString -> Either e a)
+--   -> Decoder g x
+--   -> ByteString
+--   -> g (Either (DecodeError, CursorHistory) x)
+-- @
+--
+--
+-- As well as a parsing function from your parsing library of choice, that also
+-- has an implementation of the 'Text.Parser.Char.CharParsing' typeclass from @parsers@. We will
+-- use @attoparsec@ in the examples below.
+--
+-- @
+-- import qualified Data.Attoparsec.ByteString as AB
+-- @
+--
+-- @
+-- decodeFromByteString AB.parseOnly personDecode inp
+-- @
+--
+-- Which will run the @personDecode@ 'Waargonaut.Decode.Decoder' using the parsing function
+-- (@AB.parseOnly@), starting at the cursor from the top of the @inp@ input.
+--
+-- Again the 'Control.Monad.Monad' constraint is there so that you have more options available for utilising the
+-- 'Waargonaut.Decode.Decoder' in ways we haven't thought of.
+--
+-- Or if you don't need the 'Control.Monad.Monad' constraint then you may use 'Waargonaut.Decode.pureDecodeFromByteString'.
+-- This function specialises the 'Control.Monad.Monad' constraint to 'Data.Functor.Identity'.:
+--
+-- @
+-- pureDecodeFromByteString
+--   :: ( Monad f
+--      , CharParsing f
+--      , Show e
+--      )
+--   => (forall a. f a -> ByteString -> Either e a)
+--   -> Decoder Identity x
+--   -> ByteString
+--   -> Either (DecodeError, CursorHistory) x
+-- @
+--
+-- @
+-- pureDecodeFromByteString AB.parseOnly personDecode inp
+-- @
+--
+-- Waargonaut provides some default implementations using the <https://hackage.haskell.org/package/attoparsec attoparsec> package in the @Waargonaut.Attoparsec@ module. These functions have exactly the same behaviour as the functions above, without the need to provide the parsing function.
 
--- | Function to define a 'Decoder' for a specific data type.
+-- | Function to define a 'Waargonaut.Decode.Decoder' for a specific data type.
 --
 -- For example, given the following data type:
 --
@@ -200,8 +373,9 @@ import           Waargonaut.Decode.Types                        (CursorHistory, 
 --   }
 -- @
 --
--- We can use 'withCursor' to write a decoder that will be given a cursor that
--- we can use to build the data types that we need.
+-- We can use 'Waargonaut.Decode.withCursor' to write a decoder that
+-- will be given a cursor that we can use to build the data types that
+-- we need.
 --
 -- @
 -- imageDecoder :: Monad f => Decoder f Image
@@ -214,7 +388,7 @@ import           Waargonaut.Decode.Types                        (CursorHistory, 
 -- @
 --
 -- It's up to you to provide a cursor that is at the correct position for a
--- 'Decoder' to operate, but building decoders in this way simplifies creating
+-- 'Waargonaut.Decode.Decoder' to operate, but building decoders in this way simplifies creating
 -- decoders for larger structures, as the smaller pieces contain fewer
 -- assumptions. This encourages greater reuse of decoders and simplifies the
 -- debugging process.
@@ -231,7 +405,7 @@ withCursor g = Decoder $ \p ->
 cursorRankL :: Lens' (JsonCursor s i p) Count
 cursorRankL = lens JC.cursorRank (\c r -> c { cursorRank = r })
 
--- | Execute the given function 'n' times'.
+-- | Execute the given function @n@ times.
 manyMoves :: Monad m => Natural -> (b -> m b) -> b -> m b
 manyMoves i g = foldl (>=>) pure (replicate i g)
 
@@ -326,7 +500,7 @@ moveToRankN newRank c =
   then pure $ c & _Wrapped . cursorRankL .~ newRank
   else throwing _InputOutOfBounds newRank
 
--- | Move the cursor rightwards 'n' times.
+-- | Move the cursor rightwards @n@ times.
 --
 -- Starting position:
 --
@@ -374,7 +548,7 @@ moveLeft1 jc =
   in
     setRank <$> BP.findOpen (JC.balancedParens c) prev <?> InputOutOfBounds prev
 
--- | Move the cursor leftwards 'n' times.
+-- | Move the cursor leftwards @n@ times.
 moveLeftN
   :: Monad f
   => Natural
@@ -568,7 +742,7 @@ atCursor m c = withCursor $ \curs -> do
 -- withType JsonTypeArray d
 -- @
 --
--- 'd' will only be entered if the cursor at the current position is a JSON
+-- @d@ will only be entered if the cursor at the current position is a JSON
 -- array: '[]'.
 --
 withType
@@ -704,7 +878,7 @@ oneOf d l =
     err = throwing _ConversionFailure l
 
 -- | From the current cursor position, move leftwards one position at a time and
--- push each 'a' onto the front of some 'Cons' structure.
+-- push each @a@ onto the front of some 'Cons' structure.
 leftwardCons
   :: ( Monad f
      , Cons s s a a
@@ -717,7 +891,7 @@ leftwardCons =
   foldCursor (flip cons) moveLeft1
 
 -- | From the current cursor position, move rightwards one position at a time,
--- and append the 'a' to some 'Snoc' structure.
+-- and append the @a@ to some 'Snoc' structure.
 rightwardSnoc
   :: ( Monad f
      , Snoc s s a a
@@ -815,7 +989,7 @@ null = atCursor "null" DI.null'
 bool :: Monad f => Decoder f Bool
 bool = atCursor "bool" DI.bool'
 
--- | Given a 'Decoder' for 'a', attempt to decode a 'NonEmpty' list of 'a' at
+-- | Given a 'Decoder' for @a@, attempt to decode a 'NonEmpty' list of @a@ at
 -- the current cursor position.
 nonemptyAt
   :: Monad f
@@ -832,7 +1006,7 @@ nonemptyAt elemD = withType JsonTypeArray $ down >=> \curs -> do
 nonempty :: Monad f => Decoder f a -> Decoder f (NonEmpty a)
 nonempty d = withCursor (nonemptyAt d)
 
--- | Like 'nonemptyAt', this takes a 'Decoder' of 'a' and at the given cursor
+-- | Like 'nonemptyAt', this takes a 'Decoder' of @a@ and at the given cursor
 -- will try to decode a '[a]'.
 listAt
   :: Monad f
@@ -877,7 +1051,7 @@ withDefault
 withDefault def hasD =
   fromMaybe def <$> hasD
 
--- | Named to match it's 'Encoder' counterpart, this function will decode an
+-- | Named to match it's 'Waargonaut.Encode.Encoder' counterpart, this function will decode an
 -- optional value.
 maybeOrNull
   :: Monad f
@@ -886,7 +1060,7 @@ maybeOrNull
 maybeOrNull a =
   (Just <$> a) <!> (Nothing <$ null)
 
--- | Decode either an 'a' or a 'b', failing if neither 'Decoder' succeeds. The
+-- | Decode either an @a@ or a @b@, failing if neither 'Decoder' succeeds. The
 -- 'Right' decoder is attempted first.
 either
   :: Monad f

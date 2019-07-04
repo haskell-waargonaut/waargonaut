@@ -127,7 +127,7 @@ instance Bitraversable JObject where
   bitraverse f g (JObject c) = JObject <$> bitraverse f (bitraverse f g) c
 
 -- | Without having an obviously correct "first" or "last" decision on which
--- 'JString' key is the "right" one to use, a 'JObject' can only be indexed by a
+-- 'Waargonaut.Types.JString' key is the "right" one to use, a 'JObject' can only be indexed by a
 -- numeric value.
 instance Monoid ws => Ixed (JObject ws a) where
   ix i f (JObject cs) = JObject <$> ix i (traverse f) cs
@@ -149,7 +149,7 @@ newtype MapLikeObj ws a = MLO
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 -- |
--- 'Prism' for working with a 'JObject' as a 'MapLikeObj'. This optic will keep
+-- 'Control.Lens.Prism' for working with a 'JObject' as a 'MapLikeObj'. This optic will keep
 -- the first unique key on a given 'JObject' and this information is not
 -- recoverable. If you want to create a 'MapLikeObj' from a 'JObject' and keep
 -- what is removed, then use the 'toMapLikeObj' function.

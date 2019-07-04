@@ -117,10 +117,12 @@ instance AsUnescaped (JChar digit) where
 -- instance AsJChar Char HeXDigit where
 -- Don't implement this, it's not a lawful prism.
 
+-- | Convert a 'JChar' to a Haskell 'Char'
 jCharToChar :: JChar HeXDigit -> Char
 jCharToChar (UnescapedJChar uejc) = review _Unescaped uejc
 jCharToChar (EscapedJChar ejc)    = escapedToChar ejc
 
+-- | Attempt to convert a Haskell 'Char' to a JSON acceptable 'JChar'
 charToJChar :: Char -> Maybe (JChar HeXDigit)
 charToJChar c =
   (UnescapedJChar <$> preview _Unescaped c) <|>
@@ -131,7 +133,7 @@ utf8SafeChar c | ord c .&. 0x1ff800 /= 0xd800 = Just c
                | otherwise                    = Nothing
 
 -- | Convert a 'Char' to 'JChar HexDigit' and replace any invalid values with
--- @U+FFFD@ as per the 'Text' documentation.
+-- @U+FFFD@ as per the 'Data.Text.Text' documentation.
 --
 -- Refer to <https://hackage.haskell.org/package/text/docs/Data-Text.html#g:2 'Text'> documentation for more info.
 --
@@ -140,7 +142,7 @@ utf8CharToJChar c = fromMaybe scalarReplacement (charToJChar $ Text.safe c)
   where scalarReplacement = EscapedJChar (Hex (HexDigit4 D.xf D.xf D.xf D.xd))
 {-# INLINE utf8CharToJChar #-}
 
--- | Try to convert a 'JChar' to a 'Text' safe 'Char' value. Refer to the link for more info:
+-- | Try to convert a 'JChar' to a 'Data.Text.Text' safe 'Char' value. Refer to the link for more info:
 -- https://hackage.haskell.org/package/text-1.2.3.0/docs/Data-Text-Internal.html#v:safe
 jCharToUtf8Char :: JChar HeXDigit -> Maybe Char
 jCharToUtf8Char = utf8SafeChar . jCharToChar

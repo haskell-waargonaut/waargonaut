@@ -40,7 +40,7 @@ data DecodeError
   | ParseFailed Text
   deriving (Show, Eq)
 
--- | Describes the sorts of errors that may be treated as a 'DecodeError', for use with 'lens'.
+-- | Describes the sorts of errors that may be treated as a 'DecodeError', for use with 'Control.Lens.Prism's.
 class AsDecodeError r where
   _DecodeError       :: Prism' r DecodeError
   _ConversionFailure :: Prism' r Text

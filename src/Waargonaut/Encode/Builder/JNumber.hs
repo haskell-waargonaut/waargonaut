@@ -1,3 +1,7 @@
+-- | 
+--
+-- Builders for 'JNumber'
+--
 module Waargonaut.Encode.Builder.JNumber
   ( jNumberBuilder
   ) where

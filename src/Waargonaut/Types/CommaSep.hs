@@ -160,19 +160,19 @@ instance Monoid ws => Filterable (CommaSeparated ws) where
 
 instance Monoid ws => Witherable (CommaSeparated ws) where
 
--- | Isomorphism between the internal pieces of a 'CommaSeparated' element.
+-- | Isomorphism between the internal pieces of a 'Waargonaut.Types.CommaSep.CommaSeparated' element.
 _CommaSeparated :: Iso (CommaSeparated ws a) (CommaSeparated ws' b) (ws, Maybe (Elems ws a)) (ws', Maybe (Elems ws' b))
 _CommaSeparated = iso (\(CommaSeparated ws a) -> (ws,a)) (uncurry CommaSeparated)
 {-# INLINE _CommaSeparated #-}
 
--- | Cons elements onto a 'CommaSeparated' with provided whitespace information.
+-- | Cons elements onto a 'Waargonaut.Types.CommaSep.CommaSeparated' with provided whitespace information.
 -- If you don't need explicit whitespace then the 'Cons' instance is more straightforward.
 consCommaSep :: Monoid ws => ((Comma,ws),a) -> CommaSeparated ws a -> CommaSeparated ws a
 consCommaSep (ews,a) = over (_CommaSeparated . _2) (pure . maybe new (consElems (ews,a)))
   where new = Elems mempty (Elem a Nothing)
 {-# INLINE consCommaSep #-}
 
--- | Attempt to "uncons" elements from the front of a 'CommaSeparated' without
+-- | Attempt to "uncons" elements from the front of a 'Waargonaut.Types.CommaSep.CommaSeparated' without
 -- discarding the elements' whitespace information. If you don't need explicit
 -- whitespace then the 'Cons' instance is more straightforward.
 unconsCommaSep :: Monoid ws => CommaSeparated ws a -> Maybe ((Maybe (Comma,ws), a), CommaSeparated ws a)
@@ -195,17 +195,18 @@ instance Ixed (CommaSeparated ws a) where
     then es & elemsLast . traverse %%~ f
     else es & elemsElems . ix i . traverse %%~ f
 
--- | Convert a list of 'a' to a 'CommaSeparated' list, with no whitespace.
+-- | Convert a list of @a@ to a 'Waargonaut.Types.CommaSep.CommaSeparated' list, with no whitespace.
 fromList :: (Monoid ws, Semigroup ws) => [a] -> CommaSeparated ws a
 fromList = foldr cons mempty
 {-# INLINE fromList #-}
 
--- | Convert a 'CommaSeparated' of 'a' to @[a]@, discarding whitespace.
+-- | Convert a 'Waargonaut.Types.CommaSep.CommaSeparated' of @a@ to @[a]@, discarding whitespace.
 toList :: CommaSeparated ws a -> [a]
 toList = maybe [] g . (^. _CommaSeparated . _2) where
   g e = snoc (e ^.. elemsElems . traverse . elemVal) (e ^. elemsLast . elemVal)
 {-# INLINE toList #-}
 
+-- | Attempt convert a 'CommaSeparated' to some other value using the given functions.
 fromCommaSep
   :: Traversal' j (CommaSeparated ws x)
   -> v
@@ -223,7 +224,7 @@ fromCommaSep _HasCS empty builder decoder j =
       $ traverse decoder els   -- Try to decode the values
 {-# INLINE fromCommaSep #-}
 
--- | Parse a 'CommaSeparated' data structure.
+-- | Parse a 'Waargonaut.Types.CommaSep.CommaSeparated' data structure.
 --
 -- >>> testparse (parseCommaSeparated (char '[') (char ']') parseWhitespace charWS) "[]"
 -- Right (CommaSeparated (WS []) Nothing)

@@ -1,7 +1,10 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
--- | Parsers and builders for whitespace characters in our JSON.
+-- | 
+--
+-- Parsers and builders for whitespace characters in our JSON.
+--
 module Waargonaut.Types.Whitespace
   (
     Whitespace (..)

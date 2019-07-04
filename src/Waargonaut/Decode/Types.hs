@@ -61,7 +61,7 @@ type CursorHistory =
 type SuccinctCursor =
   JsonCursor ByteString Poppy512 (SimpleBalancedParens (Vector Word64))
 
--- Another convenience alias for the type of the function we will use to parse
+-- | Convenience alias for the type of the function we will use to parse
 -- the input string into the 'Json' structure.
 type ParseFn =
   ByteString -> Either DecodeError Json

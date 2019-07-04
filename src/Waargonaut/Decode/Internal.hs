@@ -156,7 +156,7 @@ compressHistory :: CursorHistory' i -> CursorHistory' i
 compressHistory = L.over _Wrapped (fromList . L.transform (combineLRMoves . rmKeyJumps) . F.toList)
 
 -- |
--- Pretty print the given 'CursorHistory'' to a more useful format compared to a 'Seq' of 'i'.
+-- Pretty print the given 'CursorHistory'' to a more useful format compared to a 'Seq' of @i@.
 ppCursorHistory
   :: CursorHistory' i
   -> Doc a
@@ -210,7 +210,7 @@ instance MMonad (DecodeResultT i e) where
           . runExceptT . runDecodeResult
 
 -- |
--- Wrapper type to describe a "Decoder" from something that has a 'Json'ish
+-- Wrapper type to describe a "Decoder" from something that has a "Json"ish
 -- value @c@, to some representation of @a@.
 --
 newtype Decoder' c i e f a = Decoder'
@@ -236,7 +236,7 @@ instance MFunctor (Decoder' c i e) where
 -- Helper function for constructing a 'Decoder''.
 --
 -- This function is used by the implemented decoders to simplify constructing a
--- more specific 'Decoder' type.
+-- more specific 'Decoder'' type.
 --
 -- @
 -- withCursor' $ \curs ->
@@ -251,7 +251,7 @@ withCursor' =
   Decoder'
 
 -- |
--- Execute a given 'DecoderResultT'.
+-- Execute a given 'Waargonaut.Decode.Internal.DecoderResultT'.
 --
 -- If you're building your own decoder structure, this function will take care
 -- of the 'CursorHistory'' and error handling (via 'ExceptT').
@@ -274,14 +274,14 @@ recordZipperMove :: MonadState (CursorHistory' i) m => ZipperMove -> i -> m ()
 recordZipperMove dir i = L._Wrapped %= (`L.snoc` (dir, i))
 
 -- |
--- Attempt a 'Decoder' action that might fail and return a 'Maybe' value
+-- Attempt a 'Waargonaut.Decode.Internal.Decoder' action that might fail and return a 'Maybe' value
 -- instead.
 --
 try :: MonadError e m => m a -> m (Maybe a)
 try d = catchError (pure <$> d) (const (pure Nothing))
 
 -- |
--- Build the basis for a 'Decoder' based on a 'Prism''.
+-- Build the basis for a 'Waargonaut.Decode.Internal.Decoder' based on a 'Control.Lens.Prism''.
 --
 prismDOrFail'
   :: ( AsDecodeError e
@@ -295,21 +295,21 @@ prismDOrFail'
 prismDOrFail' e p d c =
   runDecoder' (L.preview p <$> d) c <!?> e
 
--- | Try to decode a 'Text' value from some 'Json' or value. This will fail if
+-- | Try to decode a 'Text' value from some 'Waargonaut.Types.Json.Json' or value. This will fail if
 -- the input value is not a valid UTF-8 'Text' value, as checked by the
 -- 'Data.Text.Encoding.decodeUtf8'' function.
 text' :: AsJType a ws a => a -> Maybe Text
 text' = L.preview (_JStr . _1 . _JStringText)
 
--- | Try to decode a 'String' value from some 'Json' or value.
+-- | Try to decode a 'String' value from some 'Waargonaut.Types.Json.Json' or value.
 string' :: AsJType a ws a => a -> Maybe String
 string' = L.preview (_JStr . _1 . _Wrapped . L.to (V.toList . V.map jCharToChar))
 
--- | Try to decode a 'Data.ByteString.ByteString' value from some 'Json' or value.
+-- | Try to decode a 'Data.ByteString.ByteString' value from some 'Waargonaut.Types.Json.Json' or value.
 strictByteString' :: AsJType a ws a => a -> Maybe ByteString
 strictByteString' = fmap BL.toStrict . lazyByteString'
 
--- | Try to decode a 'Data.ByteString.Lazy.ByteString' value from some 'Json' or value.
+-- | Try to decode a 'Data.ByteString.Lazy.ByteString' value from some 'Waargonaut.Types.Json.Json' or value.
 lazyByteString' :: AsJType a ws a => a -> Maybe BL.ByteString
 lazyByteString' = L.preview (_JStr . _1 . _Wrapped . L.to mkBS)
   where mkBS = BB.toLazyByteString . foldMap (jCharBuilder bsBuilder)
@@ -324,27 +324,27 @@ boundedChar' = L.preview (_JStr . _1 . _Wrapped . L._head) >=> jCharToUtf8Char
 unboundedChar' :: AsJType a ws a => a -> Maybe Char
 unboundedChar' = L.preview (_JStr . _1 . _Wrapped . L._head . L.to jCharToChar)
 
--- | Try to decode a 'Scientific' value from some 'Json' or value.
+-- | Try to decode a 'Scientific' value from some 'Waargonaut.Types.Json.Json' or value.
 scientific' :: AsJType a ws a => a -> Maybe Scientific
 scientific' = L.preview (_JNum . _1) >=> jNumberToScientific
 
--- | Try to decode a bounded 'Integral n => n' value from some 'Json' value.
+-- | Try to decode a bounded 'Integral n => n' value from some 'Waargonaut.Types.Json.Json' value.
 integral' :: (Bounded i , Integral i , AsJType a ws a) => a -> Maybe i
 integral' = scientific' >=> Sci.toBoundedInteger
 
--- | Try to decode an 'Int' from some 'Json' value
+-- | Try to decode an 'Int' from some 'Waargonaut.Types.Json.Json' value
 int' :: AsJType a ws a => a -> Maybe Int
 int' = integral'
 
--- | Try to decode a 'Bool' from some 'Json' value
+-- | Try to decode a 'Bool' from some 'Waargonaut.Types.Json.Json' value
 bool' :: AsJType a ws a => a -> Maybe Bool
 bool' = L.preview (_JBool . _1)
 
--- | Try to decode a 'null' value from some 'Json' value
+-- | Try to decode a 'null' value from some 'Waargonaut.Types.Json.Json' value
 null' :: AsJType a ws a => a -> Maybe ()
 null' a = L.preview _JNull a $> ()
 
--- | Combined with another decoder function 'f', try to decode a list of 'a' values.
+-- | Combined with another decoder function @f@, try to decode a list of @a@ values.
 --
 -- @
 -- array' int' :: Json -> [Int]
@@ -379,9 +379,9 @@ objTuples' kF vF a =
 --
 -- Starting from the given cursor position, try to move in the direction
 -- specified by the given cursor function. Attempting to decode each item at each
--- position using the given 'Decoder', until the movement is unsuccessful.
+-- position using the given 'Waargonaut.Decode.Internal.Decoder', until the movement is unsuccessful.
 --
--- The following could be used to leverage the 'Snoc' instance of '[]' to build '[Int]'.
+-- The following could be used to leverage the 'Control.Lens.Snoc' instance of '[]' to build '[Int]'.
 --
 -- @
 -- intList :: Monad f => JCurs -> DecodeResult f [Int]

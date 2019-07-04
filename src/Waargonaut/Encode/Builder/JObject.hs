@@ -1,3 +1,7 @@
+-- |
+--
+-- Builder structures for 'JObject's
+--
 module Waargonaut.Encode.Builder.JObject (jObjectBuilder) where
 
 import           Data.Monoid                        ((<>))

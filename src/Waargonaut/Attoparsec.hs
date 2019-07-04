@@ -5,9 +5,9 @@
 -- different parsing libraries, depending on your needs. This module provides
 -- some convenient defaults using the <https://hackage.haskell.org/package/attoparsec attoparsec> package.
 --
--- These functions are implemented using the 'decodeFromX' functions in the
--- 'Waargonaut.Decode' module. They use the @parseOnly@ function, from either
--- the @Text@ or @ByteString@ attoparsec modules.
+-- These functions are implemented using the @decodeFromX@ functions in the
+-- @Waargonaut.Decode@ module. They use the @parseOnly@ function, from either
+-- the 'Data.Attoparsec.Text' or 'Data.Attoparsec.ByteString' attoparsec modules.
 --
 module Waargonaut.Attoparsec
   ( -- * Decoders

@@ -1,3 +1,7 @@
+-- |
+--
+-- Builder structures for 'JChar's
+--
 module Waargonaut.Encode.Builder.JChar (jCharBuilder) where
 
 import           Control.Lens                     (review)

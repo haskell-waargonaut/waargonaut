@@ -1,4 +1,8 @@
 {-# LANGUAGE RankNTypes #-}
+-- |
+--
+-- Builder structures to help with turning 'Json' into a textual encoding.
+--
 module Waargonaut.Encode.Builder where
 
 import           Data.String                       (IsString, fromString)
@@ -21,18 +25,22 @@ import           Waargonaut.Encode.Builder.JObject (jObjectBuilder)
 import           Waargonaut.Encode.Builder.JString (jStringBuilder)
 import           Waargonaut.Encode.Builder.Types   (Builder (..))
 
+-- | A 'T.Text' builder
 textBuilder :: Builder Text T.Builder
 textBuilder = Builder
   T.singleton
   T.fromText
   T.decimal
 
+-- | A 'B.ByteString' builder
 bsBuilder :: Builder ByteString B.Builder
 bsBuilder = Builder
   B.charUtf8
   B.byteString
   B.intDec
 
+-- | A general builder function for working with 'JType' values.
+--
 jTypesBuilder
   :: ( IsString t
      , Monoid b

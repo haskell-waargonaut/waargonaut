@@ -52,7 +52,7 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 -- }
 -- @
 --
--- We'll need to import the 'Decode' module. You may of course use whatever import scheme you like,
+-- We'll need to import the @Waargonaut.Decode@ module. You may of course use whatever import scheme you like,
 -- I prefer this method:
 --
 -- @
@@ -60,24 +60,26 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 -- import qualified Waargonaut.Decode as D
 -- @
 --
--- The 'Waargonaut.Decode.Decoder' is based upon a data structure called a 'zipper'. This allows us
+-- The 'Waargonaut.Decode.Decoder' is based upon a data structure called a "zipper". This allows us
 -- to move around the JSON structure using arbitrary movements. Such as
 -- 'Waargonaut.Decode.moveRight1' to move from a key on an object to the value at that key. Or
 -- 'Waargonaut.Decode.down' to move into the first element of an array or object. Waargonaut
 -- provides a suite of these functions to move around and dissect the JSON input.
 --
--- This zipper is combined with a 'StateT' transformer that maintains a history of your movements.
+-- This zipper is combined with a 'Control.Monad.State.StateT' transformer that maintains a history
+-- of your movements.
+--
 -- So if the JSON input is not as your 'Waargonaut.Decode.Decoder' expects you are given a complete
 -- path to where things went awry.
 --
 -- Decoding a JSON value is done by moving the cursor to specific points of interest, then focusing
 -- on that point with a 'Waargonaut.Decode.Decoder' of the desired value.
 --
--- NB: The 'Monad' constraint is provided as a flexibility for more interesting and nefarious uses
+-- NB: The "Monad" constraint is provided as a flexibility for more interesting and nefarious uses
 -- of 'Waargonaut.Decode.Decoder'.
 --
--- Here is the 'Waargonaut.Decode.Decoder' for our 'Person' data type. It will help to turn on the
--- 'OverloadedStrings' language pragma as these functions expect 'Data.Text.Text' input.
+-- Here is the 'Waargonaut.Decode.Decoder' for our @Person@ data type. It will help to turn on the
+-- @OverloadedStrings@ language pragma as these functions expect 'Data.Text.Text' input.
 --
 -- @
 -- personDecoder :: Monad f => Decoder f Person
@@ -90,7 +92,7 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 --   pure $ Person name age addr lotto
 -- @
 --
--- The 'Waargonaut.Decode.withCursor' function provides our cursor: 'c'. We then move
+-- The 'Waargonaut.Decode.withCursor' function provides our cursor: "c". We then move
 -- 'Waargonaut.Decode.down' into the JSON object. The reasons for this are:
 --
 -- * The initial cursor position is always at the very beginning of the input. On freshly indexed
@@ -140,10 +142,10 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 -- @
 --
 -- The next part is being able to apply our 'Waargonaut.Decode.Decoder' to some input. Assuming we
--- have some input 'in'. We want to pass it through our 'personDecoder' for a result. Waargonaut uses
+-- have some input. We want to pass it through our @personDecoder@ for a result. Waargonaut uses
 -- the <https://hackage.haskell.org/package/parsers parsers> package to define its parser. This
 -- allows you to choose your own favourite parsing library to do the heavy lifting. Provided it
--- implements the right typeclasses from 'parsers'.
+-- implements the right typeclasses from the @parsers@ package.
 --
 -- To apply a 'Waargonaut.Decode.Decoder' to some input you will need one of the
 -- decoder running functions from 'Waargonaut.Decode'. There are a few different
@@ -164,8 +166,8 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 --
 --
 -- As well as a parsing function from your parsing library of choice, that also
--- has an implementation of the 'CharParsing' typeclass from 'parsers'. We will
--- use 'attoparsec' in the examples below.
+-- has an implementation of the 'Text.Parser.Char.CharParsing' typeclass from @parsers@. We will
+-- use @attoparsec@ in the examples below.
 --
 -- @
 -- import qualified Data.Attoparsec.ByteString as AB
@@ -175,14 +177,14 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 -- decodeFromByteString AB.parseOnly personDecode inp
 -- @
 --
--- Which will run the 'personDecode' 'Waargonaut.Decode.Decoder' using the parsing function
--- (@AB.parseOnly@), starting at the cursor from the top of the 'inp' input.
+-- Which will run the @personDecode@ 'Waargonaut.Decode.Decoder' using the parsing function
+-- (@AB.parseOnly@), starting at the cursor from the top of the @inp@ input.
 --
--- Again the 'Monad' constraint is there so that you have more options available for utilising the
+-- Again the 'Control.Monad.Monad' constraint is there so that you have more options available for utilising the
 -- 'Waargonaut.Decode.Decoder' in ways we haven't thought of.
 --
--- Or if you don't need the 'Monad' constraint then you may use 'Waargonaut.Decode.pureDecodeFromByteString'.
--- This function specialises the 'Monad' constraint to 'Data.Functor.Identity'.:
+-- Or if you don't need the 'Control.Monad.Monad' constraint then you may use 'Waargonaut.Decode.pureDecodeFromByteString'.
+-- This function specialises the 'Control.Monad.Monad' constraint to 'Data.Functor.Identity'.:
 --
 -- @
 -- pureDecodeFromByteString
@@ -200,11 +202,11 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 -- pureDecodeFromByteString AB.parseOnly personDecode inp
 -- @
 --
--- Waargonaut provides some default implementations using the <https://hackage.haskell.org/package/attoparsec attoparsec> package in the 'Waargonaut.Attoparsec' module. These functions have exactly the same behaviour as the functions above, without the need to provide the parsing function.
+-- Waargonaut provides some default implementations using the <https://hackage.haskell.org/package/attoparsec attoparsec> package in the @Waargonaut.Attoparsec@ module. These functions have exactly the same behaviour as the functions above, without the need to provide the parsing function.
 
 -- $basicencode
 --
--- To create an 'Waargonaut.Encode.Encoder' for our 'Person' record, we will encode it as a "map
+-- To create an 'Waargonaut.Encode.Encoder' for our @Person@ record, we will encode it as a "map
 -- like object", that is we have decided that there are no duplicate keys allowed. We can then use
 -- the following functions to build up the structure we want:
 --
@@ -235,7 +237,7 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 -- @
 --
 -- These types may seem pretty wild, but their usage is mundane. The 'Waargonaut.Encode.mapLikeObj'
--- function is used when we want to encode some particular type 'i' as a JSON object. In such a way
+-- function is used when we want to encode some particular type @i@ as a JSON object. In such a way
 -- as to prevent duplicate keys from appearing. The 'Waargonaut.Encode.atKey' function is designed
 -- such that it can be composed with itself to build up an object with multiple keys.
 --
@@ -278,7 +280,7 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 -- simplePureEncodeByteStringNoSpaces :: Encoder' a -> a -> ByteString
 -- @
 --
--- The latter functions specialise the 'f' to be 'Data.Functor.Identity'.
+-- The latter functions specialise the @f@ to be 'Data.Functor.Identity'.
 --
 -- Then, like the use of the 'Waargonaut.Decode.Decoder' you select the 'Waargonaut.Encode.Encoder'
 -- you wish to use and run it against a value of a matching type:

@@ -1,4 +1,8 @@
 {-# LANGUAGE RankNTypes #-}
+-- |
+--
+-- Builder functions for 'CommaSeparated' values.
+--
 module Waargonaut.Encode.Builder.CommaSep (commaSeparatedBuilder) where
 
 import           Data.Monoid                     ((<>))
@@ -24,7 +28,7 @@ commaTrailingBuilder
 commaTrailingBuilder bldr wsB =
   foldMap ((commaBuilder bldr <>) . (wsB bldr) . snd)
 
--- | Using the given builders for the whitespace and elements ('a'), create a
+-- | Using the given builders for the whitespace and elements (@a@), create a
 -- builder for a 'CommaSeparated'.
 commaSeparatedBuilder
   :: forall ws a t b. Monoid b

@@ -163,8 +163,8 @@ type JCursorMove s a =
 
 -- | This is an alias to help explain a type from the zipper that is used to move
 -- around the 'Json' data structure. 'JCursor h a' represents a "cursor" that is
--- currently located on a thing of type 'a', having previously been on a thing
--- of type 'h'.
+-- currently located on a thing of type @a@, having previously been on a thing
+-- of type @h@.
 --
 -- This type will grow as a form of "breadcrumb" trail as the cursor moves
 -- through the data structure. It may be used interchangably with 'h :>> a' from
@@ -281,7 +281,7 @@ moveAndKeepHistory dir mCurs = do
   a <- mCurs <?> FailedToMove dir
   a <$ DR.recordZipperMove dir (Z.tooth a)
 
--- | Using a given 'LensLike', try to step down into the 'Json' data structure
+-- | Using a given 'Control.Lens.LensLike', try to step down into the 'Json' data structure
 -- to the location targeted by the lens.
 --
 -- This can be used to move large steps over the data structure, or more
@@ -325,7 +325,7 @@ up
 up =
   moveAndKeepHistory U . pure . Z.upward
 
--- | From the current cursor location, try to move 'n' steps to the left.
+-- | From the current cursor location, try to move @n@ steps to the left.
 moveLeftN
   :: Monad f
   => Natural
@@ -334,7 +334,7 @@ moveLeftN
 moveLeftN n cur =
   moveAndKeepHistory (L n) (Z.jerks Z.leftward (n ^. re _Natural) cur)
 
--- | From the current cursor location, try to move 'n' steps to the right.
+-- | From the current cursor location, try to move @n@ steps to the right.
 moveRightN
   :: Monad f
   => Natural
@@ -359,7 +359,7 @@ moveRight1
 moveRight1 =
   moveRightN (successor' zero')
 
--- | Provide a 'conversion' function and create a 'Decoder' that uses the
+-- | Provide a @conversion@ function and create a 'Decoder' that uses the
 -- current cursor and runs the given function. Fails with 'ConversionFailure' and
 -- the given 'Text' description.
 atCursor
@@ -509,7 +509,7 @@ foldCursor s sas mvCurs elemD = DecodeResult
     elemD
 
 -- | Use the 'Cons' typeclass and move leftwards from the current cursor
--- position, 'consing' the values to the 's' as it moves.
+-- position, "consing" the values to the @s@ as it moves.
 leftwardCons
   :: ( Monad f
      , Cons s s a a
@@ -525,7 +525,7 @@ leftwardCons s elemD = DecodeResult
     elemD
 
 -- | Use the 'Snoc' typeclass and move rightwards from the current cursor
--- position, 'snocing' the values to the 's' as it moves.
+-- position, "snocing" the values to the @s@ as it moves.
 rightwardSnoc
   :: ( Monad f
      , Snoc s s a a
@@ -540,7 +540,7 @@ rightwardSnoc s elemD = DecodeResult
     (unDecodeResult . moveRight1)
     elemD
 
--- | Decode a 'NonEmpty' list of 'a' at the given cursor position.
+-- | Decode a 'NonEmpty' list of @a@ at the given cursor position.
 nonEmptyAt
   :: Monad f
   => Decoder f a
@@ -566,7 +566,7 @@ listAt elemD c =
   try (moveAndKeepHistory D (Z.within WT.jsonTraversal c))
   >>= Maybe.maybe (pure mempty) (rightwardSnoc mempty elemD)
 
--- | Create a 'Decoder' for a list of 'a'
+-- | Create a 'Decoder' for a list of @a@
 list
   :: Monad f
   => Decoder f b
@@ -584,8 +584,8 @@ withDefault
 withDefault def hasD =
   withCursor (fmap (Maybe.fromMaybe def) . focus hasD)
 
--- | Named to match it's 'Encoder' counterpart, this function will decode an
--- optional value.
+-- | Named to match it's 'Waargonaut.Encode.Encoder' counterpart, this
+-- function will decode an optional value.
 maybeOrNull
   :: Monad f
   => Decoder f a
@@ -593,7 +593,7 @@ maybeOrNull
 maybeOrNull hasD =
   withCursor (try . focus hasD)
 
--- | Decode either an 'a' or a 'b', failing if neither 'Decoder' succeeds. The
+-- | Decode either an @a@ or a @b@, failing if neither 'Decoder' succeeds. The
 -- 'Right' decoder is attempted first.
 either
   :: Monad f

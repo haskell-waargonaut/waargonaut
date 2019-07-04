@@ -3,7 +3,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE TypeFamilies          #-}
--- | Representation of a JSON number and its various components.
+-- | 
+--
+-- Representation of a JSON number and its various components.
+--
 module Waargonaut.Types.JNumber
   (
     -- * Types
@@ -87,7 +90,7 @@ data JInt' digit
   | JIntInt digit [DecDigit]
   deriving (Eq, Ord, Show)
 
--- | Type alias to allow us to constrain the first 'digit' type.
+-- | Type alias to allow us to constrain the first @digit@ type.
 type JInt = JInt' DecDigit
 
 -- | Prism for JSON zeroes.

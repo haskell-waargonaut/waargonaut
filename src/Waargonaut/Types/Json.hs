@@ -176,8 +176,8 @@ instance AsJType (JType ws a) ws a where
                _         -> Left x
        )
 
--- | Top level Json type, we specialise the whitespace to 'WS' and the 'digit'
--- type to 'Digit'. Also defining that our structures can recursively only contain
+-- | Top level Json type, we specialise the whitespace to 'WS' and the @digit@
+-- type to 'Data.Digit.Digit'. Also defining that our structures can recursively only contain
 -- 'Json' types.
 newtype Json
   = Json (JType WS Json)
@@ -210,7 +210,7 @@ jtypeTraversal :: Traversal (JType ws a) (JType ws a') a a'
 jtypeTraversal = bitraverse pure
 
 -- |
--- A 'Control.Lens.Traversal'' over the 'a' at the given 'Text' key on a JSON object.
+-- A 'Control.Lens.Traversal'' over the @a@ at the given 'Text' key on a JSON object.
 --
 -- >>> E.simplePureEncodeTextNoSpaces E.json (obj & oat "c" ?~ E.asJson' E.int 33)
 -- "{\"c\":33,\"a\":33,\"b\":\"Fred\"}"
@@ -221,7 +221,7 @@ oat :: (AsJType r ws a, Semigroup ws, Monoid ws) => Text -> Traversal' r (Maybe 
 oat k = _JObj . _1 . _MapLikeObj . at k
 
 -- |
--- A 'Control.Lens.Traversal'' over the 'a' at the given 'Int' position in a JSON object.
+-- A 'Control.Lens.Traversal'' over the @a@ at the given 'Int' position in a JSON object.
 --
 -- >>> E.simplePureEncodeTextNoSpaces E.json (obj & oix 0 .~ E.asJson' E.int 1)
 -- "{\"a\":1,\"b\":\"Fred\"}"
@@ -231,7 +231,7 @@ oix :: (Semigroup ws, Monoid ws, AsJType r ws a) => Int -> Traversal' r a
 oix i = _JObj . _1 . ix i
 
 -- |
--- A 'Control.Lens.Traversal'' over the 'a' at the given 'Int' position in a JSON array.
+-- A 'Control.Lens.Traversal'' over the @a@ at the given 'Int' position in a JSON array.
 --
 -- >>> E.simplePureEncodeTextNoSpaces E.json ((E.asJson' (E.list E.int) [1,2,3]) & aix 0 .~ E.asJson' E.int 99)
 -- "[99,2,3]"
@@ -261,7 +261,7 @@ parseJNull ws = JNull
   <$ text "null"
   <*> ws
 
--- | Parse a 'true' or 'false'.
+-- | Parse a @true@ or @false@.
 --
 -- >>> testparse (parseJBool (return ())) "true"
 -- Right (JBool True ())

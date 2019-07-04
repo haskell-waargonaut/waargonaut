@@ -7,6 +7,10 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
 {-# LANGUAGE TupleSections          #-}
+-- |
+--
+-- Data structures and functions for handling the elements contained in a 'Waargonaut.Types.CommaSep.CommaSeparated' structure.
+--
 module Waargonaut.Types.CommaSep.Elems
   (
     -- * Types
@@ -110,10 +114,12 @@ instance Monoid ws => Semigroup (Elems ws a) where
   (<>) (Elems as alast) (Elems bs blast) =
     Elems (snoc as (alast ^. from _ElemTrailingIso) <> bs) blast
 
+-- | Add a value to the beginning of the 'Elems'
 consElems :: Monoid ws => ((Comma,ws), a) -> Elems ws a -> Elems ws a
 consElems (ews,a) e = e & elemsElems %~ cons (Elem a (Identity ews))
 {-# INLINE consElems #-}
 
+-- | Attempt to remove the initial value off the front of an 'Elems'
 unconsElems :: Monoid ws => Elems ws a -> ((Maybe (Comma,ws), a), Maybe (Elems ws a))
 unconsElems e = maybe (e', Nothing) (\(em, ems) -> (idT em, Just $ e & elemsElems .~ ems)) es'
   where
@@ -122,7 +128,7 @@ unconsElems e = maybe (e', Nothing) (\(em, ems) -> (idT em, Just $ e & elemsElem
     idT x = (x ^. elemTrailing . to (Just . runIdentity), x ^. elemVal)
 {-# INLINE unconsElems #-}
 
--- | Parse the elements of a 'CommaSeparated' list, handling the optional trailing comma and its whitespace.
+-- | Parse the elements of a 'Waargonaut.Types.CommaSep.CommaSeparated' list, handling the optional trailing comma and its whitespace.
 --
 -- >>> testparse (parseCommaSeparatedElems parseWhitespace alphaNum) "a, b, c, d"
 -- Right (Elems {_elemsElems = [Elem {_elemVal = 'a', _elemTrailing = Identity (Comma,WS [Space])},Elem {_elemVal = 'b', _elemTrailing = Identity (Comma,WS [Space])},Elem {_elemVal = 'c', _elemTrailing = Identity (Comma,WS [Space])}], _elemsLast = Elem {_elemVal = 'd', _elemTrailing = Nothing}})

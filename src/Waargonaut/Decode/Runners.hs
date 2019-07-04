@@ -1,4 +1,8 @@
 {-# LANGUAGE RankNTypes #-}
+-- |
+--
+-- Functions to execution of 'Waargonaut.Decode.Decoder's
+--
 module Waargonaut.Decode.Runners
   (
     -- * General over @f@
@@ -48,14 +52,14 @@ import           Waargonaut.Decode.Types    (CursorHistory, DecodeResult (..),
                                              Decoder (..), mkCursor)
 
 -- | General decoding function that takes a given parsing function and some
--- functions to handle the transition from the input of the 'JCurs' to the
+-- functions to handle the transition from the input of the 'Waargonaut.Decoder.Types.JCurs' to the
 -- desired input type. The indexer and cursor requires a 'ByteString' to work
 -- efficiently, but this does not preclude the use of other text types, provided
 -- the right functions are present.
 --
 -- There are some specialised versions of this function provided for 'Text',
 -- 'String', and 'ByteString'. They are implemented using this function, for
--- example to work with 'Text' input and the 'attoparsec' package:
+-- example to work with 'Text' input and the @attoparsec@ package:
 --
 -- @
 -- import qualified Data.Attoparsec.Text as AT
@@ -210,7 +214,7 @@ pureDecodeFromString =
   pureDecodeWithInput decodeFromString
 
 -- | Helper function to handle wrapping up a parse failure using the given
--- parsing function. Intended to be used with the 'runDecode' or 'simpleDecode'
+-- parsing function. Intended to be used with the 'Waargonaut.Decode.runDecode' or 'Waargonaut.Decode.Traversal.simpleDecode'
 -- functions.
 --
 -- @

@@ -77,9 +77,9 @@ newtype NumSpaces = NumSpaces Natural
 newtype IndentStep = IndentStep Natural
   deriving (Eq, Show)
 
--- | Encode an @a@ directly to a 'ByteString' using the provided 'Encoder', the
--- output will have newlines and indentation added based on the 'InlineOption' and
--- 'NumSpaces'.
+-- | Encode an @a@ directly to a 'Data.ByteString.ByteString' using
+-- the provided 'Encoder', the output will have newlines and
+-- indentation added based on the 'InlineOption' and 'NumSpaces'.
 --
 -- @
 -- let two = successor' $ successor' zero'

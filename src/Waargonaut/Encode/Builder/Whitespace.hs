@@ -1,3 +1,7 @@
+-- |
+--
+-- Builder structures for 'Whitespace'
+--
 module Waargonaut.Encode.Builder.Whitespace
   ( whitespaceBuilder
   , wsBuilder

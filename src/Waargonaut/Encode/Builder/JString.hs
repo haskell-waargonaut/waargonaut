@@ -1,3 +1,7 @@
+-- |
+--
+-- Builder structures for 'JString's
+--
 module Waargonaut.Encode.Builder.JString (jStringBuilder) where
 
 import           Data.Monoid                     ((<>))

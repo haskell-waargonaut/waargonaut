@@ -121,7 +121,7 @@ jsonEncoder :: (a -> f Json) -> EncoderFns Json f a
 jsonEncoder = EncoderFns id
 {-# INLINE jsonEncoder #-}
 
--- | Helper function for creating a JSON 'object' 'Encoder'. Provides the
+-- | Helper function for creating a JSON @object@ 'Encoder'. Provides the
 -- default 'finaliseEncoding' function for completing the 'JObject' to the
 -- necessary 'Json' type.
 objEncoder :: (a -> f (JObject WS Json)) -> EncoderFns (JObject WS Json) f a

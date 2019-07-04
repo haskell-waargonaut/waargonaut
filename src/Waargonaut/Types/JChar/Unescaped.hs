@@ -1,4 +1,7 @@
--- | Types and functions for handling valid unescaped characters in JSON.
+-- |
+--
+-- Types and functions for handling valid unescaped characters in JSON.
+--
 module Waargonaut.Types.JChar.Unescaped
   (
     -- * Types

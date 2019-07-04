@@ -177,6 +177,7 @@ parseEscaped =
   in
     char '\\' *> (z <|> h)
 
+-- | Convert an 'Escaped' character to a Haskell 'Char'
 escapedToChar :: Escaped HeXDigit -> Char
 escapedToChar = \case
   QuotationMark  -> '"'
@@ -186,6 +187,7 @@ escapedToChar = \case
   WhiteSpace wc  -> unescapedWhitespaceChar wc
   Hex hd         -> hexDigit4ToChar hd
 
+-- | Attempt to convert a Haskell 'Char' to an 'Escaped' JSON character
 charToEscaped :: Char -> Maybe (Escaped HeXDigit)
 charToEscaped c = case c of
   '"'  -> Just QuotationMark

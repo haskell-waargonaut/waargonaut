@@ -193,7 +193,7 @@ import           Waargonaut.Encode.Builder.Whitespace (wsBuilder, wsRemover)
 -- @
 --
 -- These types may seem pretty wild, but their usage is mundane. The 'Waargonaut.Encode.mapLikeObj'
--- function is used when we want to encode some particular type 'i' as a JSON object. In such a way
+-- function is used when we want to encode some particular type @i@ as a JSON object. In such a way
 -- as to prevent duplicate keys from appearing. The 'Waargonaut.Encode.atKey' function is designed
 -- such that it can be composed with itself to build up an object with multiple keys.
 --
@@ -236,7 +236,7 @@ import           Waargonaut.Encode.Builder.Whitespace (wsBuilder, wsRemover)
 -- simplePureEncodeByteStringNoSpaces :: Encoder' a -> a -> ByteString
 -- @
 --
--- The latter functions specialise the 'f' to be 'Data.Functor.Identity'.
+-- The latter functions specialise the @f@ to be 'Data.Functor.Identity'.
 --
 -- Then, like the use of the 'Waargonaut.Decode.Decoder' you select the 'Waargonaut.Encode.Encoder'
 -- you wish to use and run it against a value of a matching type:
@@ -248,7 +248,7 @@ import           Waargonaut.Encode.Builder.Whitespace (wsBuilder, wsRemover)
 -- @
 --
 
--- | Create an 'Encoder'' for 'a' by providing a function from 'a -> f Json'.
+-- | Create an 'Encoder'' for @a@ by providing a function from 'a -> f Json'.
 encodeA :: (a -> f Json) -> Encoder f a
 encodeA = jsonEncoder
 
@@ -323,7 +323,7 @@ simplePureEncodeWith
 simplePureEncodeWith builder buildRunner wsB enc =
   runIdentity . simpleEncodeWith builder buildRunner wsB enc
 
--- | As per 'simpleEncodeText' but specialised the 'f' to 'Data.Functor.Identity'.
+-- | As per 'simpleEncodeText' but specialised the @f@ to 'Data.Functor.Identity'.
 simplePureEncodeText
   :: Encoder Identity a
   -> a
@@ -331,7 +331,7 @@ simplePureEncodeText
 simplePureEncodeText enc =
   runIdentity . simpleEncodeText enc
 
--- | As per 'simpleEncodeTextNoSpaces' but specialised the 'f' to 'Data.Functor.Identity'.
+-- | As per 'simpleEncodeTextNoSpaces' but specialised the @f@ to 'Data.Functor.Identity'.
 simplePureEncodeTextNoSpaces
   :: Encoder Identity a
   -> a
@@ -339,7 +339,7 @@ simplePureEncodeTextNoSpaces
 simplePureEncodeTextNoSpaces enc =
   runIdentity . simpleEncodeTextNoSpaces enc
 
--- | As per 'simpleEncodeByteString' but specialised the 'f' to 'Data.Functor.Identity'.
+-- | As per 'simpleEncodeByteString' but specialised the @f@ to 'Data.Functor.Identity'.
 simplePureEncodeByteString
   :: Encoder Identity a
   -> a
@@ -347,7 +347,7 @@ simplePureEncodeByteString
 simplePureEncodeByteString enc =
   runIdentity . simpleEncodeByteString enc
 
--- | As per 'simpleEncodeByteStringNoSpaces' but specialised the 'f' to 'Data.Functor.Identity'.
+-- | As per 'simpleEncodeByteStringNoSpaces' but specialised the @f@ to 'Data.Functor.Identity'.
 simplePureEncodeByteStringNoSpaces
   :: Encoder Identity a
   -> a
@@ -447,7 +447,7 @@ either eA = encodeA
   . Either.either (runEncoder eA)
   . runEncoder
 
--- | Encode some 'Traversable' of 'a' into a JSON array.
+-- | Encode some 'Traversable' of @a@ into a JSON array.
 traversable
   :: ( Applicative f
      , Traversable t
@@ -485,39 +485,39 @@ list
 list =
   traversable
 
--- | As per 'json' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'json' but with the @f@ specialised to 'Data.Functor.Identity'.
 json' :: Encoder' Json
 json' = json
 
--- | As per 'int' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'int' but with the @f@ specialised to 'Data.Functor.Identity'.
 int' :: Encoder' Int
 int' = int
 
--- | As per 'integral' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'integral' but with the @f@ specialised to 'Data.Functor.Identity'.
 integral' :: Integral n => Encoder' n
 integral' = integral
 
--- | As per 'scientific' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'scientific' but with the @f@ specialised to 'Data.Functor.Identity'.
 scientific' :: Encoder' Scientific
 scientific' = scientific
 
--- | As per 'bool' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'bool' but with the @f@ specialised to 'Data.Functor.Identity'.
 bool' :: Encoder' Bool
 bool' = bool
 
--- | As per 'string' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'string' but with the @f@ specialised to 'Data.Functor.Identity'.
 string' :: Encoder' String
 string' = string
 
--- | As per 'text' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'text' but with the @f@ specialised to 'Data.Functor.Identity'.
 text' :: Encoder' Text
 text' = text
 
--- | As per 'null' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'null' but with the @f@ specialised to 'Data.Functor.Identity'.
 null' :: Encoder' ()
 null' = null
 
--- | As per 'maybe' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'maybe' but with the @f@ specialised to 'Data.Functor.Identity'.
 maybe'
   :: Encoder' ()
   -> Encoder' a
@@ -525,14 +525,14 @@ maybe'
 maybe' =
   maybe
 
--- | As per 'maybeOrNull' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'maybeOrNull' but with the @f@ specialised to 'Data.Functor.Identity'.
 maybeOrNull'
   :: Encoder' a
   -> Encoder' (Maybe a)
 maybeOrNull' =
   maybeOrNull
 
--- | As per 'either' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'either' but with the @f@ specialised to 'Data.Functor.Identity'.
 either'
   :: Encoder' a
   -> Encoder' b
@@ -540,21 +540,21 @@ either'
 either' =
   either
 
--- | As per 'nonempty' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'nonempty' but with the @f@ specialised to 'Data.Functor.Identity'.
 nonempty'
   :: Encoder' a
   -> Encoder' (NonEmpty a)
 nonempty' =
   traversable
 
--- | As per 'list' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'list' but with the @f@ specialised to 'Data.Functor.Identity'.
 list'
   :: Encoder' a
   -> Encoder' [a]
 list' =
   traversable
 
--- | Encode some 'a' that is contained with another 't' structure.
+-- | Encode some @a@ that is contained with another @t@ structure.
 encodeWithInner
   :: ( Applicative f
      , Traversable t
@@ -565,7 +565,7 @@ encodeWithInner
 encodeWithInner f g =
   jsonEncoder $ fmap f . traverse (runEncoder g)
 
--- | As per 'traversable' but with the 'f' specialised to 'Data.Functor.Identity'.
+-- | As per 'traversable' but with the @f@ specialised to 'Data.Functor.Identity'.
 traversable'
   :: Traversable t
   => Encoder' a
@@ -573,7 +573,7 @@ traversable'
 traversable' =
   traversable
 
--- | Using the given function to convert the 'k' type keys to a 'Text' value,
+-- | Using the given function to convert the @k@ type keys to a 'Text' value,
 -- encode a 'Map' as a JSON object.
 mapToObj'
   :: Encoder' a
@@ -596,6 +596,7 @@ atKey
 atKey k enc v t =
   (\v' -> t & at k ?~ v') <$> runEncoder enc v
 
+-- | Optionally encode an @a@ if it is a @Just a@. A @Nothing@ will result in the key being absent from the object.
 atOptKey
   :: ( At t
      , IxValue t ~ Json
@@ -609,7 +610,7 @@ atOptKey
 atOptKey k enc =
   Maybe.maybe pure (atKey k enc)
 
--- | Encode an 'a' at the given index on the JSON object.
+-- | Encode an @a@ at the given index on the JSON object.
 atKey'
   :: ( At t
      , IxValue t ~ Json
@@ -676,7 +677,7 @@ boolAt
 boolAt =
   flip atKey' bool
 
--- | Encode a 'Foldable' of 'a' at the given index on a JSON object.
+-- | Encode a 'Foldable' of @a@ at the given index on a JSON object.
 traversableAt
   :: ( At t
      , Traversable f
@@ -797,9 +798,9 @@ extendMapLikeObject encA a f =
     floopObj = fromMapLikeObj . f . fst . toMapLikeObj
 
 -- |
--- Given encoders for things that are represented in JSON as 'objects', and a
--- way to get to the 'b' and 'c' from the 'a'. This function lets you create an
--- encoder for 'a'. The two objects are combined to make one single JSON object.
+-- Given encoders for things that are represented in JSON as @objects@, and a
+-- way to get to the @b@ and @c@ from the @a@. This function lets you create an
+-- encoder for @a@. The two objects are combined to make one single JSON object.
 --
 -- Given
 --
@@ -811,7 +812,7 @@ extendMapLikeObject encA a f =
 -- @
 --
 -- We can use this function to utilise our already defined 'ObjEncoder'
--- structures to give us an encoder for 'A':
+-- structures to give us an encoder for @A@:
 --
 -- @
 -- combineObjects (\aRecord -> (_foo aRecord, _bar aRecord)) encodeFoo encodeBar :: ObjEncoder f Bar
@@ -859,7 +860,7 @@ keyValueTupleFoldable
 keyValueTupleFoldable eA = encodeA $
   fmap (\v -> _JObj # (v,mempty)) . foldrM (\(k,v) o -> onObj k v eA o) (_Empty # ())
 
--- | As per 'keyValuesAsObj' but with the 'f' specialised to 'Identity'.
+-- | As per 'keyValuesAsObj' but with the @f@ specialised to 'Identity'.
 keyValuesAsObj'
   :: ( Foldable g
      , Functor g
