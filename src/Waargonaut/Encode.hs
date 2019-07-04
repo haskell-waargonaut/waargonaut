@@ -7,6 +7,103 @@
 {-# LANGUAGE TupleSections         #-}
 {-# LANGUAGE TypeFamilies          #-}
 -- | Types and functions to encode your data types to 'Json'.
+--
+-- We will work through a basic example, using the following type:
+--
+-- @
+-- data Person = Person
+--   { _personName                    :: Text
+--   , _personAge                     :: Int
+--   , _personAddress                 :: Text
+--   , _personFavouriteLotteryNumbers :: [Int]
+--   }
+--   deriving (Eq, Show)
+-- @
+--
+-- To create an 'Waargonaut.Encode.Encoder' for our @Person@ record, we will encode it as a "map
+-- like object", that is we have decided that there are no duplicate keys allowed. We can then use
+-- the following functions to build up the structure we want:
+--
+-- @
+-- mapLikeObj
+--   :: ( AsJType Json ws a
+--      , Semigroup ws         -- This library supports GHC 7.10.3 and 'Semigroup' wasn't a superclass of 'Monoid' then.
+--      , Monoid ws
+--      , Applicative f
+--      )
+--   => (i -> MapLikeObj ws a -> MapLikeObj ws a)
+--   -> Encoder f i
+-- @
+--
+-- And:
+--
+-- @
+-- atKey'
+--   :: ( At t
+--      , IxValue t ~ Json
+--      )
+--   => Index t
+--   -> Encoder' a
+--   -> a
+--   -> t
+--   -> t
+-- @
+--
+-- These types may seem pretty wild, but their usage is mundane. The 'Waargonaut.Encode.mapLikeObj'
+-- function is used when we want to encode some particular type @i@ as a JSON object. In such a way
+-- as to prevent duplicate keys from appearing. The 'Waargonaut.Encode.atKey'' function is designed
+-- such that it can be composed with itself to build up an object with multiple keys.
+--
+-- @
+-- import Waargonaut.Encode (Encoder)
+-- import qualified Waargonaut.Encode as E
+-- @
+--
+-- @
+-- personEncoder :: Applicative f => Encoder f Person
+-- personEncoder = E.mapLikeObj $ \\p ->
+--   E.atKey' \"name\" E.text (_personName p) .
+--   E.atKey' \"age\" E.int (_personAge p) .
+--   E.atKey' \"address\" E.text (_personAddress p) .
+--   E.atKey' \"numbers\" (E.list E.int) (_personFavouriteLotteryNumbers p)
+-- @
+--
+-- The JSON RFC leaves the handling of duplicate keys on an object as a choice. It is up to the
+-- implementor of a JSON handling package to decide what they will do. Waargonaut passes on this
+-- choice to you. In both encoding and decoding, the handling of duplicate keys is up to you.
+-- Waargonaut provides functionality to support /both/ use cases.
+--
+-- To then turn these values into JSON output:
+--
+-- @
+-- simpleEncodeText         :: Applicative f => Encoder f a -> a -> f Text
+-- simpleEncodeTextNoSpaces :: Applicative f => Encoder f a -> a -> f Text
+--
+-- simpleEncodeByteString         :: Applicative f => Encoder f a -> a -> f ByteString
+-- simpleEncodeByteStringNoSpaces :: Applicative f => Encoder f a -> a -> f ByteString
+-- @
+--
+-- Or
+--
+-- @
+-- simplePureEncodeText         :: Encoder' a -> a -> Text
+-- simplePureEncodeTextNoSpaces :: Encoder' a -> a -> Text
+--
+-- simplePureEncodeByteString         :: Encoder' a -> a -> ByteString
+-- simplePureEncodeByteStringNoSpaces :: Encoder' a -> a -> ByteString
+-- @
+--
+-- The latter functions specialise the @f@ to be 'Data.Functor.Identity'.
+--
+-- Then, like the use of the 'Waargonaut.Decode.Decoder' you select the 'Waargonaut.Encode.Encoder'
+-- you wish to use and run it against a value of a matching type:
+--
+-- @
+-- simplePureEncodeTextNoSpaces personEncoder (Person \"Krag\" 33 \"Red House 4, Three Neck Lane, Greentown.\" [86,3,32,42,73])
+-- =
+-- "{\"name\":\"Krag\",\"age\":88,\"address\":\"Red House 4, Three Neck Lane, Greentown.\",\"numbers\":[86,3,32,42,73]}"
+-- @
+--
 module Waargonaut.Encode
   (
     -- * Encoder type
@@ -160,93 +257,6 @@ import           Waargonaut.Encode.Builder            (textBuilder, bsBuilder,
 import           Waargonaut.Encode.Builder.Types      (Builder)
 import           Waargonaut.Encode.Builder.Whitespace (wsBuilder, wsRemover)
 
--- $basicencode
---
--- To create an 'Waargonaut.Encode.Encoder' for our 'Person' record, we will encode it as a "map
--- like object", that is we have decided that there are no duplicate keys allowed. We can then use
--- the following functions to build up the structure we want:
---
--- @
--- mapLikeObj
---   :: ( AsJType Json ws a
---      , Semigroup ws         -- This library supports GHC 7.10.3 and 'Semigroup' wasn't a superclass of 'Monoid' then.
---      , Monoid ws
---      , Applicative f
---      )
---   => (i -> MapLikeObj ws a -> MapLikeObj ws a)
---   -> Encoder f i
--- @
---
--- And:
---
--- @
--- atKey
---   :: ( At t
---      , IxValue t ~ Json
---      , Applicative f
---      )
---   => Index t
---   -> Encoder f a
---   -> a
---   -> t
---   -> f t
--- @
---
--- These types may seem pretty wild, but their usage is mundane. The 'Waargonaut.Encode.mapLikeObj'
--- function is used when we want to encode some particular type @i@ as a JSON object. In such a way
--- as to prevent duplicate keys from appearing. The 'Waargonaut.Encode.atKey' function is designed
--- such that it can be composed with itself to build up an object with multiple keys.
---
--- @
--- import Waargonaut.Encode (Encoder)
--- import qualified Waargonaut.Encode as E
--- @
---
--- @
--- personEncoder :: Applicative f => Encoder f Person
--- personEncoder = E.mapLikeObj $ \\p ->
---   E.atKey' \"name\" E.text (_personName p) .
---   E.atKey' \"age\" E.int (_personAge p) .
---   E.atKey' \"address\" E.text (_personAddress p) .
---   E.atKey' \"numbers\" (E.list E.int) (_personFavouriteLotteryNumbers p)
--- @
---
--- The JSON RFC leaves the handling of duplicate keys on an object as a choice. It is up to the
--- implementor of a JSON handling package to decide what they will do. Waargonaut passes on this
--- choice to you. In both encoding and decoding, the handling of duplicate keys is up to you.
--- Waargonaut provides functionality to support /both/ use cases.
---
--- To then turn these values into JSON output:
---
--- @
--- simpleEncodeText         :: Applicative f => Encoder f a -> a -> f Text
--- simpleEncodeTextNoSpaces :: Applicative f => Encoder f a -> a -> f Text
---
--- simpleEncodeByteString         :: Applicative f => Encoder f a -> a -> f ByteString
--- simpleEncodeByteStringNoSpaces :: Applicative f => Encoder f a -> a -> f ByteString
--- @
---
--- Or
---
--- @
--- simplePureEncodeText         :: Encoder' a -> a -> Text
--- simplePureEncodeTextNoSpaces :: Encoder' a -> a -> Text
---
--- simplePureEncodeByteString         :: Encoder' a -> a -> ByteString
--- simplePureEncodeByteStringNoSpaces :: Encoder' a -> a -> ByteString
--- @
---
--- The latter functions specialise the @f@ to be 'Data.Functor.Identity'.
---
--- Then, like the use of the 'Waargonaut.Decode.Decoder' you select the 'Waargonaut.Encode.Encoder'
--- you wish to use and run it against a value of a matching type:
---
--- @
--- simplePureEncodeTextNoSpaces personEncoder (Person \"Krag\" 33 \"Red House 4, Three Neck Lane, Greentown.\" [86,3,32,42,73])
--- =
--- "{\"name\":\"Krag\",\"age\":88,\"address\":\"Red House 4, Three Neck Lane, Greentown.\",\"numbers\":[86,3,32,42,73]}"
--- @
---
 
 -- | Create an 'Encoder'' for @a@ by providing a function from 'a -> f Json'.
 encodeA :: (a -> f Json) -> Encoder f a
