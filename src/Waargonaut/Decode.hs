@@ -105,10 +105,10 @@
 -- @
 -- personDecoder2 :: Monad f => Decoder f Person
 -- personDecoder2 = Person
---   \<$> D.atKey "name" D.text
---   \<*> D.atKey "age" D.int
---   \<*> D.atKey "address" D.text
---   \<*> D.atKey "numbers" (D.list D.int)
+--   \<$> D.atKey \"name\" D.text
+--   \<*> D.atKey \"age\" D.int
+--   \<*> D.atKey \"address\" D.text
+--   \<*> D.atKey \"numbers\" (D.list D.int)
 -- @
 --
 -- Using the 'Waargonaut.Decode.atKey' function which tries to handle those basic movements for us
@@ -670,8 +670,8 @@ fromKey k d =
 --
 -- myRecDecoder :: Decoder f MyRec
 -- myRecDecoder = MyRec
---   \<$> atKey "field_a" text
---   \<*> atKey "field_b" int
+--   \<$> atKey \"field_a\" text
+--   \<*> atKey \"field_b\" int
 -- @
 --
 atKey
@@ -706,7 +706,7 @@ fromKeyOptional k d c =
 -- it could be decoded as follows:
 --
 -- @
--- join \<$> atKeyOptional "key" (maybeOrNull text)
+-- join \<$> atKeyOptional \"key\" (maybeOrNull text)
 -- @
 atKeyOptional
   :: Monad f
@@ -847,9 +847,9 @@ passKeysToValues empty dK kDV = withCursor $ down >=> foldCursor snoc
 --
 -- decodeMyEnum :: Monad f => Decoder f MyEnum
 -- decodeMyEnum = D.oneOf D.text \"MyEnum\"
---   [ ("a", A)
---   , ("b", B)
---   , ("c", C)
+--   [ (\"a\", A)
+--   , (\"b\", B)
+--   , (\"c\", C)
 --   ]
 --
 -- decodeMyEnumFromInt :: Monad f => Decoder f MyEnum

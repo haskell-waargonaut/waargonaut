@@ -85,10 +85,10 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 -- personDecoder :: Monad f => Decoder f Person
 -- personDecoder = D.withCursor $ \\c -> do
 --   o     <- D.down c
---   name  <- D.fromKey "name" D.text o
---   age   <- D.fromKey "age" D.int o
---   addr  <- D.fromKey "address" D.text o
---   lotto <- D.fromKey "numbers" (D.list D.int) o
+--   name  <- D.fromKey \"name\" D.text o
+--   age   <- D.fromKey \"age\" D.int o
+--   addr  <- D.fromKey \"address\" D.text o
+--   lotto <- D.fromKey \"numbers\" (D.list D.int) o
 --   pure $ Person name age addr lotto
 -- @
 --
@@ -127,10 +127,10 @@ import           Waargonaut.Encode.Builder (waargonautBuilder)
 -- @
 -- personDecoder2 :: Monad f => Decoder f Person
 -- personDecoder2 = Person
---   \<$> D.atKey "name" D.text
---   \<*> D.atKey "age" D.int
---   \<*> D.atKey "address" D.text
---   \<*> D.atKey "numbers" (D.list D.int)
+--   \<$> D.atKey \"name\" D.text
+--   \<*> D.atKey \"age\" D.int
+--   \<*> D.atKey \"address\" D.text
+--   \<*> D.atKey \"numbers\" (D.list D.int)
 -- @
 --
 -- Using the 'Waargonaut.Decode.atKey' function which tries to handle those basic movements for us

@@ -638,8 +638,8 @@ atKey' k enc v =
 --
 -- @
 -- encoder = E.mapLikeObj \$ \\a ->
---   atKey' "A" E.text (_getterA a)
---   atOptKey' "B" E.int (_maybeB a)
+--   atKey' \"A\" E.text (_getterA a)
+--   atOptKey' \"B\" E.int (_maybeB a)
 --
 -- simplePureEncodeByteString encoder (Foo "bob" (Just 33)) = "{\"A\":\"bob\",\"B\":33}"
 --

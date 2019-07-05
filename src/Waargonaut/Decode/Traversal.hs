@@ -423,8 +423,8 @@ fromKey k d =
 --
 -- myRecDecoder :: Decoder f MyRec
 -- myRecDecoder = MyRec
---   <$> atKey "field_a" text
---   <*> atKey "field_b" int
+--   <$> atKey \"field_a\" text
+--   <*> atKey \"field_b\" int
 -- @
 --
 atKey
