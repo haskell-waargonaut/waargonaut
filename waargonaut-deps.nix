@@ -6,6 +6,29 @@ self: super: {
       dc = d: super.haskell.lib.dontCheck d;
     in 
     {
+      hedgehog = hsuper.callHackageDirect {
+        pkg = "hedgehog";
+        ver = "1.0";
+        sha256 = "06q1w1pjvhdr6za1n5kjd3zszh4xi2ixrwgclqqqj6nhdiz8y6zj";
+      } {};
+
+      hw-hedgehog = super.haskell.lib.doJailbreak (hsuper.callHackageDirect {
+        pkg = "hw-hedgehog";
+        ver = "0.1.0.3";
+        sha256 = "01bmlhb3ns3k9sg3i4q2rx5ab49ns7b2mmq81vg4j6dn5y5hcqkr";
+      } {});
+
+      hedgehog-fn = hsuper.callHackageDirect {
+        pkg = "hedgehog-fn";
+        ver = "1.0";
+        sha256 = "1dhfyfycy0wakw4j7rr01a7v70yms7dw3h60k5af7pi9v700wyb4";
+      } {};
+
+      tasty-hedgehog = hsuper.callHackageDirect {
+        pkg = "tasty-hedgehog";
+        ver = "1.0.0.1";
+        sha256 = "06mffkvscl8r81hjhsvjlyqa843szgv8fays1l9z4jaw2759glsr";
+      } {};
 
       hw-mquery     = dc (dbcc "hw-mquery" ./nix/hw-mquery.nix hself);
       hw-bits       = dc (dbcc "hw-bits" ./nix/hw-bits.nix hself);

@@ -3,7 +3,6 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PolyKinds             #-}
@@ -335,7 +334,7 @@ trimPrefixLowerFirst p n = maybe n f
 -- instance JsonEncode GWaarg Foo where
 --   mkEncoder = Tagged fooEncoderIWroteEarlier
 -- @
---
+
 class JsonEncode t a where
   mkEncoder :: Applicative f => Tagged t (Encoder f a)
 

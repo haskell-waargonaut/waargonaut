@@ -10,7 +10,7 @@ name:                waargonaut
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.6.2.0
+version:             0.6.2.1
 
 -- A short (one-line) description of the package.
 synopsis:            JSON wrangling
@@ -192,7 +192,7 @@ test-suite doctests
   hs-source-dirs:      test
 
   build-depends:       base             >= 4.9  && < 4.13
-                     , hedgehog         >= 0.6  && < 0.7
+                     , hedgehog         >= 0.6  && < 1.2
                      , text             >= 1.2  && < 1.3
                      , digit            >= 0.7  && < 0.8
                      , attoparsec       >= 0.13 && < 0.15
@@ -232,9 +232,9 @@ test-suite waarg-tests
                      , tasty                  >= 0.11   && < 1.3
                      , tasty-hunit            >= 0.10   && < 0.11
                      , tasty-expected-failure >= 0.11   && < 0.12
-                     , hedgehog               >= 0.6    && < 0.7
-                     , hedgehog-fn            >= 0.6    && < 0.7
-                     , tasty-hedgehog         >= 0.2    && < 0.3
+                     , hedgehog               >= 0.6    && < 1.2
+                     , hedgehog-fn            >= 0.6    && < 2
+                     , tasty-hedgehog         >= 0.2    && < 1.2
                      , lens                   >= 4.15   && < 4.18
                      , distributive           >= 0.5    && < 0.7
                      , bytestring             >= 0.10.6 && < 0.11
