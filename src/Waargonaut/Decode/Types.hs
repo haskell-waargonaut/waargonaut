@@ -9,7 +9,7 @@
 --
 module Waargonaut.Decode.Types
   ( ParseFn
-  , SuccinctCursor
+  , Cursor
   , CursorHistory
   , Decoder (..)
   , DecodeResult (..)
@@ -33,18 +33,13 @@ import           Control.Monad.Trans.Class                      (MonadTrans (lif
 import           Data.Functor.Alt                               (Alt (..))
 import qualified Data.Text                                      as Text
 
-import           GHC.Word                                       (Word64)
-
 import           Data.ByteString                                (ByteString)
-import           Data.Vector.Storable                           (Vector)
 
-import           HaskellWorks.Data.BalancedParens               (SimpleBalancedParens)
-import           HaskellWorks.Data.Json.Backend.Standard.Cursor (JsonCursor (..))
-import           HaskellWorks.Data.Json.Backend.Standard.Fast   (makeCursor)
-import           HaskellWorks.Data.Json.Type                    (JsonType (..),
+import           HaskellWorks.Data.Json.Standard.Cursor.Fast   (Cursor,fromByteStringViaBlanking)
+import           HaskellWorks.Data.Json.Standard.Cursor.Generic (cursorRank)
+import           HaskellWorks.Data.Json.Standard.Cursor.Type                    (JsonType (..),
                                                                  JsonTypeAt (..))
 import           HaskellWorks.Data.Positioning                  (Count)
-import           HaskellWorks.Data.RankSelect.Poppy512          (Poppy512)
 
 import           Waargonaut.Decode.Internal                     (CursorHistory', DecodeError (..),
                                                                  DecodeResultT (..),
@@ -56,10 +51,6 @@ import           Waargonaut.Types                               (Json)
 -- | We define the index of our 'CursorHistory'' to be the 'HaskellWorks.Data.Positioning.Count'.
 type CursorHistory =
   CursorHistory' Count
-
--- | Convenience alias defined for the concrete 'JsonCursor' type.
-type SuccinctCursor =
-  JsonCursor ByteString Poppy512 (SimpleBalancedParens (Vector Word64))
 
 -- | Convenience alias for the type of the function we will use to parse
 -- the input string into the 'Json' structure.
@@ -100,19 +91,19 @@ instance MFunctor Decoder where
 
 -- | Wrapper type for the 'SuccinctCursor'
 newtype JCurs = JCurs
-  { unJCurs :: SuccinctCursor
+  { unJCurs :: Cursor
   } deriving JsonTypeAt
 
 instance JCurs ~ t => Rewrapped JCurs t
 
 instance Wrapped JCurs where
-  type Unwrapped JCurs = SuccinctCursor
+  type Unwrapped JCurs = Cursor
   _Wrapped' = iso unJCurs JCurs
 
 -- | Take a 'ByteString' input and build an index of the JSON structure inside
 --
 mkCursor :: ByteString -> JCurs
-mkCursor = JCurs . makeCursor
+mkCursor = JCurs . fromByteStringViaBlanking
 
 -- | Provide some of the type parameters that the underlying 'DecodeResultT'
 -- requires. This contains the state and error management as we walk around our

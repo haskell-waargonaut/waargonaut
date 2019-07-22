@@ -11,7 +11,7 @@ import qualified Control.Lens                 as L
 
 import           GHC.Word                     (Word64)
 
-import           HaskellWorks.Data.Json.Type  (JsonType)
+import           HaskellWorks.Data.Json.Standard.Cursor.Type  (JsonType)
 
 import           Data.Text                    (Text)
 

@@ -4,7 +4,7 @@
 let
   pkgs = import nixpkgs {
     config.allowBroken = true;
-    overlays = [ (import ./waargonaut-deps.nix) ];
+    overlays = [(import ./waargonaut-deps.nix)];
   };
 
   haskellPackages = if compiler == "default"

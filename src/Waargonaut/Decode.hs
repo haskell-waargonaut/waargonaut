@@ -185,7 +185,7 @@ module Waargonaut.Decode
   (
     -- * Types
     CursorHistory
-  , SuccinctCursor
+  , Cursor
   , DecodeResult (..)
   , Decoder (..)
   , JCurs (..)
@@ -336,8 +336,8 @@ import qualified HaskellWorks.Data.BalancedParens.FindOpen      as BP
 import           HaskellWorks.Data.Bits                         ((.?.))
 import           HaskellWorks.Data.TreeCursor                   (TreeCursor (..))
 
-import           HaskellWorks.Data.Json.Backend.Standard.Cursor (JsonCursor (..))
-import qualified HaskellWorks.Data.Json.Backend.Standard.Cursor as JC
+import           HaskellWorks.Data.Json.Standard.Cursor.Fast (Cursor)
+import qualified HaskellWorks.Data.Json.Standard.Cursor.Generic as JC
 
 import           Waargonaut.Decode.Error                        (AsDecodeError (..),
                                                                  DecodeError (..),
@@ -353,7 +353,6 @@ import           Waargonaut.Decode.Types                        (CursorHistory, 
                                                                  Decoder (..),
                                                                  JCurs (..),
                                                                  JsonType (..),
-                                                                 SuccinctCursor,
                                                                  jsonTypeAt,
                                                                  mkCursor)
 
@@ -400,8 +399,8 @@ withCursor g = Decoder $ \p ->
 -- | Lens for accessing the 'rank' of the 'JsonCursor'. The 'rank' forms part of
 -- the calculation that is the cursors current position in the index.
 --
-cursorRankL :: Lens' (JsonCursor s i p) Count
-cursorRankL = lens JC.cursorRank (\c r -> c { cursorRank = r })
+cursorRankL :: Lens' Cursor Count
+cursorRankL = lens JC.cursorRank (\c r -> c { JC.cursorRank = r })
 
 -- | Execute the given function @n@ times.
 manyMoves :: Monad m => Natural -> (b -> m b) -> b -> m b
@@ -417,7 +416,7 @@ generaliseDecoder dr = Decoder (\p -> embed generalize . runDecoder dr p)
 -- successful.
 moveCursBasic
   :: Monad f
-  => (SuccinctCursor -> Maybe SuccinctCursor)
+  => (Cursor -> Maybe Cursor)
   -> ZipperMove
   -> JCurs
   -> DecodeResult f JCurs
