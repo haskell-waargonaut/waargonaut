@@ -1,6 +1,6 @@
 { mkDerivation, attoparsec, base, bytestring, criterion, digit
-, generics-sop, hedgehog, hw-json, lens, scientific, semigroups
-, stdenv, text, waargonaut
+, generics-sop, hedgehog, hw-json-standard-cursor, lens, primitive
+, scientific, semigroups, stdenv, text, waargonaut
 }:
 mkDerivation {
   pname = "waargbench";
@@ -10,7 +10,8 @@ mkDerivation {
   isExecutable = false;
   benchmarkHaskellDepends = [
     attoparsec base bytestring criterion digit generics-sop hedgehog
-    hw-json lens scientific semigroups text waargonaut
+    hw-json-standard-cursor lens primitive scientific semigroups text
+    waargonaut
   ];
   license = stdenv.lib.licenses.bsd3;
 }

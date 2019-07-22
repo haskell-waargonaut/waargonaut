@@ -14,7 +14,7 @@ import           Data.Monoid                                                   (
 import           Data.Attoparsec.ByteString                                    (parseOnly)
 
 import qualified Criterion.Main                                                as G
-import qualified HaskellWorks.Data.Json.Internal.Backend.Standard.Cursor.Token as HW
+import qualified HaskellWorks.Data.Json.Standard.Cursor.Type as HW
 
 import qualified Waargonaut                                                    as W
 
@@ -29,7 +29,7 @@ parseOkay :: ByteString -> Bool
 parseOkay = isRight . parseOnly W.parseWaargonaut
 
 indexOkay :: ByteString -> Bool
-indexOkay = isJust . HW.jsonTokenAt . D.unJCurs . D.mkCursor
+indexOkay = isJust . HW.jsonTypeAt . D.unJCurs . D.mkCursor
 
 decodeByteString :: Decoder Identity a -> ByteString -> Bool
 decodeByteString d = isRight . D.pureDecodeFromByteString parseOnly d
