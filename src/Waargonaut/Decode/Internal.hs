@@ -312,7 +312,11 @@ strictByteString' = fmap BL.toStrict . lazyByteString'
 -- | Try to decode a 'Data.ByteString.Lazy.ByteString' value from some 'Waargonaut.Types.Json.Json' or value.
 lazyByteString' :: AsJType a ws a => a -> Maybe BL.ByteString
 lazyByteString' = L.preview (_JStr . _1 . _Wrapped . L.to mkBS)
-  where mkBS = BB.toLazyByteString . foldMap (jCharBuilder bsBuilder)
+  -- This uses the 'Data.ByteString.Builder.char8' function as parsing has
+  -- validated our inputs. If we use 'Data.ByteString.Builder.charUtf8' or
+  -- 'Waargonaut.Builder.bsBuilder' the input will be incorrectly "double
+  -- encoded" and everything will be wrong. 
+  where mkBS = BB.toLazyByteString . foldMap (BB.char8 . jCharToChar)
 
 -- | Decoder for a 'Char' value that cannot contain values in the range U+D800
 -- to U+DFFF. This decoder will fail if the 'Char' is outside of this range.
