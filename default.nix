@@ -2,8 +2,21 @@
 , compiler ? "default"
 }:
 let
+  overlay = self: super: 
+    let
+      baseHaskellPackages = if compiler == "default"
+      then super.haskellPackages
+      else super.haskell.packages.${compiler};
+    in {
+      haskellPackages = baseHaskellPackages.override (old: {
+        overrides = super.lib.composeExtensions
+          (old.overrides or (_: _: {}))
+          (import ./waarg-hackage-overrides.nix super.haskell.lib);
+      });
+  };
+
   pkgs = import nixpkgs {
-    overlays = [(import ./waargonaut-deps.nix compiler)];
+    overlays = [overlay];
   };
 
   drv = pkgs.haskellPackages.callPackage ./waargonaut.nix {};
