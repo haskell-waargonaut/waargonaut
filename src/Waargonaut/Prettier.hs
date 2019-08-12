@@ -167,5 +167,5 @@ prettyJson inlineOpt (IndentStep step) (NumSpaces w) = P.transformOf jsonTravers
       where
         longestKey = maybe 1 (+1) $ L.maximumOf (objelems . L.folded . jsonAssocKey . _Wrapped . L.to length) j
 
-    setnested = objelems . CS.elemsLast . CS.elemVal . jsonAssocVal %~
+    setnested = objelems . traverse . jsonAssocVal %~
       prettyJson inlineOpt (IndentStep step) (NumSpaces $ w <> step)

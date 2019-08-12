@@ -9,6 +9,7 @@ import           System.Exit                (exitFailure)
 import           System.FilePath            (FilePath, takeBaseName)
 import           System.IO                  (IO, print)
 
+import Data.Semigroup ((<>))
 import           Data.Either                (either)
 import           Data.Function              (($))
 
@@ -22,6 +23,8 @@ import           Test.Tasty.Golden          (findByExtension, goldenVsString)
 import qualified Waargonaut.Decode          as D
 import qualified Waargonaut.Encode          as E
 
+import qualified Prettier.NestedObjs as WaargP
+
 readAndEncodeFile :: FilePath -> IO ByteString
 readAndEncodeFile = readFile
   >=> D.decodeFromByteString parseOnly D.json . toStrict
@@ -34,4 +37,6 @@ goldenTests = do
   pure . testGroup "Golden Tests" $
     [ goldenVsString (takeBaseName input) input (readAndEncodeFile input)
     | input <- fs
+    ] <>
+    [ WaargP.testGoldenPrettyNested
     ]

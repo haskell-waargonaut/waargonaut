@@ -212,6 +212,7 @@ test-suite waarg-tests
                      , Types.Json
                      , Types.Whitespace
 
+                     , Prettier.NestedObjs
                      , Properties
                      , Golden
                      , Laws
