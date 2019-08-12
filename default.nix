@@ -3,14 +3,9 @@
 }:
 let
   pkgs = import nixpkgs {
-    config.allowBroken = true;
-    overlays = [(import ./waargonaut-deps.nix)];
+    overlays = [(import ./waargonaut-deps.nix compiler)];
   };
 
-  haskellPackages = if compiler == "default"
-    then pkgs.haskellPackages
-    else pkgs.haskell.packages.${compiler};
-
-  drv = haskellPackages.callPackage ./waargonaut.nix {};
+  drv = pkgs.haskellPackages.callPackage ./waargonaut.nix {};
 in
   pkgs.haskell.lib.shellAware drv

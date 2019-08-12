@@ -1,11 +1,23 @@
-self: super: {
-  haskellPackages = super.haskellPackages.override (old: {
-    overrides = super.lib.composeExtensions (old.overrides or (_: _: {})) (hself: hsuper:
+compiler: self: super:
+let
+  baseHaskellPackages = if compiler == "default"
+    then super.haskellPackages
+    else super.haskell.packages.${compiler};
+in {
+  haskellPackages = baseHaskellPackages.override (old: {
+    overrides = super.lib.composeExtensions (old.overrides or (_: _: {}))
+    (hself: hsuper: with super.haskell.lib;
     let
-      dc = d: super.haskell.lib.dontCheck d;
-    in 
-    {
-      hw-json-standard-cursor = super.haskell.lib.dontCheck (hsuper.callHackageDirect {
+      unbreakNoCheck = drv: overrideCabal drv {
+        broken = false;
+        doCheck = false;
+      };
+    in {
+      sop-core = hsuper.callHackage "sop-core" "0.4.0.0" {};
+      generics-sop = hsuper.callHackage "generics-sop" "0.4.0.1" {};
+      natural = unbreakNoCheck hsuper.natural;
+
+      hw-json-standard-cursor = dontCheck (hsuper.callHackageDirect {
         pkg = "hw-json-standard-cursor";
         ver = "0.2.1.1";
         sha256 = "1jzi9h38bkc6i9yvhc6x0zbdr0qdv1zc6j8iwb4x8qnnps77n6jp";
@@ -23,7 +35,7 @@ self: super: {
         sha256 = "06q1w1pjvhdr6za1n5kjd3zszh4xi2ixrwgclqqqj6nhdiz8y6zj";
       } {};
 
-      hw-hedgehog = super.haskell.lib.doJailbreak (hsuper.callHackageDirect {
+      hw-hedgehog = doJailbreak (hsuper.callHackageDirect {
         pkg = "hw-hedgehog";
         ver = "0.1.0.3";
         sha256 = "01bmlhb3ns3k9sg3i4q2rx5ab49ns7b2mmq81vg4j6dn5y5hcqkr";
@@ -41,52 +53,47 @@ self: super: {
         sha256 = "06mffkvscl8r81hjhsvjlyqa843szgv8fays1l9z4jaw2759glsr";
       } {};
 
-      hw-bits = dc (hsuper.callHackageDirect {
+      hw-bits = dontCheck (hsuper.callHackageDirect {
         pkg = "hw-bits";
         ver = "0.7.0.6";
         sha256 = "1x2b6ailplxj9y06clpxizwqr32nq9hf2j53v08m2wymw4k7718x";
       } {});
 
-      hw-rankselect = dc (hsuper.callHackageDirect {
+      hw-rankselect = dontCheck (hsuper.callHackageDirect {
         pkg = "hw-rankselect";
         ver = "0.13.2.0";
         sha256 = "1nvla6i2c9bccsxwk232bz3phidkxjy2ia8cmijac1a0yf6z2lgm";
       } {});
         
-      hw-prim = dc (hsuper.callHackageDirect {
+      hw-prim = dontCheck (hsuper.callHackageDirect {
         pkg = "hw-prim";
         ver = "0.6.2.30";
         sha256 = "0rp4rgksbksk4jsjgdnsic9rkwgk3g6rk3njhma2h5yyk63pkh7p";
       } {});
 
-      hw-rankselect-base = dc (hsuper.callHackageDirect {
+      hw-rankselect-base = dontCheck (hsuper.callHackageDirect {
         pkg = "hw-rankselect-base";
         ver = "0.3.2.1";
         sha256 = "0nspjqk6sxja5y4mh9vsppn05q2f89h838zbn9kpypn6x21c95fv";
       } {});
 
-      hw-balancedparens = super.haskell.lib.appendPatch (hsuper.callHackageDirect {
+      hw-balancedparens = appendPatch (hsuper.callHackageDirect {
         pkg = "hw-balancedparens";
         ver = "0.3.0.0";
         sha256 = "03l0n2lhpay5jqm4829q58dcqv93n4jq6s3l9b633mflhxrl5nlw";
       } {}) ./nix/patches/remove-testing-library-component.patch;
 
-      hw-fingertree = dc (hsuper.callHackageDirect {
+      hw-fingertree = dontCheck (hsuper.callHackageDirect {
         pkg = "hw-fingertree";
         ver = "0.1.1.0";
         sha256 = "1r3xyw3mz2kf5pqw08apyrk5f08j3bqxrx21w4qq5cmxvr7zmk3q";
       } {});
 
-      hw-excess = dc (hsuper.callHackageDirect {
+      hw-excess = dontCheck (hsuper.callHackageDirect {
         pkg = "hw-excess";
         ver = "0.2.2.0";
         sha256 = "1m7ris8lf06kw8znammnvwmvfa6y54smzrp1x8hm17b5vaj8r4xw";
       } {});
-
-      sop-core     = hsuper.callHackage "sop-core" "0.4.0.0" {};
-      generics-sop = hsuper.callHackage "generics-sop" "0.4.0.1" {};
-
-      natural            = dc hsuper.natural;
     });
   });
 }
