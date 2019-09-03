@@ -29,6 +29,7 @@ import qualified Types.Common          as Common
 import qualified Decoder
 import qualified Decoder.Laws
 import qualified Encoder
+import qualified Encoder.Issue69
 import qualified Encoder.Laws
 import qualified Golden
 import qualified Json
@@ -81,6 +82,7 @@ main = do
   defaultMain $ testGroup "Waargonaut All Tests"
     [ regressionTests
     , mishandlingOfCharVsUtf8Bytes
+    , Encoder.Issue69.issue69Test
 
     , Properties.propertyTests
     , Json.jsonPrisms

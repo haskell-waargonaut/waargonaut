@@ -218,6 +218,7 @@ test-suite waarg-tests
                      , Laws
                      , Utils
                      , Encoder
+                     , Encoder.Issue69
                      , Encoder.Laws
                      , Decoder
                      , Decoder.Laws
