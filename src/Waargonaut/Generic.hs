@@ -542,6 +542,9 @@ gEncoder opts = Tagged . E.encodeA $ \a -> hcollapse $ hcliftA2
 --
 -- @
 --
+-- NB: This function overrides the newtype options to use the 'FieldNameAsKey' option to
+-- be consistent with the behaviour of the record encoding.
+--
 gObjEncoder
   :: forall t a f xs.
      ( Generic a
