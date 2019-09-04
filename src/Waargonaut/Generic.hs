@@ -523,6 +523,24 @@ gEncoder opts = Tagged . E.encodeA $ \a -> hcollapse $ hcliftA2
     pjE = Proxy :: Proxy (JsonEncode t)
     pt  = Proxy :: Proxy t
 
+-- | Create a 'Tagged' 'ObjEncoder' for type @ a @, tagged by @ t @.
+--
+-- This isn't compatible with the 'JsonEncode' typeclass because it creates an
+-- 'ObjEncoder' and for consistency reasons the 'JsonEncode' typeclass produces
+-- 'Encoder's.
+--
+-- However it lets you more easily access the 'Data.Functor.Contravariant.Contravariant'
+-- functionality that is part of the 'ObjEncoder' type.
+--
+-- @
+-- data Foo = Foo { fooA :: Text, fooB :: Int } deriving (Eq, Show)
+-- deriveGeneric ''Foo
+--
+-- objEncFoo :: Applicative f => ObjEncoder f Foo
+-- objEncFoo = untag $ gObjEncoder (defaultOps { _optionsFieldName = drop 3 })
+--
+-- @
+--
 gObjEncoder
   :: forall t a f xs.
      ( Generic a
