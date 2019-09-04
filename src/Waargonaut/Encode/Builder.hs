@@ -36,7 +36,7 @@ textBuilder = Builder
 -- | A 'B.ByteString' builder
 bsBuilder :: Builder ByteString B.Builder
 bsBuilder = Builder
-  (BP.primBounded BP.charUtf8)-- B.charUtf8
+  (BP.primBounded BP.charUtf8)
   B.byteString
   B.intDec
 

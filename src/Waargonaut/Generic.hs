@@ -54,19 +54,20 @@ module Waargonaut.Generic
   ) where
 
 import           Generics.SOP
-import           Generics.SOP.Record (IsRecord)
+import           Generics.SOP.Record           (IsRecord)
 
-import           Control.Lens                  (findOf, folded, isn't, _Left, _Empty, (#))
+import           Control.Lens                  (findOf, folded, isn't, ( # ),
+                                                _Empty, _Left)
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (lift, throwError)
 import           Control.Monad.Reader          (runReaderT)
 import           Control.Monad.State           (modify)
 
-import Data.Function ((&))
 import qualified Data.Char                     as Char
+import           Data.Function                 ((&))
 import           Data.Maybe                    (fromMaybe)
 
-import Data.Foldable (foldl')
+import           Data.Foldable                 (foldl')
 
 import           Data.List.NonEmpty            (NonEmpty)
 
@@ -570,7 +571,8 @@ gObjEncoder opts = Tagged . E.objEncoder $ \a -> hcollapse $ hcliftA2
       E.onObj' (Text.pack t) (E.asJson' (T.proxy mkEncoder pt) a) E.json (_Empty # ())
 
     -- IsRecord constraint should make this impossible.
-    createObject _ _ = error "impossible?"
+    createObject _ _ =
+      error "The impossible has happened. Please report this as a bug: https://github.com/qfpl/waargonaut"
 
     toObj :: JsonEncode t x => K Text x -> I x -> K (JObject WS Json -> JObject WS Json) x
     toObj f a = K $ E.onObj' (unK f) (E.asJson' (T.proxy mkEncoder pt) (unI a)) E.json
