@@ -23,6 +23,7 @@ module Types.Common
 
   , testImageDataType
   , testFudge
+  , fudgeJsonOpts
   , imageDecodeGeneric
   , imageDecodeSuccinct
 
@@ -132,7 +133,7 @@ imageOpts = defaultOpts
 instance JsonEncode GWaarg Image where mkEncoder = gEncoder imageOpts
 instance JsonDecode GWaarg Image where mkDecoder = gDecoder imageOpts
 
-newtype Fudge = Fudge Text
+newtype Fudge = Fudge { unCrepe :: Text }
   deriving (Eq, Show, GHC.Generic)
 
 instance Generic Fudge

@@ -3,23 +3,23 @@
 , distributive, doctest, errors, filepath, generics-sop, hedgehog
 , hedgehog-fn, hoist-error, hw-balancedparens, hw-bits
 , hw-json-standard-cursor, hw-prim, hw-rankselect, lens, mmorph
-, mtl, nats, natural, parsers, scientific, semigroupoids
-, semigroups, stdenv, tagged, tasty, tasty-expected-failure
-, tasty-golden, tasty-hedgehog, tasty-hunit, template-haskell, text
-, transformers, unordered-containers, vector, witherable
-, wl-pprint-annotated, zippers
+, mtl, nats, natural, parsers, records-sop, scientific
+, semigroupoids, semigroups, stdenv, tagged, tasty
+, tasty-expected-failure, tasty-golden, tasty-hedgehog, tasty-hunit
+, template-haskell, text, transformers, unordered-containers
+, vector, witherable, wl-pprint-annotated, zippers
 }:
 mkDerivation {
   pname = "waargonaut";
-  version = "0.7.0.0";
+  version = "0.8.0.0";
   src = ./.;
   setupHaskellDepends = [ base Cabal cabal-doctest ];
   libraryHaskellDepends = [
     attoparsec base bifunctors bytestring containers contravariant
     digit distributive errors generics-sop hoist-error
     hw-balancedparens hw-bits hw-json-standard-cursor hw-prim
-    hw-rankselect lens mmorph mtl nats natural parsers scientific
-    semigroupoids semigroups tagged text transformers
+    hw-rankselect lens mmorph mtl nats natural parsers records-sop
+    scientific semigroupoids semigroups tagged text transformers
     unordered-containers vector witherable wl-pprint-annotated zippers
   ];
   testHaskellDepends = [
