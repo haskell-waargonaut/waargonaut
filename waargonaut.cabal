@@ -161,6 +161,7 @@ library
                      , containers              >= 0.5.6   && < 0.7
                      , witherable              >= 0.2     && < 0.4
                      , generics-sop            >= 0.4     && < 0.5
+                     , records-sop             >= 0.1     && < 0.2
                      , mmorph                  >= 1.1     && < 1.2
                      , transformers            >= 0.4     && < 0.6
                      , bifunctors              >= 5       && < 5.6
@@ -215,6 +216,7 @@ test-suite waarg-tests
                      , Prettier.NestedObjs
                      , Properties
                      , Golden
+                     , Generics
                      , Laws
                      , Utils
                      , Encoder

@@ -31,6 +31,7 @@ import qualified Decoder.Laws
 import qualified Encoder
 import qualified Encoder.Laws
 import qualified Golden
+import qualified Generics
 import qualified Json
 import qualified Properties
 
@@ -89,6 +90,8 @@ main = do
 
     , Decoder.decoderTests
     , Encoder.encoderTests
+
+    , Generics.genericsTests
 
     , goldens
     ]

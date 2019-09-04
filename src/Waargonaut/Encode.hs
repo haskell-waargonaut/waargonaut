@@ -190,6 +190,7 @@ module Waargonaut.Encode
   , keyValuesAsObj'
   , json'
   , asJson'
+  , onObj'
   , generaliseEncoder
   ) where
 
@@ -848,6 +849,16 @@ onObj
   -> f (JObject WS Json)
 onObj k b encB o = (\j -> o & _Wrapped L.%~ L.cons j)
   . JAssoc (_JStringText # k) mempty mempty <$> asJson encB b
+
+-- | As per 'onObj' but the @f@ is specialised to 'Identity'.
+onObj'
+  :: Text
+  -> b
+  -> Encoder' b
+  -> JObject WS Json
+  -> JObject WS Json
+onObj' k b encB o = (\j -> o & _Wrapped L.%~ L.cons j)
+  . JAssoc (_JStringText # k) mempty mempty $ asJson' encB b
 
 -- | Encode key value pairs as a JSON object, allowing duplicate keys.
 keyValuesAsObj

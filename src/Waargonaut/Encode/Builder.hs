@@ -15,6 +15,7 @@ import qualified Data.Text.Lazy.Builder.Int        as T
 
 import           Data.ByteString                   (ByteString)
 import qualified Data.ByteString.Builder           as B
+import qualified Data.ByteString.Builder.Prim      as BP
 
 import           Waargonaut.Types.Json             (JType (..), Json (..))
 import           Waargonaut.Types.Whitespace       (WS)
@@ -35,7 +36,7 @@ textBuilder = Builder
 -- | A 'B.ByteString' builder
 bsBuilder :: Builder ByteString B.Builder
 bsBuilder = Builder
-  B.charUtf8
+  (BP.primBounded BP.charUtf8)-- B.charUtf8
   B.byteString
   B.intDec
 
