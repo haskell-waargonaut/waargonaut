@@ -263,10 +263,10 @@ data NewtypeName
   -- @
   -- newtype Foo = Foo Text
   --
-  -- let x = Foo "Fred"
+  -- let x = Foo \"Fred\"
   -- @
   --
-  -- Will be encoded as: @ "Fred" @
+  -- Will be encoded as: @ \"Fred\" @
   --
   = Unwrap
 
@@ -275,10 +275,10 @@ data NewtypeName
   -- @
   -- newtype Foo = Foo Text
   --
-  -- let x = Foo "Fred"
+  -- let x = Foo \"Fred\"
   -- @
   --
-  -- Will be encoded as: @ {"Foo":"Fred"} @
+  -- Will be encoded as: @ {\"Foo\":\"Fred\"} @
   --
   | ConstructorNameAsKey
 
@@ -288,10 +288,10 @@ data NewtypeName
   -- @
   -- newtype Foo = Foo { deFoo :: Text }
   --
-  -- let x = Foo "Fred"
+  -- let x = Foo \"Fred\"
   -- @
   --
-  -- Will be encoded as: @ {"deFoo":"Fred"} @
+  -- Will be encoded as: @ {\"deFoo\":\"Fred\"} @
   | FieldNameAsKey
   deriving (Show, Eq)
 
