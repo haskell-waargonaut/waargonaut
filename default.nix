@@ -1,24 +1,19 @@
-{ nixpkgs ? import ./nix/nixpkgs.nix
+{ nixpkgs ? import (import ./nix/nixpkgs.nix) {}
 , compiler ? "default"
 }:
 let
-  overlay = self: super: 
-    let
-      baseHaskellPackages = if compiler == "default"
-      then super.haskellPackages
-      else super.haskell.packages.${compiler};
-    in {
-      haskellPackages = baseHaskellPackages.override (old: {
-        overrides = super.lib.composeExtensions
-          (old.overrides or (_: _: {}))
-          (import ./waarg-hackage-overrides.nix super.haskell.lib);
-      });
-  };
+  inherit (nixpkgs) pkgs;
 
-  pkgs = import nixpkgs {
-    overlays = [overlay];
-  };
+ baseHaskellPackages = if compiler == "default"
+   then pkgs.haskellPackages
+   else pkgs.haskell.packages.${compiler};
 
-  drv = pkgs.haskellPackages.callPackage ./waargonaut.nix {};
+ haskellPackages = baseHaskellPackages.override (old: {
+   overrides = pkgs.lib.composeExtensions
+     (old.overrides or (_: _: {}))
+     (import ./waarg-hackage-overrides.nix pkgs.haskell.lib);
+ });
+
+  drv = haskellPackages.callPackage ./waargonaut.nix {};
 in
   pkgs.haskell.lib.shellAware drv

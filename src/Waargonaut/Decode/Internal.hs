@@ -97,8 +97,6 @@ import           Waargonaut.Decode.Error         (AsDecodeError (..),
                                                   DecodeError (..))
 import           Waargonaut.Decode.ZipperMove    (ZipperMove (..), ppZipperMove)
 
-import           Waargonaut.Encode.Builder       (bsBuilder)
-import           Waargonaut.Encode.Builder.JChar (jCharBuilder)
 -- |
 -- Track the history of the cursor as we move around the zipper.
 --
