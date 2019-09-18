@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -483,7 +484,12 @@ jsonInfo opts pa =
       ConstructorNameAsKey -> JsonOne (Tag $ _optionsFieldName opts n) :* Nil
       FieldNameAsKey       -> jInfoFor opts n (Tag . _optionsFieldName opts) c :* Nil
 
-    ADT _ n cs -> hliftA (jInfoFor opts n (tag cs)) cs
+#if MIN_VERSION_generics_sop(0,5,0)
+    ADT _ n cs _
+#else
+    ADT _ n cs
+#endif
+      -> hliftA (jInfoFor opts n (tag cs)) cs
   where
     tag :: NP ConstructorInfo (Code a) -> ConstructorName -> Tag
     tag (_ :* Nil) = const NoTag
