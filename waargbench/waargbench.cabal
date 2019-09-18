@@ -57,7 +57,7 @@ benchmark bench
                      , hw-json-standard-cursor      >= 0.2.1.1 && < 0.3
 
                      , scientific   >= 0.3     && < 0.4
-                     , primitive    >= 0.6.4   && < 0.7
+                     , primitive    >= 0.6.4   && < 0.8
 
                      , hedgehog     
                      , criterion
