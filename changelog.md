@@ -1,5 +1,11 @@
 # Revision history for waargonaut
 
+## 0.8.0.1  -- 2019-09-22
+
+* Support GHC 8.8.1
+
+* Support generics-sop 0.5
+
 ## 0.8.0.0  -- 2019-09-04
 
 * Add `onObj'` which is just `onObj` but specialised to `Identity`.
@@ -19,7 +25,7 @@
 * Change the building of escaped whitespace chars to actually use the
   `escapedWhitespaceChar` function, instead of incorrectly generating an unescaped
   character.
- 
+
 * Add haddock to gObjEncoder function
 
 * Correctly bump version to 0.8.0.0 as this is a breaking change because of new
