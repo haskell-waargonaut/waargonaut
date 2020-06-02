@@ -10,7 +10,7 @@ name:                waargonaut
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.8.0.1
+version:             0.8.0.2
 
 -- A short (one-line) description of the package.
 synopsis:            JSON wrangling

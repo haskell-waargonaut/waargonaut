@@ -1,5 +1,9 @@
 # Revision history for waargonaut
 
+## 0.8.0.2  -- 2020-06-02
+
+- Support GHC 8.10.0
+
 ## 0.8.0.1  -- 2019-09-22
 
 * Support GHC 8.8.1
