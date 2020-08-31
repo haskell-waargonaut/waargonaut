@@ -86,6 +86,9 @@ instance Monad f => MonadError DecodeError (Decoder f) where
   catchError d handle = Decoder $ \p c ->
     catchError (runDecoder d p c) (\e -> runDecoder (handle e) p c)
 
+instance MonadTrans Decoder where
+  lift fa = Decoder (\ _ _ -> lift fa)
+
 instance MFunctor Decoder where
   hoist nat (Decoder pjdr) = Decoder (\p -> hoist nat . pjdr p)
 
