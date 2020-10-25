@@ -1,16 +1,18 @@
-{ nixpkgs ? import ../nix/nixpkgs.nix
+{ sources ? import ./../nix/sources.nix
 , compiler ? "default"
 }:
 let
+  pkgs = import sources.nixpkgs {};
 
-  pkgs = import nixpkgs {
-    config.allowBroken = true;
-    overlays = [ (import ../waargonaut-deps.nix) ];
-  };
-
-  haskellPackages = if compiler == "default"
+  baseHaskellPackages = if compiler == "default"
     then pkgs.haskellPackages
     else pkgs.haskell.packages.${compiler};
+
+  haskellPackages = baseHaskellPackages.override (old: {
+    overrides = pkgs.lib.composeExtensions
+    (old.overrides or (_: _: {}))
+    (import ./../waarg-overrides.nix sources pkgs.haskell.lib);
+  });
 
   withWaarg = haskellPackages.override (old: {
     overrides = pkgs.lib.composeExtensions (old.overrides or (_: _: {})) (hself: hsuper: {
