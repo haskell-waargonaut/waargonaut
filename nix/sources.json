@@ -23,6 +23,18 @@
         "url": "https://github.com/kcsongor/generic-lens/archive/64d62378ef2418c3533b03916f0033f83bc7fa65.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
+    "hs-hoist-error": {
+        "branch": "sc@support-810",
+        "description": "Some conveniences for hoisting errors into monads",
+        "homepage": "",
+        "owner": "qfpl",
+        "repo": "hs-hoist-error",
+        "rev": "c157a3284272fde5f8192db7186d0fe9a4d284af",
+        "sha256": "1his6nz1nvbfsihddza1j7nn0a6kprkax3r5s402wrbvrcy6i6lb",
+        "type": "tarball",
+        "url": "https://github.com/qfpl/hs-hoist-error/archive/c157a3284272fde5f8192db7186d0fe9a4d284af.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "hw-balancedparens": {
         "branch": "master",
         "description": null,

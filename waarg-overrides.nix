@@ -13,4 +13,5 @@ sources: hlib: hself: hsuper: {
   natural = hsuper.callPackage sources.natural {};
   digit = hlib.markUnbroken hsuper.digit;
   generic-lens = hlib.dontCheck hsuper.generic-lens_1_2_0_1;
+  hoist-error = hsuper.callPackage sources.hs-hoist-error {};
 }
