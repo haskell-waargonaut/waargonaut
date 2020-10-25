@@ -1,4 +1,16 @@
 {
+    "constraints": {
+        "branch": "master",
+        "description": "Tools for programming with ConstraintKinds in GHC",
+        "homepage": "http://hackage.haskell.org/package/constraints",
+        "owner": "ekmett",
+        "repo": "constraints",
+        "rev": "46e8a62c8a38e9fdb78f372b836e3ddcede25bfa",
+        "sha256": "1p30mddb2car60rixp0j4n6azj3p2i7l0rdf8xr0yrdav89v6ryj",
+        "type": "tarball",
+        "url": "https://github.com/ekmett/constraints/archive/46e8a62c8a38e9fdb78f372b836e3ddcede25bfa.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "digit": {
         "branch": "master",
         "description": "A data-type representing digits 0-9 and other combinations",
@@ -9,6 +21,18 @@
         "sha256": "0ibr3pa8cn77z96qpplh7bi85w7ksazanrcc6kzg0xr7g3iq6059",
         "type": "tarball",
         "url": "https://github.com/system-f/digit/archive/d964e85185a4c1e0cfc769e1a23c1f34a55032c2.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "doctest": {
+        "branch": "master",
+        "description": "An implementation of Python's doctest for Haskell",
+        "homepage": "http://hackage.haskell.org/package/doctest",
+        "owner": "sol",
+        "repo": "doctest",
+        "rev": "05bfbdccb5750c72c91f5663a0b23e17f6ed3f0b",
+        "sha256": "0y9k3i7nh9r10mp9fw7ygv939g8nx00fflf3wjr1m8i80pwy6n02",
+        "type": "tarball",
+        "url": "https://github.com/sol/doctest/archive/05bfbdccb5750c72c91f5663a0b23e17f6ed3f0b.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "generic-lens": {
@@ -96,15 +120,15 @@
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
-        "branch": "release-20.03",
+        "branch": "nixpkgs-unstable",
         "description": "Nix Packages collection",
         "homepage": "",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "e171f096a244f6922a12c9f8ef6380b5226bb604",
-        "sha256": "1fv20m7y8x9mb9m8s48sf44f7h84cib7g2p9800gl85a037bcfm9",
+        "rev": "cfed29bfcb28259376713005d176a6f82951014a",
+        "sha256": "034m892hxygminkj326y7l3bp4xhx0v154jcmla7wdfqd23dk5xm",
         "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/e171f096a244f6922a12c9f8ef6380b5226bb604.tar.gz",
+        "url": "https://github.com/NixOS/nixpkgs/archive/cfed29bfcb28259376713005d176a6f82951014a.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

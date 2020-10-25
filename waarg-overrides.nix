@@ -1,4 +1,5 @@
 sources: hlib: hself: hsuper: {
+  # doctest = hsuper.callCabal2nix "doctest" sources.doctest {};
   # haskellworks
   hw-bits = hsuper.callCabal2nix "hw-bits" sources.hw-bits {};
   hw-balancedparens = hlib.dontCheck (
@@ -14,4 +15,8 @@ sources: hlib: hself: hsuper: {
   digit = hlib.markUnbroken hsuper.digit;
   generic-lens = hlib.dontCheck hsuper.generic-lens_1_2_0_1;
   hoist-error = hsuper.callPackage sources.hs-hoist-error {};
+
+  # newtype = hlib.dontCheck (hlib.doJailbreak hsuper.newtype);
+  ChasingBottoms = hlib.doJailbreak hsuper.ChasingBottoms;
+  constraints = hsuper.callCabal2nix "constraints" sources.constraints {};
 }
