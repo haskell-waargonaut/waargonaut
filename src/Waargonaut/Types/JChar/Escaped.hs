@@ -47,7 +47,7 @@ import           Waargonaut.Types.JChar.HexDigit4 (HexDigit4, charToHexDigit4,
                                                    hexDigit4ToChar,
                                                    parseHexDigit4)
 import           Waargonaut.Types.Whitespace      (Whitespace (..),
-                                                   unescapedWhitespaceChar,
+                                                   escapedWhitespaceChar,
                                                    _WhitespaceChar)
 
 -- $setup
@@ -184,7 +184,7 @@ escapedToChar = \case
   ReverseSolidus -> '\\'
   Solidus        -> '/'
   Backspace      -> '\b'
-  WhiteSpace wc  -> unescapedWhitespaceChar wc
+  WhiteSpace wc  -> escapedWhitespaceChar wc
   Hex hd         -> hexDigit4ToChar hd
 
 -- | Attempt to convert a Haskell 'Char' to an 'Escaped' JSON character

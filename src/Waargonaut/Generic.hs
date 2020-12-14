@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE FlexibleContexts      #-}
@@ -45,6 +46,7 @@ module Waargonaut.Generic
     -- * Creation
   , gEncoder
   , gDecoder
+  , gObjEncoder
 
     -- * Reexports
   , module Data.Tagged
@@ -53,15 +55,20 @@ module Waargonaut.Generic
   ) where
 
 import           Generics.SOP
+import           Generics.SOP.Record           (IsRecord)
 
-import           Control.Lens                  (findOf, folded, isn't, _Left)
+import           Control.Lens                  (findOf, folded, isn't, ( # ),
+                                                _Empty, _Left)
 import           Control.Monad                 ((>=>))
 import           Control.Monad.Except          (lift, throwError)
 import           Control.Monad.Reader          (runReaderT)
 import           Control.Monad.State           (modify)
 
 import qualified Data.Char                     as Char
+import           Data.Function                 ((&))
 import           Data.Maybe                    (fromMaybe)
+
+import           Data.Foldable                 (foldl')
 
 import           Data.List.NonEmpty            (NonEmpty)
 
@@ -76,10 +83,10 @@ import           Data.Tagged
 import qualified Data.Tagged                   as T
 
 import           Waargonaut                    (Json)
+import           Waargonaut.Types              (JObject, WS)
 
 import           Waargonaut.Encode             (Encoder, Encoder')
 import qualified Waargonaut.Encode             as E
-
 
 import           HaskellWorks.Data.Positioning (Count)
 
@@ -257,10 +264,10 @@ data NewtypeName
   -- @
   -- newtype Foo = Foo Text
   --
-  -- let x = Foo "Fred"
+  -- let x = Foo \"Fred\"
   -- @
   --
-  -- Will be encoded as: @ "Fred" @
+  -- Will be encoded as: @ \"Fred\" @
   --
   = Unwrap
 
@@ -269,12 +276,24 @@ data NewtypeName
   -- @
   -- newtype Foo = Foo Text
   --
-  -- let x = Foo "Fred"
+  -- let x = Foo \"Fred\"
   -- @
   --
-  -- Will be encoded as: @ {"Foo":"Fred"} @
+  -- Will be encoded as: @ {\"Foo\":\"Fred\"} @
   --
   | ConstructorNameAsKey
+
+  -- | Encode the newtype value as an object, treaing the field accessor as the "key", and
+  -- passing that field name through the '_optionsFieldName' function.
+  --
+  -- @
+  -- newtype Foo = Foo { deFoo :: Text }
+  --
+  -- let x = Foo \"Fred\"
+  -- @
+  --
+  -- Will be encoded as: @ {\"deFoo\":\"Fred\"} @
+  | FieldNameAsKey
   deriving (Show, Eq)
 
 -- | The configuration options for creating 'Generic' encoder or decoder values.
@@ -405,14 +424,7 @@ data JsonInfo :: [*] -> * where
   JsonZero :: ConstructorName -> JsonInfo '[]
   JsonOne  :: Tag -> JsonInfo '[a]
   JsonMul  :: SListI xs => Tag -> JsonInfo xs
-  JsonRec  :: SListI xs => Tag -> NP (K String) xs -> JsonInfo xs
-
-modFieldName
-  :: Options
-  -> String
-  -> Text
-modFieldName opts =
- Text.pack . _optionsFieldName opts
+  JsonRec  :: SListI xs => Tag -> NP (K Text) xs -> JsonInfo xs
 
 inObj :: Encoder' a -> String -> Encoder' a
 inObj en t = E.mapLikeObj' (E.atKey' (Text.pack t) en)
@@ -454,8 +466,8 @@ jInfoFor _ _ tag (Constructor n) =
 jInfoFor opts _ tag (Record n fs) =
   JsonRec (tag n) (hliftA fname fs)
   where
-    fname :: FieldInfo a -> K String a
-    fname (FieldInfo name) = K $ _optionsFieldName opts name
+    fname :: FieldInfo a -> K Text a
+    fname (FieldInfo name) = K . Text.pack $ _optionsFieldName opts name
 
 jsonInfo
   :: forall a.
@@ -467,13 +479,18 @@ jsonInfo
   -> NP JsonInfo (Code a)
 jsonInfo opts pa =
   case datatypeInfo pa of
-    Newtype _ _ c  -> JsonOne (newtypename (constructorName c)) :* Nil
-    ADT     _ n cs -> hliftA (jInfoFor opts n (tag cs)) cs
-  where
-    newtypename n = case _optionsNewtypeWithConsName opts of
-      Unwrap               -> NoTag
-      ConstructorNameAsKey -> Tag (_optionsFieldName opts n)
+    Newtype _ n c -> case _optionsNewtypeWithConsName opts of
+      Unwrap               -> JsonOne NoTag :* Nil
+      ConstructorNameAsKey -> JsonOne (Tag $ _optionsFieldName opts n) :* Nil
+      FieldNameAsKey       -> jInfoFor opts n (Tag . _optionsFieldName opts) c :* Nil
 
+#if MIN_VERSION_generics_sop(0,5,0)
+    ADT _ n cs _
+#else
+    ADT _ n cs
+#endif
+      -> hliftA (jInfoFor opts n (tag cs)) cs
+  where
     tag :: NP ConstructorInfo (Code a) -> ConstructorName -> Tag
     tag (_ :* Nil) = const NoTag
     tag _          = Tag
@@ -513,6 +530,65 @@ gEncoder opts = Tagged . E.encodeA $ \a -> hcollapse $ hcliftA2
     pjE = Proxy :: Proxy (JsonEncode t)
     pt  = Proxy :: Proxy t
 
+-- | Create a 'Tagged' 'ObjEncoder' for type @ a @, tagged by @ t @.
+--
+-- This isn't compatible with the 'JsonEncode' typeclass because it creates an
+-- 'ObjEncoder' and for consistency reasons the 'JsonEncode' typeclass produces
+-- 'Encoder's.
+--
+-- However it lets you more easily access the 'Data.Functor.Contravariant.Contravariant'
+-- functionality that is part of the 'ObjEncoder' type.
+--
+-- @
+-- data Foo = Foo { fooA :: Text, fooB :: Int } deriving (Eq, Show)
+-- deriveGeneric ''Foo
+--
+-- objEncFoo :: Applicative f => ObjEncoder f Foo
+-- objEncFoo = untag $ gObjEncoder (defaultOps { _optionsFieldName = drop 3 })
+--
+-- @
+--
+-- NB: This function overrides the newtype options to use the 'FieldNameAsKey' option to
+-- be consistent with the behaviour of the record encoding.
+--
+gObjEncoder
+  :: forall t a f xs.
+     ( Generic a
+     , Applicative f
+     , HasDatatypeInfo a
+     , All2 (JsonEncode t) (Code a)
+     , IsRecord a xs
+     )
+  => Options
+  -> Tagged t (E.ObjEncoder f a)
+gObjEncoder opts = Tagged . E.objEncoder $ \a -> hcollapse $ hcliftA2
+  (Proxy :: Proxy (All (JsonEncode t)))
+  createObject
+  (jsonInfo (opts { _optionsNewtypeWithConsName = FieldNameAsKey }) (Proxy :: Proxy a))
+  (unSOP $ from a)
+  where
+    createObject :: ( All (JsonEncode t) ys
+                    , Applicative f
+                    )
+                 => JsonInfo ys
+                 -> NP I ys
+                 -> K (f (JObject WS Json)) ys
+    createObject (JsonRec _ fields) cs = K . pure .
+      foldl' (&) (_Empty # ()) . hcollapse $ hcliftA2 pjE toObj fields cs
+
+    createObject (JsonOne (Tag t)) (I a :* Nil) = K . pure $
+      E.onObj' (Text.pack t) (E.asJson' (T.proxy mkEncoder pt) a) E.json (_Empty # ())
+
+    -- IsRecord constraint should make this impossible.
+    createObject _ _ =
+      error "The impossible has happened. Please report this as a bug: https://github.com/qfpl/waargonaut"
+
+    toObj :: JsonEncode t x => K Text x -> I x -> K (JObject WS Json -> JObject WS Json) x
+    toObj f a = K $ E.onObj' (unK f) (E.asJson' (T.proxy mkEncoder pt) (unI a)) E.json
+
+    pt = Proxy :: Proxy t
+    pjE = Proxy :: Proxy (JsonEncode t)
+
 gEncoder'
   :: forall xs f t.
      ( All (JsonEncode t) xs
@@ -536,11 +612,11 @@ gEncoder' p pT _ (JsonMul tag) cs           =
     ik :: JsonEncode t x => I x -> K Json x
     ik = K . E.asJson' (T.proxy mkEncoder pT) . unI
 
-gEncoder' p pT opts (JsonRec tag fields) cs    =
+gEncoder' p pT _ (JsonRec tag fields) cs    =
   tagVal tag . enc . hcollapse $ hcliftA2 p tup fields cs
   where
-    tup :: JsonEncode t x => K String x -> I x -> K (Text, Json) x
-    tup f a = K ( modFieldName opts (unK f)
+    tup :: JsonEncode t x => K Text x -> I x -> K (Text, Json) x
+    tup f a = K ( unK f
                 , E.asJson' (T.proxy mkEncoder pT) (unI a)
                 )
 
@@ -656,10 +732,10 @@ mkGDecoder2 _ _ cursor (JsonMul tag) = do
   where
     err = throwError (ConversionFailure "Generic List Decode Failed")
 
-mkGDecoder2 opts pJDec cursor (JsonRec tag fields) = do
+mkGDecoder2 _ pJDec cursor (JsonRec tag fields) = do
   c' <- D.down cursor
   hsequenceK $ hcliftA pJDec (mapKK (decodeAtKey c')) fields
   where
     decodeAtKey c k = unTagVal tag (
-      D.withCursor $ D.fromKey (modFieldName opts k) D.rank
+      D.withCursor $ D.fromKey k D.rank
       ) c

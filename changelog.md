@@ -1,5 +1,42 @@
 # Revision history for waargonaut
 
+## 0.8.0.1  -- 2019-09-22
+
+* Support GHC 8.8.1
+
+* Support generics-sop 0.5
+
+## 0.8.0.0  -- 2019-09-04
+
+* Add `onObj'` which is just `onObj` but specialised to `Identity`.
+
+* Add `gObjEncoder` for deriving `ObjEncoder` structures for record types only. Using the
+  `IsRecord` constraint from `record-sop` package. This makes it easier to leverage the
+  Contravariant functionality of the `ObjEncoder` without losing the benefits of deriving
+  more trivial encoders.
+
+* Added the `FieldNameAsKey` option to the newtype options for generic derived enc/decoders.
+
+* Fixes #69 by removing duplicate call to `_optionsFieldName` function. Added regression test.
+
+* Improved the handling of newtype options for generic deriving to give a bit more
+  flexibility and avoid strangeness with respect to some combinations of options.
+
+* Change the building of escaped whitespace chars to actually use the
+  `escapedWhitespaceChar` function, instead of incorrectly generating an unescaped
+  character.
+
+* Add haddock to gObjEncoder function
+
+* Correctly bump version to 0.8.0.0 as this is a breaking change because of new
+  constructors on an exported sum type.
+
+* Remove some commented out code.
+
+* Add a better failure message to "impossible" error case.
+
+* Regenerate nix after cabal file changes
+
 ## 0.6.1.0  -- 2019-02-27
 
 * Add `passKeysToValues` decoder for decoding JSON objects where the key should
