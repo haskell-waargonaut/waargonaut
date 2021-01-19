@@ -5,6 +5,7 @@ sources: hlib: hself: hsuper: {
   hw-balancedparens = hlib.dontCheck (
     hsuper.callCabal2nix "hw-balancedparens" sources.hw-balancedparens {}
   );
+  hw-json-simd = hlib.markUnbroken hsuper.hw-json-simd;
   hw-rankselect = hsuper.callCabal2nix "hw-rankselect" sources.hw-rankselect {};
   hw-excess = hlib.markUnbroken hsuper.hw-excess;
   hw-rankselect-base = hlib.markUnbroken hsuper.hw-rankselect-base;
@@ -13,7 +14,6 @@ sources: hlib: hself: hsuper: {
   # other
   natural = hsuper.callPackage sources.natural {};
   digit = hlib.markUnbroken hsuper.digit;
-  generic-lens = hlib.dontCheck hsuper.generic-lens_1_2_0_1;
   hoist-error = hsuper.callPackage sources.hs-hoist-error {};
 
   # newtype = hlib.dontCheck (hlib.doJailbreak hsuper.newtype);
