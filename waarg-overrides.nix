@@ -5,7 +5,7 @@ sources: hlib: hself: hsuper: {
   hw-balancedparens = hlib.dontCheck (
     hsuper.callCabal2nix "hw-balancedparens" sources.hw-balancedparens {}
   );
-  hw-json-simd = hlib.markUnbroken hsuper.hw-json-simd;
+  hw-json-simd =hlib.dontCheck (hlib.markUnbroken hsuper.hw-json-simd);
   hw-rankselect = hsuper.callCabal2nix "hw-rankselect" sources.hw-rankselect {};
   hw-excess = hlib.markUnbroken hsuper.hw-excess;
   hw-rankselect-base = hlib.markUnbroken hsuper.hw-rankselect-base;
