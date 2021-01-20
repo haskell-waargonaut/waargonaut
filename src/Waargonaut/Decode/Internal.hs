@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
@@ -63,12 +64,14 @@ import           Control.Monad.Morph             (MFunctor (..), MMonad (..))
 import           Data.Bifunctor                  (first)
 import qualified Data.Foldable                   as F
 import           Data.Functor                    (($>))
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup                  ((<>))
+#endif
 import           Data.Sequence                   (Seq, fromList)
 
 import           Data.ByteString                 (ByteString)
 import qualified Data.ByteString.Lazy            as BL
-import qualified Data.ByteString.Lazy.Builder    as BB
+import qualified Data.ByteString.Builder         as BB
 import           Data.Text                       (Text)
 
 import           Data.Map                        (Map)
@@ -313,7 +316,7 @@ lazyByteString' = L.preview (_JStr . _1 . _Wrapped . L.to mkBS)
   -- This uses the 'Data.ByteString.Builder.char8' function as parsing has
   -- validated our inputs. If we use 'Data.ByteString.Builder.charUtf8' or
   -- 'Waargonaut.Builder.bsBuilder' the input will be incorrectly "double
-  -- encoded" and everything will be wrong. 
+  -- encoded" and everything will be wrong.
   where mkBS = BB.toLazyByteString . foldMap (BB.char8 . jCharToChar)
 
 -- | Decoder for a 'Char' value that cannot contain values in the range U+D800

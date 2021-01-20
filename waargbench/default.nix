@@ -1,7 +1,8 @@
-{ nixpkgs ? import ../nix/nixpkgs.nix
+{ sources ? import ./../nix/sources.nix
 , compiler ? "default"
 }:
 let
+  pkgs = import sources.nixpkgs {};
 
   pkgs = import nixpkgs {
     config.allowBroken = true;

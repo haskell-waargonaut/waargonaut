@@ -1,7 +1,8 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies          #-}
--- | 
+-- |
 --
 -- Parsers and builders for whitespace characters in our JSON.
 --
@@ -33,7 +34,9 @@ import qualified Data.Vector             as V
 import           Data.List.NonEmpty      (NonEmpty ((:|)))
 
 import           Data.Foldable           (asum)
-import           Data.Semigroup          (Semigroup (..))
+#if !MIN_VERSION_base(4,11,0)
+import           Data.Semigroup          (Semigroup(..))
+#endif
 
 import           Text.Parser.Char        (CharParsing, char, newline, tab)
 import           Text.Parser.Combinators (many)

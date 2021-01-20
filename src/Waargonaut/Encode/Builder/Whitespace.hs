@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- |
 --
 -- Builder structures for 'Whitespace'
@@ -8,7 +9,10 @@ module Waargonaut.Encode.Builder.Whitespace
   , wsRemover
   ) where
 
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Monoid                     (Monoid)
+#endif
+
 import           Waargonaut.Types.Whitespace     (WS (..), Whitespace (..))
 
 import           Waargonaut.Encode.Builder.Types (Builder (..))
