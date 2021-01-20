@@ -1,4 +1,4 @@
-cabal-version:      >=1.10
+cabal-version:      >=1.18
 name:               waargonaut
 version:            0.8.0.2
 synopsis:           JSON wrangling
