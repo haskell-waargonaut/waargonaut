@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | Types and functions for describing the movements of a cursor around the
 -- 'Waargonaut.Types.Json.Json' structure.
 module Waargonaut.Decode.ZipperMove
@@ -12,7 +13,9 @@ import qualified Control.Lens                  as L
 import           Data.Text                     (Text)
 import qualified Data.Text                     as Text
 
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Semigroup                ((<>))
+#endif
 
 import           Natural                       (Natural)
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- |
 --
 -- Builder structures for 'JChar's
@@ -6,7 +7,9 @@ module Waargonaut.Encode.Builder.JChar (jCharBuilder) where
 
 import           Control.Lens                     (review)
 
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Monoid                      ((<>))
+#endif
 
 import           Data.Digit                       (HeXaDeCiMaL, charHeXaDeCiMaL)
 

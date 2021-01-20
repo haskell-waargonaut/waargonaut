@@ -1,10 +1,13 @@
+{-# LANGUAGE CPP #-}
 -- |
 --
 -- Builder structures for 'JObject's
 --
 module Waargonaut.Encode.Builder.JObject (jObjectBuilder) where
 
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Monoid                        ((<>))
+#endif
 
 import           Waargonaut.Types.JObject           (JAssoc (..), JObject (..))
 
