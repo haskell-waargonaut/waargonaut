@@ -3,6 +3,7 @@
 ## 0.8.0.2  -- 2020-06-02
 
 - Support GHC 8.10.x and GHC 8.8.x
+- Fix warnings for GHC < 8.2.x
 
 ## 0.8.0.1  -- 2019-09-22
 
