@@ -1,11 +1,13 @@
+{-# LANGUAGE CPP #-}
 -- |
 --
 -- Builder structures for 'JString's
 --
 module Waargonaut.Encode.Builder.JString (jStringBuilder) where
 
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Monoid                     ((<>))
-
+#endif
 import           Waargonaut.Types.JString        (JString, JString' (..))
 
 import           Waargonaut.Encode.Builder.JChar (jCharBuilder)

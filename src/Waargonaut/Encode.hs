@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -229,7 +230,7 @@ import qualified Data.Map                             as Map
 import           Data.String                          (IsString)
 
 import qualified Data.ByteString.Lazy                 as BL
-import qualified Data.ByteString.Lazy.Builder         as BB
+import qualified Data.ByteString.Builder              as BB
 
 import           Data.Text                            (Text)
 import qualified Data.Text.Lazy                       as LT
