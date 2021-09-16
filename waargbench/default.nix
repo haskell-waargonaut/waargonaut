@@ -16,10 +16,10 @@ let
 
   withWaarg = haskellPackages.override (old: {
     overrides = pkgs.lib.composeExtensions (old.overrides or (_: _: {})) (hself: hsuper: {
-      waargonaut = hself.callPackage ../waargonaut.nix {};
+      waargonaut = hself.callCabal2nix "waargonaut" ../. {};
     });
   });
 
-  drv = pkgs.haskell.lib.doBenchmark (withWaarg.callPackage ./waargbench.nix {});
+  drv = pkgs.haskell.lib.doBenchmark (withWaarg.callCabal2nix "waargbench" ./. {});
 in
   pkgs.haskell.lib.shellAware drv
