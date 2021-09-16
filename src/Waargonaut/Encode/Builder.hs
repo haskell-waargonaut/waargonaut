@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
 -- |
 --
@@ -7,7 +8,10 @@ module Waargonaut.Encode.Builder where
 
 import           Data.String                       (IsString, fromString)
 
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Monoid                       ((<>))
+#endif
+
 
 import           Data.Text                         (Text)
 import qualified Data.Text.Lazy.Builder            as T

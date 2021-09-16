@@ -1,4 +1,5 @@
--- | 
+{-# LANGUAGE CPP #-}
+-- |
 --
 -- Builders for 'JNumber'
 --
@@ -10,7 +11,11 @@ import           Control.Lens                    (review)
 
 import qualified Data.Digit                      as D
 import           Data.List.NonEmpty              (NonEmpty)
+
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Monoid                     ((<>))
+#endif
+
 
 import           Waargonaut.Types.JNumber        (E (..), Exp (..), Frac (..),
                                                   JNumber (..), jIntToDigits)

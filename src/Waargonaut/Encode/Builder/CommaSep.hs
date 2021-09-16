@@ -1,11 +1,15 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE CPP #-}
 -- |
 --
 -- Builder functions for 'CommaSeparated' values.
 --
 module Waargonaut.Encode.Builder.CommaSep (commaSeparatedBuilder) where
 
+#if !MIN_VERSION_base(4,11,0)
 import           Data.Monoid                     ((<>))
+#endif
+
 import           Waargonaut.Types.CommaSep       (Comma, CommaSeparated (..),
                                                   Elem (..), Elems (..))
 
