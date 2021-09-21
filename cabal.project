@@ -1,6 +1,5 @@
 packages:
-  .,
-  waargbench/
+  ./waargonaut.cabal
 
 optimization: 2
 

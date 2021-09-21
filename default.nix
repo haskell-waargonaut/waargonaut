@@ -11,9 +11,9 @@ let
   haskellPackages = baseHaskellPackages.override (old: {
     overrides = pkgs.lib.composeExtensions
     (old.overrides or (_: _: {}))
-    (import ./waarg-overrides.nix sources pkgs.haskell.lib);
+    (import ./nix/waargoverlay.nix pkgs.haskell.lib);
   });
 
-  drv = haskellPackages.callPackage ./waargonaut.nix {};
+  drv = haskellPackages.callCabal2nix "waargonaut" ./. {};
 in
 pkgs.haskell.lib.shellAware drv

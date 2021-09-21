@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE TypeFamilies          #-}
--- | 
+-- |
 --
 -- Representation of a JSON number and its various components.
 --
@@ -453,13 +453,13 @@ parseJNumber = JNumber
 --   is out of the range @[minBound,maxBound::Int]@
 --
 -- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt DecDigit3 [], _frac = Just (Frac (D.x4 :| [D.x5])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = D.x0 :| [D.x2]})}
--- Just -3.45e-2
+-- Just (-3.45e-2)
 --
 -- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt D.x1 [D.x2, D.x3], _frac = Just (Frac (D.x4 :| [D.x5, D.x6])), _expn = Just (Exp {_ex = Ee, _minusplus = Just True, _expdigits = (D.x7 :| [D.x8, D.x9])})}
--- Just -1.23456e-787
+-- Just (-1.23456e-787)
 --
 -- >>> jNumberToScientific JNumber {_minus = True, _numberint = JIntInt D.x1 [D.x2, D.x3], _frac = Just (Frac (D.x4 :| [D.x5, D.x6])), _expn = Just (Exp {_ex = Ee, _minusplus = Just False, _expdigits = (D.x7 :| [D.x8, D.x9])})}
--- Just -1.23456e791
+-- Just (-1.23456e791)
 --
 jNumberToScientific :: JNumber -> Maybe Scientific
 jNumberToScientific (JNumber sign int mfrac mexp) =
