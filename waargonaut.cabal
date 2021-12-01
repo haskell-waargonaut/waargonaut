@@ -13,7 +13,7 @@ maintainer:
 
 copyright:
   Copyright (C) 2018-2019 Commonwealth Scientific and Industrial Research Organisation (CSIRO)
-  Copyright (C) 2020-2021 Sean Chalmers and Emily Pillmore```
+  Copyright (C) 2020-2021 Sean Chalmers and Emily Pillmore
 
 category:           Parser, Web, JSON
 build-type:         Simple
