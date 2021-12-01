@@ -100,7 +100,7 @@ library
   -- Other library packages from which modules are imported.
   build-depends:
       attoparsec               >=0.13    && <0.15
-    , base                     >=4.11    && <5
+    , base                     >=4.11    && <4.16
     , bifunctors               >=5       && <5.6
     , bytestring               >=0.10.6  && <0.12
     , containers               >=0.5.6   && <0.7
@@ -166,7 +166,7 @@ test-suite waarg-tests
   hs-source-dirs:   test
   build-depends:
       attoparsec               >=0.13    && <0.15
-    , base                     >=4.11     && <5
+    , base                     >=4.11    && <4.16
     , bytestring               >=0.10.6  && <0.12
     , containers               >=0.5.6   && <0.7
     , contravariant            >=1.4     && <1.6
