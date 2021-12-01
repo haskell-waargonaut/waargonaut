@@ -12,7 +12,8 @@ maintainer:
   oᴉ˙ldɟb@uɐǝs, emilypi@cohomolo.gy, george@wils.online, tonymorris+github@gmail.com
 
 copyright:
-  Copyright (C) 2018-2021 Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+  Copyright (C) 2018-2019 Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+  Copyright (C) 2020-2021 Someone other than CSIRO (e.g. yourself or System F)
 
 category:           Parser, Web, JSON
 build-type:         Simple
