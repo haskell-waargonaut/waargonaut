@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveTraversable      #-}
 {-# LANGUAGE FlexibleContexts       #-}
 {-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE CPP                    #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE NoImplicitPrelude      #-}
@@ -55,7 +56,11 @@ import           Data.Semigroup                  (Semigroup ((<>)))
 import           Data.Text                       (Text)
 import           Data.Traversable                (Traversable, traverse)
 
+#if MIN_VERSION_witherable(0,4,0)
+import qualified Witherable                      as W
+#else
 import qualified Data.Witherable                 as W
+#endif
 
 import           Text.Parser.Char                (CharParsing, char)
 

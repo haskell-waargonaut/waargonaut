@@ -79,7 +79,11 @@ import qualified Data.Map                        as Map
 
 import qualified Data.Vector                     as V
 
+#if MIN_VERSION_witherable(0,4,0)
+import qualified Witherable                      as Wither
+#else
 import qualified Data.Witherable                 as Wither
+#endif
 
 import           Data.Scientific                 (Scientific)
 import qualified Data.Scientific                 as Sci
