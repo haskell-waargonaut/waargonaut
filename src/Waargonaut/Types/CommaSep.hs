@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveFoldable        #-}
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE DeriveTraversable     #-}
@@ -74,8 +75,11 @@ import qualified Data.Vector                     as V
 
 import           Text.Parser.Char                (CharParsing)
 
-import           Data.Witherable                 (Filterable (..),
-                                                  Witherable (..))
+#if MIN_VERSION_witherable(0,4,0)
+import           Witherable                      (Filterable(..), Witherable(..))
+#else
+import           Data.Witherable                 (Filterable(..), Witherable(..))
+#endif
 
 import           Waargonaut.Types.CommaSep.Elem  (Comma (..), Elem (..),
                                                   HasElem (..), parseComma,

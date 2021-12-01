@@ -1,7 +1,7 @@
 packages:
   ./waargonaut.cabal
 
-optimization: 2
+optimization: False
 
 package bits-extra
   flags: +bmi2

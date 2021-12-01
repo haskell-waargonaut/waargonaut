@@ -69,7 +69,7 @@ import           Data.Function                 ((&))
 import           Data.Maybe                    (fromMaybe)
 
 import           Data.Foldable                 (foldl')
-
+import           Data.Kind
 import           Data.List.NonEmpty            (NonEmpty)
 
 import           Data.ByteString               (ByteString)
@@ -420,7 +420,7 @@ data Tag
   | Tag JTag
   deriving Show
 
-data JsonInfo :: [*] -> * where
+data JsonInfo :: [Type] -> Type where
   JsonZero :: ConstructorName -> JsonInfo '[]
   JsonOne  :: Tag -> JsonInfo '[a]
   JsonMul  :: SListI xs => Tag -> JsonInfo xs
@@ -657,7 +657,7 @@ gDecoder opts = Tagged $ D.Decoder $ \parseFn cursor ->
            (jsonInfo opts (Proxy :: Proxy a))
 
 gDecoderConstructor
-  :: forall (xss :: [[*]]) f t.
+  :: forall (xss :: [[Type]]) f t.
      ( All2 (JsonDecode t) xss
      , Monad f
      )
@@ -693,7 +693,7 @@ gDecoderConstructor opts pJAll parseFn cursor ninfo =
     injs = injections
 
 mkGDecoder
-  :: forall t (xss :: [[*]]) (xs :: [*]) f.
+  :: forall t (xss :: [[Type]]) (xs :: [Type]) f.
      ( All (JsonDecode t) xs
      , Monad f
      )
@@ -711,7 +711,7 @@ mkGDecoder opts pJDec cursor info (Fn inj) = K $ do
     aux (K rnk) = D.moveToRankN rnk cursor >>= D.focus (T.proxy mkDecoder (Proxy :: Proxy t))
 
 mkGDecoder2
-  :: forall t (xs :: [*]) f.
+  :: forall t (xs :: [Type]) f.
      ( All (JsonDecode t) xs
      , Monad f
     )
