@@ -250,7 +250,6 @@ _JNumberScientific = prism toJNum (\v -> note v $ jNumberToScientific v)
       in case is of
         []     -> JNumber sign JZero Nothing Nothing
         [0]    -> JNumber sign JZero Nothing Nothing
-        [d]    -> JNumber sign (mkjInt d) Nothing (ex' e)
         (d:ds) -> if e == 0 then mkNum JZero is else mkNum (mkjInt d) ds
 
 -- | Parse the integer component of a JSON number.
